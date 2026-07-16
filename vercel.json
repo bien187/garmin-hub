@@ -1,0 +1,21 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/cron/daily",
+      "schedule": "0 5 * * *"
+    }
+  ],
+  "functions": {
+    "api/bridge/*.py": {
+      "maxDuration": 60,
+      "memory": 1024
+    },
+    "app/api/cron/daily/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/sync/route.ts": {
+      "maxDuration": 60
+    }
+  }
+}
