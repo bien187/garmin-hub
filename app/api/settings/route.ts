@@ -1,0 +1,36 @@
+import { NextRequest, NextResponse } from "next/server";
+import { ladeProfil, speichereProfil, Profil } from "@/lib/profile";
+
+export async function GET() {
+  const profil = await ladeProfil();
+  return NextResponse.json({ profil });
+}
+
+export async function POST(req: NextRequest) {
+  const body = (await req.json().catch(() => null)) as Partial<Profil> | null;
+  if (!body) return NextResponse.json({ error: "Ungültiger Body" }, { status: 400 });
+
+  const patch: Partial<Profil> = {};
+  if (typeof body.hfMax === "number" && body.hfMax > 140 && body.hfMax < 230) {
+    patch.hfMax = body.hfMax;
+  }
+  if (typeof body.ruhepuls === "number" && body.ruhepuls > 25 && body.ruhepuls < 100) {
+    patch.ruhepuls = body.ruhepuls;
+  }
+  if (typeof body.gewichtKg === "number" && body.gewichtKg > 40 && body.gewichtKg < 160) {
+    patch.gewichtKg = body.gewichtKg;
+  }
+  if (typeof body.epDatum === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.epDatum)) {
+    patch.epDatum = body.epDatum;
+  }
+  if (
+    typeof body.lastZuschlagSproKmPro10kg === "number" &&
+    body.lastZuschlagSproKmPro10kg >= 3 &&
+    body.lastZuschlagSproKmPro10kg <= 20
+  ) {
+    patch.lastZuschlagSproKmPro10kg = body.lastZuschlagSproKmPro10kg;
+  }
+
+  const profil = await speichereProfil(patch);
+  return NextResponse.json({ ok: true, profil });
+}
