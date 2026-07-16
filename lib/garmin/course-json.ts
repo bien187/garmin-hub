@@ -24,7 +24,7 @@ export function baueGarminCourseJson(
   }));
   return {
     courseName: name,
-    description: "Erstellt mit Grenadier HQ",
+    description: "Erstellt mit Garmin Hub",
     coordinateSystem: "WGS84",
     distanceMeter: Math.round(distanzM),
     elevationGainMeter: Math.round(hmAuf),

@@ -1,0 +1,126 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
+
+type SyncPhase = "idle" | "activities" | "health" | "finalize" | "fehler";
+
+/**
+ * „Jetzt synchronisieren": ruft die Chunk-API in einer Schleife auf,
+ * bis hasMore=false, dann finalize (Engine-Neuberechnung).
+ * Zusätzlich Pull-to-Refresh auf Mobile (Overscroll am Seitenanfang).
+ */
+export function SyncButton({ kompakt = false }: { kompakt?: boolean }) {
+  const router = useRouter();
+  const [phase, setPhase] = useState<SyncPhase>("idle");
+  const [chunks, setChunks] = useState(0);
+  const [fehler, setFehler] = useState<string | null>(null);
+  const laeuft = phase !== "idle" && phase !== "fehler";
+  const laeuftRef = useRef(false);
+
+  const sync = useCallback(async () => {
+    if (laeuftRef.current) return;
+    laeuftRef.current = true;
+    setFehler(null);
+    setChunks(0);
+    try {
+      for (const typ of ["activities", "health"] as const) {
+        setPhase(typ);
+        let hasMore = true;
+        let schutz = 0;
+        while (hasMore && schutz < 200) {
+          const res = await fetch("/api/sync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ typ }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            throw new Error(
+              data.code === "mfa_required"
+                ? "Garmin verlangt einen MFA-Code — unter Einstellungen eingeben."
+                : (data.error ?? "Sync fehlgeschlagen")
+            );
+          }
+          hasMore = Boolean(data.hasMore);
+          schutz++;
+          setChunks((c) => c + 1);
+        }
+      }
+      setPhase("finalize");
+      await fetch("/api/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ typ: "finalize" }),
+      });
+      setPhase("idle");
+      router.refresh();
+    } catch (e) {
+      setFehler(e instanceof Error ? e.message : "Unbekannter Fehler");
+      setPhase("fehler");
+    } finally {
+      laeuftRef.current = false;
+    }
+  }, [router]);
+
+  /* Pull-to-Refresh (nur Mobile, am Seitenanfang) */
+  useEffect(() => {
+    let startY = 0;
+    let gezogen = false;
+    const onStart = (e: TouchEvent) => {
+      if (window.scrollY <= 0) {
+        startY = e.touches[0].clientY;
+        gezogen = true;
+      }
+    };
+    const onMove = (e: TouchEvent) => {
+      if (gezogen && e.touches[0].clientY - startY > 130 && window.scrollY <= 0) {
+        gezogen = false;
+        sync();
+      }
+    };
+    const onEnd = () => {
+      gezogen = false;
+    };
+    window.addEventListener("touchstart", onStart, { passive: true });
+    window.addEventListener("touchmove", onMove, { passive: true });
+    window.addEventListener("touchend", onEnd, { passive: true });
+    return () => {
+      window.removeEventListener("touchstart", onStart);
+      window.removeEventListener("touchmove", onMove);
+      window.removeEventListener("touchend", onEnd);
+    };
+  }, [sync]);
+
+  const label =
+    phase === "activities"
+      ? `Aktivitäten… (${chunks})`
+      : phase === "health"
+        ? `Gesundheit… (${chunks})`
+        : phase === "finalize"
+          ? "Berechne…"
+          : "Sync";
+
+  return (
+    <div className={cn("flex flex-col gap-1", kompakt ? "items-end" : "items-stretch")}>
+      <Button
+        variant={phase === "fehler" ? "destructive" : "secondary"}
+        size={kompakt ? "sm" : "default"}
+        onClick={sync}
+        disabled={laeuft}
+        className="min-h-[40px]"
+      >
+        <RefreshCw className={cn("size-4", laeuft && "animate-spin")} />
+        {label}
+      </Button>
+      {laeuft && chunks > 0 && (
+        <Progress value={Math.min(95, chunks * 4)} className="h-1" />
+      )}
+      {fehler && <p className="max-w-56 text-right text-xs text-status-red">{fehler}</p>}
+    </div>
+  );
+}

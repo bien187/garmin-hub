@@ -12,7 +12,7 @@ export function geojsonZuGpx(
     .join("\n");
   const sicher = name.replace(/[<>&"]/g, "");
   return `<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="Grenadier HQ" xmlns="http://www.topografix.com/GPX/1/1">
+<gpx version="1.1" creator="Garmin Hub" xmlns="http://www.topografix.com/GPX/1/1">
   <metadata><name>${sicher}</name></metadata>
   <trk>
     <name>${sicher}</name>

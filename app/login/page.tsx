@@ -57,7 +57,7 @@ export default function LoginPage() {
       <div className="flex flex-col items-center gap-3">
         <Mountain className="size-12 text-primary" strokeWidth={2.5} />
         <h1 className="stat-display text-3xl uppercase tracking-wider">
-          Grenadier HQ
+          Garmin Hub
         </h1>
         <p className="text-sm text-muted-foreground">
           Bereit ist, wer vorbereitet ist.

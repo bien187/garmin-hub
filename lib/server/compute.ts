@@ -265,7 +265,7 @@ export async function recomputeAll(): Promise<void> {
   }
 
   /* ---- Lauf-Modell: Best Efforts der letzten 6 Wochen ---- */
-  await berechneLaufModell(alleAktivitaeten, profil.ruhepuls, profil.hfMax);
+  await berechneLaufModell(alleAktivitaeten);
 
   /* ---- Geplante Einheiten mit Aktivitäten matchen ---- */
   await matcheGeplanteEinheiten();
@@ -279,9 +279,7 @@ async function berechneLaufModell(
     startZeit: Date;
     dauerS: number;
     distanzM: number | null;
-  }[],
-  _ruhepuls: number,
-  _hfMax: number
+  }[]
 ): Promise<void> {
   const db = getDb();
   const heute = heuteIso();

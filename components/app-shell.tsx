@@ -41,7 +41,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <Link href="/" className="flex items-center gap-2.5 px-5 py-5">
           <Mountain className="size-6 text-primary" strokeWidth={2.5} />
           <span className="stat-display text-xl tracking-wide uppercase">
-            Grenadier HQ
+            Garmin Hub
           </span>
         </Link>
         <nav className="flex flex-1 flex-col gap-1 px-3">

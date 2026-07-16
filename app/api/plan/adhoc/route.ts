@@ -7,7 +7,7 @@ import { ladeLaufModell } from "@/lib/server/ep-service";
 import { trainingsPaces } from "@/lib/engine/paces";
 import { banisterTrimp } from "@/lib/engine/trimp";
 import { aktuellePhase } from "@/lib/ep/phasen";
-import { addTage, heuteIso } from "@/lib/format";
+import { heuteIso } from "@/lib/format";
 import { WorkoutSchritt, WorkoutStruktur } from "@/lib/garmin/workout-types";
 
 export const maxDuration = 30;

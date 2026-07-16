@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { gapAusStreams, gapFaktor, minettiKosten } from "../gap";
+import { gapAusStreams, minettiKosten } from "../gap";
 
 describe("minettiKosten", () => {
   it("liefert 3.6 J/kg/m in der Ebene", () => {

@@ -1,0 +1,31 @@
+{
+  "name": "Garmin Hub",
+  "short_name": "Garmin Hub",
+  "description": "Persönliches Trainings-HQ für die Eignungsprüfung der Schweizer Armee-Grenadiere.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#10151d",
+  "theme_color": "#10151d",
+  "lang": "de-CH",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

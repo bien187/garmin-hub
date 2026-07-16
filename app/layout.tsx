@@ -22,8 +22,8 @@ const display = Saira_Condensed({
 
 export const metadata: Metadata = {
   title: {
-    default: "Grenadier HQ",
-    template: "%s · Grenadier HQ",
+    default: "Garmin Hub",
+    template: "%s · Garmin Hub",
   },
   description:
     "Persönliches Trainings-HQ für die Eignungsprüfung der Schweizer Armee-Grenadiere.",
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Grenadier HQ",
+    title: "Garmin Hub",
   },
   icons: {
     icon: "/icons/icon-192.png",
