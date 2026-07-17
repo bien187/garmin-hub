@@ -491,7 +491,12 @@ export function RouteBuilder() {
 
   return (
     <div className="relative h-[calc(100dvh-52px)] w-full md:h-dvh">
-      <div ref={containerRef} className="absolute inset-0" />
+      {/* Inline-Style nötig: maplibre-gl.css überschreibt die
+          Tailwind-Positionsklasse (.maplibregl-map { position: relative }) */}
+      <div
+        ref={containerRef}
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+      />
 
       {/* Toolbar oben links */}
       <div className="absolute left-2 top-2 z-10 flex flex-col gap-1.5">

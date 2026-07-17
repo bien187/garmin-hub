@@ -416,8 +416,13 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
 
   return (
     <div className={cn("space-y-2", className)}>
-      <div className="relative overflow-hidden rounded-xl border border-border">
-        <div ref={containerRef} className="h-[320px] w-full md:h-[420px]" />
+      <div className="relative h-80 overflow-hidden rounded-xl border border-border md:h-105">
+        {/* Inline-Style: maplibre-gl.css setzt .maplibregl-map auf
+            position:relative — Grösse deshalb hart vorgeben */}
+        <div
+          ref={containerRef}
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+        />
         {/* Live-Anzeige */}
         {live && (
           <div className="stat-mono absolute left-2 top-2 flex gap-3 rounded-lg bg-background/85 px-3 py-1.5 text-xs backdrop-blur">
@@ -431,7 +436,7 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
 
       {/* Steuerung */}
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" onClick={togglePlay} disabled={!bereit} className="min-w-[92px]">
+        <Button size="sm" onClick={togglePlay} disabled={!bereit} className="min-w-23">
           {spielt ? <Pause className="size-4" /> : <Play className="size-4" />}
           {spielt ? "Pause" : "Flyover"}
         </Button>
@@ -447,7 +452,7 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
                 speedRef.current = s;
               }}
               className={cn(
-                "min-h-[32px] rounded-md px-2.5 text-xs",
+                "min-h-8 rounded-md px-2.5 text-xs",
                 speed === s ? "bg-background font-semibold" : "text-muted-foreground"
               )}
             >
@@ -461,7 +466,7 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
               key={m}
               onClick={() => setModus(m)}
               className={cn(
-                "min-h-[32px] rounded-md px-2.5 text-xs",
+                "min-h-8 rounded-md px-2.5 text-xs",
                 modus === m ? "bg-background font-semibold" : "text-muted-foreground"
               )}
             >

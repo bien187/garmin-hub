@@ -59,7 +59,7 @@ export function BodyTab() {
   if (!daten) {
     return (
       <div className="space-y-3">
-        <div className="h-[420px] animate-pulse rounded-xl bg-muted/40" />
+        <div className="h-105 animate-pulse rounded-xl bg-muted/40" />
       </div>
     );
   }
@@ -172,9 +172,22 @@ export function BodyTab() {
         </CardContent>
       </Card>
 
-      {/* Bottom-Sheet pro Muskel */}
-      <Sheet open={ausgewaehlt != null} onOpenChange={(o) => !o && setAusgewaehlt(null)}>
-        <SheetContent side="bottom" className="max-h-[75dvh] overflow-y-auto pb-safe">
+      {/* Bottom-Sheet pro Muskel — nicht-modal, damit der Körper sichtbar
+          und klickbar bleibt (Muskel-Wechsel ohne Schliessen) */}
+      <Sheet
+        modal={false}
+        open={ausgewaehlt != null}
+        onOpenChange={(o) => !o && setAusgewaehlt(null)}
+      >
+        <SheetContent
+          side="bottom"
+          overlay={false}
+          className="max-h-[55dvh] overflow-y-auto border-t-2 border-primary/30 pb-safe"
+          onInteractOutside={(e) => {
+            // Klick auf die Body-Map: Muskel wechseln statt schliessen
+            if ((e.target as HTMLElement | null)?.closest("svg")) e.preventDefault();
+          }}
+        >
           {ausgewaehlt && (
             <>
               <SheetHeader>
