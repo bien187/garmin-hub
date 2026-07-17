@@ -67,13 +67,20 @@ export function bestEffort(
 
 /**
  * Aus den besten Efforts (1/5/10 km) der letzten Wochen die 5-km-Prognose
- * ableiten: jeden Effort per Riegel auf 5 km projizieren, das beste
- * (schnellste) plausible Resultat nehmen.
+ * ableiten. Robustheit vor Optimismus:
+ *  - Paces < 150 s/km (2:30/km) sind GPS-Artefakte → verwerfen
+ *  - lange Efforts (≥ 3 km) sind prädiktiver und haben Vorrang;
+ *    kurze 1-km-Bestwerte dienen nur als Fallback
  */
 export function fuenfKmPrognose(efforts: BestEffort[]): number | null {
+  const plausibel = efforts.filter(
+    (e) => e.distanzM >= 800 && isFinite(e.zeitS) && e.paceSKm > 150
+  );
+  const lange = plausibel.filter((e) => e.distanzM >= 3000);
+  const basis = lange.length > 0 ? lange : plausibel;
+
   let beste: number | null = null;
-  for (const e of efforts) {
-    if (e.distanzM < 800) continue; // zu kurz für Riegel
+  for (const e of basis) {
     const t5 = riegelPrognose(e.zeitS, e.distanzM, 5000);
     if (!isFinite(t5)) continue;
     if (beste == null || t5 < beste) beste = t5;

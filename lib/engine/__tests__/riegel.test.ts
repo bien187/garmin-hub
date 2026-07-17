@@ -40,18 +40,24 @@ describe("bestEffort", () => {
 });
 
 describe("fuenfKmPrognose", () => {
-  it("nimmt die beste Projektion", () => {
+  it("bevorzugt lange Efforts (≥ 3 km) vor kurzen Bestwerten", () => {
     const erg = fuenfKmPrognose([
-      { distanzM: 1000, zeitS: 300, paceSKm: 300 }, // 5:00/km → projiziert langsamer auf 5k
+      { distanzM: 1000, zeitS: 240, paceSKm: 240 }, // schneller 1k (Sprint/GPS)
       { distanzM: 10000, zeitS: 3560, paceSKm: 356 },
     ]);
-    expect(erg).not.toBeNull();
-    const von1k = riegelPrognose(300, 1000, 5000);
-    const von10k = riegelPrognose(3560, 10000, 5000);
-    expect(erg).toBeCloseTo(Math.min(von1k, von10k), 3);
+    // nicht die optimistische 1k-Projektion, sondern die vom 10k
+    expect(erg).toBeCloseTo(riegelPrognose(3560, 10000, 5000), 3);
   });
 
-  it("ignoriert zu kurze Efforts", () => {
+  it("fällt auf kurze Efforts zurück, wenn keine langen existieren", () => {
+    const erg = fuenfKmPrognose([{ distanzM: 1000, zeitS: 300, paceSKm: 300 }]);
+    expect(erg).toBeCloseTo(riegelPrognose(300, 1000, 5000), 3);
+  });
+
+  it("verwirft GPS-Artefakte (< 2:30/km) und zu kurze Efforts", () => {
     expect(fuenfKmPrognose([{ distanzM: 400, zeitS: 60, paceSKm: 150 }])).toBeNull();
+    expect(
+      fuenfKmPrognose([{ distanzM: 1000, zeitS: 140, paceSKm: 140 }])
+    ).toBeNull();
   });
 });
