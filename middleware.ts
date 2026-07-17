@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifySessionToken, sessionCookie } from "@/lib/auth";
 
-// Öffentlich: Login, Auth-Endpoint, PWA-Assets. Cron authentifiziert sich
-// selbst über CRON_SECRET im Route-Handler.
-const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/cron"];
+// Öffentlich: Login, Auth-Endpoint, Cron (eigener CRON_SECRET-Check) und
+// die Python-Bridge (eigener x-internal-key-Check — Session-Cookies hat
+// der Server-zu-Server-Aufruf nicht).
+const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/cron", "/api/bridge"];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
