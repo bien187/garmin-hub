@@ -329,11 +329,14 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
         bearingRef.current = alt + delta * 0.12;
       }
       if (!Number.isFinite(bearingRef.current)) bearingRef.current = 0;
+      // Zoom ans Tempo koppeln: schnellerer Flug = weiter draussen, sonst
+      // kommt der Tile-Nachschub nicht nach (→ leere/schwarze Karte)
+      const zoomFuerSpeed: Record<number, number> = { 1: 15.2, 4: 14.5, 10: 13.7 };
       map.jumpTo({
         center: [p.lng, p.lat],
         bearing: bearingRef.current,
         pitch: 62,
-        zoom: 15.1,
+        zoom: zoomFuerSpeed[speedRef.current] ?? 14.5,
       });
 
       setLive({
@@ -354,8 +357,9 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
         if (!spieltRef.current) return;
         const dt = (jetzt - letzteZeit) / 1000;
         letzteZeit = jetzt;
-        // Grundtempo: reale Geschwindigkeit ≈ 3 m/s → speed-fach
-        const meterProSek = 3 * speedRef.current * 8;
+        // Grundtempo 7.5 m/s pro Stufe (1×/4×/10×) — schnell genug fürs
+        // Kino-Gefühl, langsam genug für den Karten-Tile-Nachschub
+        const meterProSek = 7.5 * speedRef.current;
         fortschrittRef.current += (meterProSek * dt) / Math.max(1, gesamtDist);
         if (fortschrittRef.current >= 1) {
           fortschrittRef.current = 1;
