@@ -5,7 +5,7 @@
  *    damit die letzten Daten offline lesbar bleiben
  *  - Externe Karten-Tiles werden NICHT gecacht (Speicher)
  */
-const VERSION = "ghq-v1";
+const VERSION = "ghq-v2";
 const SHELL = ["/", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {

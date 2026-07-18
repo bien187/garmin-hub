@@ -39,12 +39,15 @@ export function aktiviere3D(map: MapLibreMap) {
   }
   map.setTerrain({ source: "terrain-dem", exaggeration: TERRAIN_EXAGGERATION });
   try {
+    // Heller Tag-Himmel passend zur hellen Liberty-Basemap. Dunkle Werte
+    // liessen bei geneigter Kamera Himmel und Fern-Nebel schwarz wirken —
+    // in Bergrouten versank die halbe Szene darin.
     map.setSky({
-      "sky-color": "#0b1420",
-      "horizon-color": "#20344a",
-      "fog-color": "#141e2b",
-      "sky-horizon-blend": 0.6,
-      "horizon-fog-blend": 0.7,
+      "sky-color": "#7fb4e0",
+      "horizon-color": "#eaf2f7",
+      "fog-color": "#e8eef2",
+      "sky-horizon-blend": 0.5,
+      "horizon-fog-blend": 0.5,
     });
   } catch {
     // Ältere maplibre-Versionen ohne setSky — rein kosmetisch

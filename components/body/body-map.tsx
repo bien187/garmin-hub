@@ -70,7 +70,9 @@ export const BodyMap = memo(function BodyMap({
   const figur = (seite: "vorne" | "hinten") => (
     <svg
       viewBox="0 0 220 460"
-      className={cn("h-full w-auto", mini ? "max-h-40" : "max-h-[420px]")}
+      // Explizite Höhe statt h-full: Safari kollabiert SVGs mit h-full in
+      // auto-hohen Flex-Containern auf 0
+      className={cn("w-auto", mini ? "h-40" : "h-105 max-h-[60vh]")}
       role="img"
       aria-label={`Muskelstatus ${seite}`}
     >

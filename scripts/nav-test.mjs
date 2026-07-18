@@ -1,0 +1,18 @@
+import { chromium } from "playwright";
+const browser = await chromium.launch({ args: ["--use-angle=swiftshader"] });
+const page = await (await browser.newContext({ viewport: { width: 1400, height: 900 } })).newPage();
+page.on("console", (m) => { if (m.type() === "error") console.log("[console]", m.text().slice(0, 250)); });
+page.on("pageerror", (e) => console.log("[pageerror]", String(e).slice(0, 250)));
+page.on("response", (r) => { if (r.status() >= 400) console.log("[http]", r.status(), r.url().slice(0, 100)); });
+await page.goto("https://garmin-hub.vercel.app/login");
+await page.fill("input[type=password]", process.env.APP_PW);
+await page.click("button[type=submit]");
+await page.waitForTimeout(4000);
+console.log("nach Login:", page.url());
+await page.goto("https://garmin-hub.vercel.app/body", { waitUntil: "domcontentloaded" });
+await page.waitForTimeout(3000);
+await page.getByRole("link", { name: "Dashboard" }).first().click();
+await page.waitForTimeout(6000);
+console.log("nach Klick auf Dashboard:", page.url());
+await page.screenshot({ path: "/tmp/ghq-nav.png" });
+await browser.close();
