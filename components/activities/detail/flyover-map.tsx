@@ -144,15 +144,22 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
         /* letzter Punkt */
       }
     }
+    // bezier-spline kann bei kurzen/duplizierten Keyframes NaN-Punkte
+    // liefern — die vergiften sonst lautlos die Kamera-Matrix (schwarzer
+    // Bildschirm). Deshalb strikt auf endliche Koordinaten filtern.
+    const nurEndlich = (pts: { lng: number; lat: number }[]) =>
+      pts.filter((p) => Number.isFinite(p.lng) && Number.isFinite(p.lat));
     try {
       const glatt = bezierSpline(lineString(keyframes), { resolution: 4000 });
-      return (glatt.geometry.coordinates as [number, number][]).map(([lng, lat]) => ({
-        lng,
-        lat,
-      }));
+      const pts = nurEndlich(
+        (glatt.geometry.coordinates as [number, number][]).map(([lng, lat]) => ({ lng, lat }))
+      );
+      if (pts.length >= 2) return pts;
     } catch {
-      return keyframes.map(([lng, lat]) => ({ lng, lat }));
+      /* Fallback unten */
     }
+    const roh = nurEndlich(keyframes.map(([lng, lat]) => ({ lng, lat })));
+    return roh.length >= 2 ? roh : punkte;
   }, [punkte]);
 
   const gesamtDist = punkte.length ? punkte[punkte.length - 1].dist - punkte[0].dist : 0;
@@ -313,12 +320,15 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
         Math.floor(f * (kameraPfad.length - 1)) - Math.max(4, Math.floor(kameraPfad.length * 0.02))
       );
       const kamPos = kameraPfad[kamIdx];
-      const zielBearing = bearingGrad(kamPos, p);
-      const alt = bearingRef.current;
-      // kürzester Winkelweg, gedämpft (Anti-Jitter)
-      let delta = ((zielBearing - alt + 540) % 360) - 180;
-      if (Math.abs(delta) > 90) delta = Math.sign(delta) * 90;
-      bearingRef.current = alt + delta * 0.12;
+      const zielBearing = kamPos ? bearingGrad(kamPos, p) : bearingRef.current;
+      if (Number.isFinite(zielBearing)) {
+        const alt = bearingRef.current;
+        // kürzester Winkelweg, gedämpft (Anti-Jitter)
+        let delta = ((zielBearing - alt + 540) % 360) - 180;
+        if (Math.abs(delta) > 90) delta = Math.sign(delta) * 90;
+        bearingRef.current = alt + delta * 0.12;
+      }
+      if (!Number.isFinite(bearingRef.current)) bearingRef.current = 0;
       map.jumpTo({
         center: [p.lng, p.lat],
         bearing: bearingRef.current,
