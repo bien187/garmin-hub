@@ -12,8 +12,7 @@ export function LogoutButton() {
       size="sm"
       onClick={async () => {
         await fetch("/api/auth/logout", { method: "POST" });
-        router.replace("/login");
-        router.refresh();
+        window.location.replace("/login");
       }}
     >
       <LogOut className="size-4" /> Abmelden

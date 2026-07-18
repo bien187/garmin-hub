@@ -1,20 +1,18 @@
 /**
- * Garmin Hub Service Worker
+ * Garmin Hub Service Worker (v3)
  *  - App-Shell + statische Assets: cache-first
- *  - Navigationen (Dashboard etc.): network-first mit Cache-Fallback,
- *    damit die letzten Daten offline lesbar bleiben
+ *  - Navigationen: network-first mit Cache-Fallback (offline lesbar)
+ *  - Safari-sicher: kein skipWaiting (kein Controller-Wechsel mitten in
+ *    der Session), Redirect-Antworten auf Navigationen werden als echte
+ *    Redirects weitergereicht statt als "redirected response" (Safari
+ *    bricht letztere mit "Load failed" ab)
  *  - Externe Karten-Tiles werden NICHT gecacht (Speicher)
  */
-const VERSION = "ghq-v2";
-const SHELL = ["/", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
+const VERSION = "ghq-v3";
+const SHELL = ["/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches
-      .open(VERSION)
-      .then((cache) => cache.addAll(SHELL))
-      .then(() => self.skipWaiting())
-  );
+  event.waitUntil(caches.open(VERSION).then((cache) => cache.addAll(SHELL)));
 });
 
 self.addEventListener("activate", (event) => {
@@ -42,7 +40,7 @@ self.addEventListener("fetch", (event) => {
           hit ||
           fetch(req).then((res) => {
             const kopie = res.clone();
-            caches.open(VERSION).then((c) => c.put(req, kopie));
+            caches.open(VERSION).then((c) => c.put(req, kopie)).catch(() => {});
             return res;
           })
       )
@@ -53,15 +51,26 @@ self.addEventListener("fetch", (event) => {
   // Navigationen: network-first, Fallback letzter Stand
   if (req.mode === "navigate") {
     event.respondWith(
-      fetch(req)
-        .then((res) => {
-          const kopie = res.clone();
-          caches.open(VERSION).then((c) => c.put(req, kopie));
+      (async () => {
+        try {
+          const res = await fetch(req);
+          if (res.redirected) {
+            // Safari akzeptiert keine redirected Response auf eine
+            // Navigation → als sauberen Redirect weiterreichen
+            return Response.redirect(res.url, 302);
+          }
+          if (res.ok) {
+            const kopie = res.clone();
+            caches.open(VERSION).then((c) => c.put(req, kopie)).catch(() => {});
+          }
           return res;
-        })
-        .catch(() =>
-          caches.match(req).then((hit) => hit || caches.match("/"))
-        )
+        } catch {
+          const hit = await caches.match(req);
+          if (hit) return hit;
+          const shell = await caches.match("/");
+          return shell ?? Response.error();
+        }
+      })()
     );
   }
 });

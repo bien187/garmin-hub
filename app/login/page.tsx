@@ -23,8 +23,9 @@ function LoginForm() {
       body: JSON.stringify({ passwort }),
     });
     if (res.ok) {
-      router.replace(params.get("von") ?? "/");
-      router.refresh();
+      // Harte Navigation: Cookie-Wechsel + Safari bricht Router-Fetches
+      // beim gleichzeitigen replace/refresh gerne ab
+      window.location.replace(params.get("von") ?? "/");
     } else {
       setFehler("Falsches Passwort");
       setLaden(false);
