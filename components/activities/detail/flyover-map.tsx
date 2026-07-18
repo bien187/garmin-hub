@@ -111,6 +111,8 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
   const mapRef = useRef<maplibregl.Map | null>(null);
   const rafRef = useRef<number>(0);
   const bearingRef = useRef(0);
+  const letzterIdxRef = useRef(-1);
+  const uiDrosselRef = useRef(0);
   const fortschrittRef = useRef(0); // 0..1
   const spieltRef = useRef(false);
   const speedRef = useRef(4);
@@ -165,7 +167,7 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
   const gesamtDist = punkte.length ? punkte[punkte.length - 1].dist - punkte[0].dist : 0;
 
   const punktBeiFortschritt = useCallback(
-    (f: number): Punkt | null => {
+    (f: number): { punkt: Punkt; idx: number; lng: number; lat: number } | null => {
       if (punkte.length === 0) return null;
       const zielDist = punkte[0].dist + gesamtDist * f;
       // binäre Suche über kumulierte Distanz
@@ -176,7 +178,18 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
         if (punkte[mid].dist < zielDist) lo = mid + 1;
         else hi = mid;
       }
-      return punkte[lo];
+      // Position zwischen den Stützpunkten interpolieren → butterweiche
+      // Kamerabewegung statt 3-m-Sprüngen
+      const b = punkte[lo];
+      const a = lo > 0 ? punkte[lo - 1] : b;
+      const spanne = b.dist - a.dist;
+      const t = spanne > 0 ? Math.min(1, Math.max(0, (zielDist - a.dist) / spanne)) : 1;
+      return {
+        punkt: b,
+        idx: lo,
+        lng: a.lng + (b.lng - a.lng) * t,
+        lat: a.lat + (b.lat - a.lat) * t,
+      };
     },
     [punkte, gesamtDist]
   );
@@ -296,24 +309,28 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
     (f: number) => {
       const map = mapRef.current;
       if (!map || punkte.length < 2) return;
-      const p = punktBeiFortschritt(f);
-      if (!p) return;
+      const pos = punktBeiFortschritt(f);
+      if (!pos) return;
+      const { punkt: p, idx } = pos;
 
-      // Marker + Fortschrittslinie (Index-Slicing, günstig)
-      const idx = punkte.indexOf(p);
+      // Marker folgt der interpolierten Position (jeden Frame, billig)
       (map.getSource("laeufer") as maplibregl.GeoJSONSource | undefined)?.setData({
         type: "Feature",
         properties: {},
-        geometry: { type: "Point", coordinates: [p.lng, p.lat] },
+        geometry: { type: "Point", coordinates: [pos.lng, pos.lat] },
       });
-      (map.getSource("progress") as maplibregl.GeoJSONSource | undefined)?.setData({
-        type: "Feature",
-        properties: {},
-        geometry: {
-          type: "LineString",
-          coordinates: punkte.slice(0, Math.max(2, idx + 1)).map((q) => [q.lng, q.lat]),
-        },
-      });
+      // Fortschrittslinie nur bei Punktwechsel neu aufbauen (teurer Slice)
+      if (idx !== letzterIdxRef.current) {
+        letzterIdxRef.current = idx;
+        (map.getSource("progress") as maplibregl.GeoJSONSource | undefined)?.setData({
+          type: "Feature",
+          properties: {},
+          geometry: {
+            type: "LineString",
+            coordinates: punkte.slice(0, Math.max(2, idx + 1)).map((q) => [q.lng, q.lat]),
+          },
+        });
+      }
 
       // Kamera: folgt dem geglätteten Pfad leicht hinter dem Läuferpunkt.
       // (MapLibre hat keine FreeCamera-API — jumpTo pro Frame mit
@@ -323,7 +340,7 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
         Math.floor(f * (kameraPfad.length - 1)) - Math.max(4, Math.floor(kameraPfad.length * 0.02))
       );
       const kamPos = kameraPfad[kamIdx];
-      const zielBearing = kamPos ? bearingGrad(kamPos, p) : bearingRef.current;
+      const zielBearing = kamPos ? bearingGrad(kamPos, pos) : bearingRef.current;
       if (Number.isFinite(zielBearing)) {
         const alt = bearingRef.current;
         // kürzester Winkelweg, gedämpft (Anti-Jitter)
@@ -336,19 +353,25 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
       // kommt der Tile-Nachschub nicht nach (→ leere/schwarze Karte)
       const zoomFuerSpeed: Record<number, number> = { 1: 15.2, 4: 14.5, 10: 13.7 };
       map.jumpTo({
-        center: [p.lng, p.lat],
+        center: [pos.lng, pos.lat],
         bearing: bearingRef.current,
         pitch: 62,
         zoom: zoomFuerSpeed[speedRef.current] ?? 14.5,
       });
 
-      setLive({
-        km: (p.dist - punkte[0].dist) / 1000,
-        pace: p.pace,
-        hr: p.hr,
-        ele: Math.round(p.ele),
-      });
-      setFortschrittUi(f * 100);
+      // React-Updates drosseln (~5/s): 60 setState/s würgen Mittelklasse-
+      // Geräte ab, ohne dass man es der Anzeige ansieht
+      const jetztMs = performance.now();
+      if (jetztMs - uiDrosselRef.current > 180 || !spieltRef.current) {
+        uiDrosselRef.current = jetztMs;
+        setLive({
+          km: (p.dist - punkte[0].dist) / 1000,
+          pace: p.pace,
+          hr: p.hr,
+          ele: Math.round(p.ele),
+        });
+        setFortschrittUi(f * 100);
+      }
     },
     [punkte, kameraPfad, punktBeiFortschritt]
   );
@@ -507,7 +530,7 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
         </div>
         <span className="stat-mono w-14 text-right text-xs text-muted-foreground">
           {formatDauer(
-            (punktBeiFortschritt(fortschrittUi / 100)?.zeit ?? 0) - (punkte[0]?.zeit ?? 0)
+            (punktBeiFortschritt(fortschrittUi / 100)?.punkt.zeit ?? 0) - (punkte[0]?.zeit ?? 0)
           )}
         </span>
       </div>
