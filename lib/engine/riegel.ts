@@ -67,23 +67,32 @@ export function bestEffort(
 
 /**
  * Aus den besten Efforts (1/5/10 km) der letzten Wochen die 5-km-Prognose
- * ableiten. Robustheit vor Optimismus:
- *  - Paces < 150 s/km (2:30/km) sind GPS-Artefakte → verwerfen
- *  - lange Efforts (≥ 3 km) sind prädiktiver und haben Vorrang;
- *    kurze 1-km-Bestwerte dienen nur als Fallback
+ * ableiten. Einzelprojektionen sind unzuverlässig — kurze Bestwerte
+ * (Schlusssprint, GPS) zu optimistisch, lange Fenster aus Z2-Läufen zu
+ * pessimistisch. Deshalb: pro Zieldistanz den besten Effort projizieren
+ * und den MEDIAN aller Projektionen nehmen. Paces < 150 s/km (2:30/km)
+ * gelten als GPS-Artefakte und fliegen raus.
  */
 export function fuenfKmPrognose(efforts: BestEffort[]): number | null {
   const plausibel = efforts.filter(
     (e) => e.distanzM >= 800 && isFinite(e.zeitS) && e.paceSKm > 150
   );
-  const lange = plausibel.filter((e) => e.distanzM >= 3000);
-  const basis = lange.length > 0 ? lange : plausibel;
 
-  let beste: number | null = null;
-  for (const e of basis) {
-    const t5 = riegelPrognose(e.zeitS, e.distanzM, 5000);
-    if (!isFinite(t5)) continue;
-    if (beste == null || t5 < beste) beste = t5;
+  // pro Distanz nur den schnellsten Effort berücksichtigen
+  const besteProDistanz = new Map<number, BestEffort>();
+  for (const e of plausibel) {
+    const alt = besteProDistanz.get(e.distanzM);
+    if (!alt || e.zeitS < alt.zeitS) besteProDistanz.set(e.distanzM, e);
   }
-  return beste;
+
+  const projektionen = [...besteProDistanz.values()]
+    .map((e) => riegelPrognose(e.zeitS, e.distanzM, 5000))
+    .filter((t) => isFinite(t))
+    .sort((a, b) => a - b);
+  if (projektionen.length === 0) return null;
+
+  const n = projektionen.length;
+  return n % 2 === 1
+    ? projektionen[(n - 1) / 2]
+    : (projektionen[n / 2 - 1] + projektionen[n / 2]) / 2;
 }

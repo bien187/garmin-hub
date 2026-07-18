@@ -40,18 +40,36 @@ describe("bestEffort", () => {
 });
 
 describe("fuenfKmPrognose", () => {
-  it("bevorzugt lange Efforts (≥ 3 km) vor kurzen Bestwerten", () => {
+  it("nimmt den Median der Projektionen (balanciert Sprint vs. Z2-Trott)", () => {
     const erg = fuenfKmPrognose([
       { distanzM: 1000, zeitS: 240, paceSKm: 240 }, // schneller 1k (Sprint/GPS)
-      { distanzM: 10000, zeitS: 3560, paceSKm: 356 },
+      { distanzM: 5000, zeitS: 2250, paceSKm: 450 }, // langsames Z2-Fenster
     ]);
-    // nicht die optimistische 1k-Projektion, sondern die vom 10k
-    expect(erg).toBeCloseTo(riegelPrognose(3560, 10000, 5000), 3);
+    const von1k = riegelPrognose(240, 1000, 5000);
+    const von5k = riegelPrognose(2250, 5000, 5000);
+    expect(erg).toBeCloseTo((von1k + von5k) / 2, 3);
   });
 
-  it("fällt auf kurze Efforts zurück, wenn keine langen existieren", () => {
-    const erg = fuenfKmPrognose([{ distanzM: 1000, zeitS: 300, paceSKm: 300 }]);
-    expect(erg).toBeCloseTo(riegelPrognose(300, 1000, 5000), 3);
+  it("ungerade Anzahl → echter Median", () => {
+    const erg = fuenfKmPrognose([
+      { distanzM: 1000, zeitS: 240, paceSKm: 240 },
+      { distanzM: 5000, zeitS: 1700, paceSKm: 340 },
+      { distanzM: 10000, zeitS: 3560, paceSKm: 356 },
+    ]);
+    const projektionen = [
+      riegelPrognose(240, 1000, 5000),
+      riegelPrognose(1700, 5000, 5000),
+      riegelPrognose(3560, 10000, 5000),
+    ].sort((a, b) => a - b);
+    expect(erg).toBeCloseTo(projektionen[1], 3);
+  });
+
+  it("pro Distanz zählt nur der schnellste Effort", () => {
+    const erg = fuenfKmPrognose([
+      { distanzM: 1000, zeitS: 300, paceSKm: 300 },
+      { distanzM: 1000, zeitS: 280, paceSKm: 280 },
+    ]);
+    expect(erg).toBeCloseTo(riegelPrognose(280, 1000, 5000), 3);
   });
 
   it("verwirft GPS-Artefakte (< 2:30/km) und zu kurze Efforts", () => {
