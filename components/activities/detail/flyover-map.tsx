@@ -170,6 +170,18 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
 
   const gesamtDist = punkte.length ? punkte[punkte.length - 1].dist - punkte[0].dist : 0;
 
+  /** Bergige Route? Steiles Terrain + 1.4× Überhöhung → Kamera würde bei
+      Pitch 62 in den Hang clippen (schwarzer Bildschirm). */
+  const istBergig = useMemo(() => {
+    let auf = 0;
+    for (let i = 1; i < punkte.length; i++) {
+      const d = punkte[i].ele - punkte[i - 1].ele;
+      if (d > 0) auf += d;
+    }
+    const km = Math.max(0.3, gesamtDist / 1000);
+    return auf / km > 40; // > 40 Hm/km
+  }, [punkte, gesamtDist]);
+
   const punktBeiFortschritt = useCallback(
     (f: number): { punkt: Punkt; idx: number; lng: number; lat: number } | null => {
       if (punkte.length === 0) return null;
@@ -377,12 +389,15 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
       }
       if (!Number.isFinite(bearingRef.current)) bearingRef.current = 0;
       // Zoom ans Tempo koppeln: schnellerer Flug = weiter draussen, sonst
-      // kommt der Tile-Nachschub nicht nach (→ leere/schwarze Karte)
-      const zoomFuerSpeed: Record<number, number> = { 1: 15.2, 4: 14.5, 10: 13.7 };
+      // kommt der Tile-Nachschub nicht nach (→ leere/schwarze Karte).
+      // Bergrouten: flacherer Winkel + mehr Distanz gegen Terrain-Clipping.
+      const zoomFuerSpeed: Record<number, number> = istBergig
+        ? { 1: 14.3, 4: 13.7, 10: 13.1 }
+        : { 1: 15.2, 4: 14.5, 10: 13.7 };
       map.jumpTo({
         center: [pos.lng, pos.lat],
         bearing: bearingRef.current,
-        pitch: 62,
+        pitch: istBergig ? 50 : 62,
         zoom: zoomFuerSpeed[speedRef.current] ?? 14.5,
       });
 
@@ -400,7 +415,7 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
         setFortschrittUi(f * 100);
       }
     },
-    [punkte, kameraPfad, punktBeiFortschritt]
+    [punkte, kameraPfad, punktBeiFortschritt, istBergig]
   );
 
   /* ---------- Animations-Loop ---------- */
