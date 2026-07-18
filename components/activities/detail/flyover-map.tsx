@@ -6,10 +6,12 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import along from "@turf/along";
 import bezierSpline from "@turf/bezier-spline";
 import { lineString } from "@turf/helpers";
-import { Pause, Play, RotateCcw } from "lucide-react";
+import { Loader2, Pause, Play, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
 import { aktiviere3D, BASEMAP_STYLE } from "@/lib/geo/map-style";
+import { prefetchFlyoverTiles } from "@/lib/geo/tile-prefetch";
 import { formatDauer, formatPace } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -117,6 +119,8 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
   const spieltRef = useRef(false);
   const speedRef = useRef(4);
   const [bereit, setBereit] = useState(false);
+  const [ladeProzent, setLadeProzent] = useState(0);
+  const [vorgeladen, setVorgeladen] = useState(false);
   const [spielt, setSpielt] = useState(false);
   const [speed, setSpeed] = useState(4);
   const [modus, setModus] = useState<"hr" | "pace">("hr");
@@ -272,7 +276,30 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
       setBereit(true);
     });
 
+    /* Vorladen: alle Route-Tiles (Basemap + Terrain) für die Flyover-
+       Zooms in den Cache holen UND auf das erste vollständige Rendering
+       warten — erst dann wird die Karte freigegeben. */
+    let abgebrochen = false;
+    const prefetch = prefetchFlyoverTiles(punkte, (p) => {
+      if (!abgebrochen) setLadeProzent(Math.min(97, p));
+    });
+    const erstesIdle = new Promise<void>((resolve) => {
+      map.once("idle", () => resolve());
+    });
+    Promise.all([prefetch, erstesIdle]).then(() => {
+      if (!abgebrochen) {
+        setLadeProzent(100);
+        setVorgeladen(true);
+      }
+    });
+    // Fallback: nach 25 s freigeben, falls ein Tile-Server klemmt
+    const notausgang = setTimeout(() => {
+      if (!abgebrochen) setVorgeladen(true);
+    }, 25_000);
+
     return () => {
+      abgebrochen = true;
+      clearTimeout(notausgang);
       cancelAnimationFrame(rafRef.current);
       map.remove();
       mapRef.current = null;
@@ -472,15 +499,36 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
             <span>{live.ele} m</span>
           </div>
         )}
+        {/* Lade-Overlay: Karte erst zeigen, wenn Route-Tiles vorgeladen sind */}
+        {!vorgeladen && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background/90">
+            <Loader2 className="size-6 animate-spin text-primary" />
+            <div className="text-sm text-muted-foreground">
+              3D-Karte wird vorgeladen … {ladeProzent} %
+            </div>
+            <Progress value={ladeProzent} className="h-1.5 w-44" />
+          </div>
+        )}
       </div>
 
       {/* Steuerung */}
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" onClick={togglePlay} disabled={!bereit} className="min-w-23">
-          {spielt ? <Pause className="size-4" /> : <Play className="size-4" />}
-          {spielt ? "Pause" : "Flyover"}
+        <Button
+          size="sm"
+          onClick={togglePlay}
+          disabled={!bereit || !vorgeladen}
+          className="min-w-23"
+        >
+          {!vorgeladen ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : spielt ? (
+            <Pause className="size-4" />
+          ) : (
+            <Play className="size-4" />
+          )}
+          {!vorgeladen ? "Lädt…" : spielt ? "Pause" : "Flyover"}
         </Button>
-        <Button size="sm" variant="secondary" onClick={reset} disabled={!bereit}>
+        <Button size="sm" variant="secondary" onClick={reset} disabled={!bereit || !vorgeladen}>
           <RotateCcw className="size-4" />
         </Button>
         <div className="flex rounded-lg bg-muted p-0.5">
