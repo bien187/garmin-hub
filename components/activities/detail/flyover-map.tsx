@@ -201,6 +201,9 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
     });
     mapRef.current = map;
     map.addControl(new maplibregl.NavigationControl({ showCompass: true }), "top-right");
+    // Diagnose-Hooks: maplibre-Fehler landen sonst nirgends sichtbar
+    map.on("error", (e) => console.error("[maplibre]", e?.error ?? e));
+    (window as unknown as { __ghqMap?: maplibregl.Map }).__ghqMap = map;
 
     map.on("load", () => {
       aktiviere3D(map);
