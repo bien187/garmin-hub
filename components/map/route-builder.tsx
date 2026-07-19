@@ -490,7 +490,7 @@ export function RouteBuilder() {
   const dauerS = (stats.gapDist / 1000) * z2PaceSKm;
 
   return (
-    <div className="relative h-[calc(100dvh-52px)] w-full md:h-dvh">
+    <div className="relative h-full w-full">
       {/* Inline-Style nötig: maplibre-gl.css überschreibt die
           Tailwind-Positionsklasse (.maplibregl-map { position: relative }) */}
       <div

@@ -34,8 +34,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const fullBleed = pathname === "/map";
 
+  // Fester App-Rahmen: die Seite selbst scrollt nie (Navbar bleibt immer
+  // stehen), Inhalte scrollen bei Bedarf im internen Container.
   return (
-    <div className="flex min-h-dvh">
+    <div className="flex h-dvh overflow-hidden">
       {/* Sidebar (Desktop) */}
       <aside className="hidden md:flex md:w-56 md:flex-col md:border-r md:border-sidebar-border md:bg-sidebar fixed inset-y-0 z-40">
         <Link href="/" className="flex items-center gap-2.5 px-5 py-5">
@@ -78,13 +80,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Content */}
-      <main
-        className={cn(
-          "min-w-0 flex-1 md:ml-56",
-          fullBleed ? "" : "pb-20 md:pb-8"
+      <main className="flex h-dvh min-w-0 flex-1 flex-col md:ml-56">
+        {fullBleed ? (
+          <div className="min-h-0 flex-1 pb-[calc(52px+env(safe-area-inset-bottom))] md:pb-0">
+            {children}
+          </div>
+        ) : (
+          <div
+            id="app-scroll"
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[calc(60px+env(safe-area-inset-bottom))] md:pb-4"
+          >
+            {children}
+          </div>
         )}
-      >
-        {children}
       </main>
 
       {/* Bottom-Tab-Bar (Mobile) */}
@@ -97,7 +105,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 key={href}
                 href={href}
                 className={cn(
-                  "flex min-h-[52px] flex-col items-center justify-center gap-0.5 py-1.5 text-[10px] font-medium",
+                  "flex min-h-13 flex-col items-center justify-center gap-0.5 py-1.5 text-[10px] font-medium",
                   active ? "text-primary" : "text-muted-foreground"
                 )}
               >

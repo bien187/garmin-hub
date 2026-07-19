@@ -67,18 +67,21 @@ export function SyncButton({ kompakt = false }: { kompakt?: boolean }) {
     }
   }, [router]);
 
-  /* Pull-to-Refresh (nur Mobile, am Seitenanfang) */
+  /* Pull-to-Refresh (nur Mobile, am Anfang des internen Scroll-Containers) */
   useEffect(() => {
+    const scroller = document.getElementById("app-scroll");
+    if (!scroller) return;
     let startY = 0;
     let gezogen = false;
+    const obenAm = () => scroller.scrollTop <= 0;
     const onStart = (e: TouchEvent) => {
-      if (window.scrollY <= 0) {
+      if (obenAm()) {
         startY = e.touches[0].clientY;
         gezogen = true;
       }
     };
     const onMove = (e: TouchEvent) => {
-      if (gezogen && e.touches[0].clientY - startY > 130 && window.scrollY <= 0) {
+      if (gezogen && e.touches[0].clientY - startY > 130 && obenAm()) {
         gezogen = false;
         sync();
       }
@@ -86,13 +89,13 @@ export function SyncButton({ kompakt = false }: { kompakt?: boolean }) {
     const onEnd = () => {
       gezogen = false;
     };
-    window.addEventListener("touchstart", onStart, { passive: true });
-    window.addEventListener("touchmove", onMove, { passive: true });
-    window.addEventListener("touchend", onEnd, { passive: true });
+    scroller.addEventListener("touchstart", onStart, { passive: true });
+    scroller.addEventListener("touchmove", onMove, { passive: true });
+    scroller.addEventListener("touchend", onEnd, { passive: true });
     return () => {
-      window.removeEventListener("touchstart", onStart);
-      window.removeEventListener("touchmove", onMove);
-      window.removeEventListener("touchend", onEnd);
+      scroller.removeEventListener("touchstart", onStart);
+      scroller.removeEventListener("touchmove", onMove);
+      scroller.removeEventListener("touchend", onEnd);
     };
   }, [sync]);
 
@@ -112,7 +115,7 @@ export function SyncButton({ kompakt = false }: { kompakt?: boolean }) {
         size={kompakt ? "sm" : "default"}
         onClick={sync}
         disabled={laeuft}
-        className="min-h-[40px]"
+        className="min-h-10"
       >
         <RefreshCw className={cn("size-4", laeuft && "animate-spin")} />
         {label}
