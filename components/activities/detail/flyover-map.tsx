@@ -10,18 +10,28 @@ import { aktiviere3D, BASEMAP_STYLE } from "@/lib/geo/map-style";
 import { prefetchFlyoverTiles } from "@/lib/geo/tile-prefetch";
 import {
   baueGraphDaten,
+  bearingGrad,
   berechneK,
   FLYOVER_DAUER_S,
+  haversineM,
   sampleAt,
   SampleCursor,
   verarbeiteStreams,
   wrapDelta,
+  type GraphDaten,
   type ProcessedTrack,
   type SampledState,
 } from "@/lib/engine/flyover";
-import { FlyoverGraph } from "./flyover-graph";
 import { formatDauer, formatPace } from "@/lib/format";
 import { cn } from "@/lib/utils";
+
+/** API, die die Detailseite bekommt, um den Graph unter der Karte zu rendern */
+export interface FlyoverApi {
+  track: ProcessedTrack;
+  graphDaten: GraphDaten;
+  tVideoRef: React.MutableRefObject<number>;
+  seek: (tVideo: number) => void;
+}
 
 export interface FlyoverStreams {
   zeitS: number[];
@@ -36,8 +46,8 @@ export interface FlyoverStreams {
 interface FlyoverMapProps {
   streams: FlyoverStreams;
   className?: string;
-  /** Hover aus dem Höhenprofil (0..1) — bewegt nur den Marker */
-  hoverFortschritt?: number | null;
+  /** Wird gerufen, sobald Track + Graphdaten stehen (für den externen Graph) */
+  onBereit?: (api: FlyoverApi) => void;
 }
 
 /* ------------------------------------------------------------------ */
@@ -106,7 +116,22 @@ function progressGradient(stops: FarbStop[], p: number): unknown {
 
 /* ------------------------------------------------------------------ */
 
-export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapProps) {
+/* Kamera-Weichheit: grosse Zeitkonstanten = träge, "grobe" Verfolgung statt
+   Zittern bei jedem GPS-Rauschen. Bearing wird bewusst NICHT aus dem rohen
+   Track-Bearing genommen, sondern aus der Bewegungsrichtung der bereits
+   geglätteten Kameraposition selbst abgeleitet — das dämpft Richtungs-
+   rauschen an der Quelle statt es nur hinterher zu glätten. */
+const KAM_TAU_POSITION_S = 1.1;
+const KAM_TAU_BEARING_S = 2.2;
+const KAM_TAU_ZOOM_PITCH_S = 1.6;
+const ZOOM_MIN = 7;
+const ZOOM_MAX = 19;
+
+function clamp(v: number, lo: number, hi: number): number {
+  return Math.min(hi, Math.max(lo, v));
+}
+
+export function FlyoverMap({ streams, className, onBereit }: FlyoverMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const rafRef = useRef(0);
@@ -118,9 +143,17 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
   const tVideoRef = useRef(0);
   const spieltRef = useRef(false);
   const cursorRef = useRef(new SampleCursor());
+
+  /* Weiche Kamera: geglättete Position + daraus abgeleitetes Bearing */
+  const kamLngRef = useRef<number | null>(null);
+  const kamLatRef = useRef<number | null>(null);
+  const kamPosVorRef = useRef<{ lng: number; lat: number } | null>(null);
   const kamBearingRef = useRef(0);
-  const kamZoomRef = useRef<number | null>(null);
+  const autoZoomRef = useRef<number | null>(null);
   const kamPitchRef = useRef<number | null>(null);
+  /** Persistenter Nutzer-Offset (Pinch/Wheel/+−-Tasten), bleibt über Frames erhalten */
+  const zoomOffsetRef = useRef(0);
+
   const letzterFrameMsRef = useRef(0);
   const hudDrosselRef = useRef(0);
   const gradDrosselRef = useRef(0);
@@ -169,6 +202,20 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
     [track]
   );
 
+  /* Track/Graphdaten dem Elternteil melden (rendert den Graph unter der Karte) */
+  const seekRef = useRef<(t: number) => void>(() => {});
+  useEffect(() => {
+    if (track && graphDaten && onBereit) {
+      onBereit({
+        track,
+        graphDaten,
+        tVideoRef,
+        seek: (t: number) => seekRef.current(t),
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [track, graphDaten]);
+
   /* ---------- Karte initialisieren ---------- */
   useEffect(() => {
     if (!containerRef.current || !track || koords.length < 2) return;
@@ -183,6 +230,16 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
       fitBoundsOptions: { padding: 48 },
       attributionControl: { compact: true },
       maxPitch: 85,
+    });
+    // Nutzer-Zoom (Pinch, Wheel, +/−-Tasten der NavigationControl) auch
+    // während des Flyovers erlauben: eigene jumpTo-Aufrufe markieren wir
+    // mit eventData.ghqAuto, alle anderen 'zoom'-Events sind vom Nutzer —
+    // deren Differenz zum automatischen Zoom merken wir uns als
+    // persistenten Offset, der ab dann in jeden Frame einfliesst.
+    map.on("zoom", (e: maplibregl.MapLibreEvent & { ghqAuto?: boolean }) => {
+      if (e.ghqAuto) return;
+      const aktuell = map.getZoom();
+      zoomOffsetRef.current = clamp(aktuell - (autoZoomRef.current ?? aktuell), -6, 6);
     });
     mapRef.current = map;
     map.addControl(new maplibregl.NavigationControl({ showCompass: true }), "top-right");
@@ -305,39 +362,78 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
         );
       }
 
-      /* Chase-Kamera: lookAhead (1 Videosekunde voraus, Gewicht 0.3) */
+      /* --- Weiche Verfolgerkamera ---
+         1) Rohes Zielziel: aktuelle Position + leichtes lookAhead
+         2) Position selbst tiefpassfiltern (grosse Zeitkonstante) — das
+            ist der Kern der "grob und weich" gewünschten Bewegung
+         3) Bearing NICHT aus dem rohen Track-Bearing, sondern aus der
+            Bewegungsrichtung der bereits geglätteten Kameraposition
+            ableiten und zusätzlich noch trägner nachziehen — dämpft
+            GPS-Richtungsrauschen an der Quelle statt es nur zu kaschieren */
       const lookAhead = sampleAt(
         track,
-        Math.min(track.totalDuration, st.tRel + 1.0 * k),
+        Math.min(track.totalDuration, st.tRel + 1.2 * k),
         undefined
       );
-      const zielLng = st.lng + (lookAhead.lng - st.lng) * 0.3;
-      const zielLat = st.lat + (lookAhead.lat - st.lat) * 0.3;
+      const rohLng = st.lng + (lookAhead.lng - st.lng) * 0.35;
+      const rohLat = st.lat + (lookAhead.lat - st.lat) * 0.35;
 
-      // Bearing exponentiell glätten (alpha 0.08 bei 60 fps, dt-normiert)
-      const alpha = Math.min(1, 0.08 * (dtS * 60 || 1));
-      const delta = wrapDelta(st.bearing - kamBearingRef.current);
-      kamBearingRef.current += delta * alpha;
-      if (!Number.isFinite(kamBearingRef.current)) kamBearingRef.current = st.bearing;
+      let kamLng: number;
+      let kamLat: number;
+      if (kamLngRef.current == null || kamLatRef.current == null || sofort) {
+        kamLng = rohLng;
+        kamLat = rohLat;
+      } else {
+        const alphaPos = 1 - Math.exp(-dtS / KAM_TAU_POSITION_S);
+        kamLng = kamLngRef.current + (rohLng - kamLngRef.current) * alphaPos;
+        kamLat = kamLatRef.current + (rohLat - kamLatRef.current) * alphaPos;
+      }
+      kamLngRef.current = kamLng;
+      kamLatRef.current = kamLat;
 
-      // Speed-gekoppelter Zoom/Pitch (Tiefpass ~1 s)
+      const vorPos = kamPosVorRef.current ?? { lng: kamLng, lat: kamLat };
+      const bewegungM = haversineM(vorPos.lat, vorPos.lng, kamLat, kamLng);
+      if (bewegungM > 0.4) {
+        const rohBearing = bearingGrad(vorPos.lat, vorPos.lng, kamLat, kamLng);
+        if (sofort) {
+          kamBearingRef.current = rohBearing;
+        } else {
+          const alphaBearing = 1 - Math.exp(-dtS / KAM_TAU_BEARING_S);
+          kamBearingRef.current += wrapDelta(rohBearing - kamBearingRef.current) * alphaBearing;
+        }
+      }
+      if (!Number.isFinite(kamBearingRef.current)) kamBearingRef.current = 0;
+      kamPosVorRef.current = { lng: kamLng, lat: kamLat };
+
+      // Speed-gekoppelter Basis-Zoom/Pitch, ebenfalls weich nachgezogen
       const speedNorm = Math.min(
         1,
         Math.max(0, (st.speed - track.speedP10) / (track.speedP90 - track.speedP10))
       );
-      const zielZoom = kamera.zoomBase - (speedNorm - 0.5) * 0.8;
-      const zielPitch = kamera.pitchBase + speedNorm * 8;
-      const tp = sofort ? 1 : Math.min(1, dtS / 1.0);
-      kamZoomRef.current = kamZoomRef.current == null ? zielZoom : kamZoomRef.current + (zielZoom - kamZoomRef.current) * tp;
-      kamPitchRef.current =
-        kamPitchRef.current == null ? zielPitch : kamPitchRef.current + (zielPitch - kamPitchRef.current) * tp;
+      const zielZoomAuto = kamera.zoomBase - (speedNorm - 0.5) * 0.5;
+      const zielPitch = kamera.pitchBase + speedNorm * 5;
+      const alphaCam = sofort ? 1 : 1 - Math.exp(-dtS / KAM_TAU_ZOOM_PITCH_S);
+      const autoZoom =
+        autoZoomRef.current == null ? zielZoomAuto : autoZoomRef.current + (zielZoomAuto - autoZoomRef.current) * alphaCam;
+      const pitch =
+        kamPitchRef.current == null ? zielPitch : kamPitchRef.current + (zielPitch - kamPitchRef.current) * alphaCam;
+      autoZoomRef.current = autoZoom;
+      kamPitchRef.current = pitch;
 
-      map.jumpTo({
-        center: [zielLng, zielLat],
-        bearing: ((kamBearingRef.current % 360) + 360) % 360,
-        pitch: kamPitchRef.current,
-        zoom: kamZoomRef.current,
-      });
+      // Persistenter Nutzer-Zoom-Offset (Pinch/Wheel/+−-Tasten) fliesst
+      // in jeden Frame ein, statt vom nächsten Auto-Update überschrieben
+      // zu werden
+      const finalZoom = clamp(autoZoom + zoomOffsetRef.current, ZOOM_MIN, ZOOM_MAX);
+
+      map.jumpTo(
+        {
+          center: [kamLng, kamLat],
+          bearing: ((kamBearingRef.current % 360) + 360) % 360,
+          pitch,
+          zoom: finalZoom,
+        },
+        { ghqAuto: true }
+      );
 
       /* HUD (gedrosselt ~5/s): REALwerte, nie Videogeschwindigkeit */
       if (sofort || jetzt - hudDrosselRef.current > 180) {
@@ -383,11 +479,17 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
   const play = useCallback(() => {
     if (!track) return;
     if (tVideoRef.current >= FLYOVER_DAUER_S) {
-      // Replay
+      // Replay: Kamera-Glättung neu verankern, sonst zieht sie vom
+      // Streckenende quer über die Karte zurück zum Start
       startMsRef.current = null;
       pausedAccumRef.current = 0;
       tVideoRef.current = 0;
       cursorRef.current.idx = 0;
+      kamLngRef.current = null;
+      kamLatRef.current = null;
+      kamPosVorRef.current = null;
+      autoZoomRef.current = null;
+      kamPitchRef.current = null;
     } else if (pauseBeginnRef.current != null) {
       pausedAccumRef.current += (performance.now() - pauseBeginnRef.current) / 1000;
       pauseBeginnRef.current = null;
@@ -425,6 +527,7 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
     },
     [track, k, renderZustand]
   );
+  seekRef.current = seek;
 
   const reset = useCallback(() => {
     pause();
@@ -433,8 +536,13 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
     pauseBeginnRef.current = null;
     tVideoRef.current = 0;
     cursorRef.current.idx = 0;
-    kamZoomRef.current = null;
+    kamLngRef.current = null;
+    kamLatRef.current = null;
+    kamPosVorRef.current = null;
+    kamBearingRef.current = 0;
+    autoZoomRef.current = null;
     kamPitchRef.current = null;
+    zoomOffsetRef.current = 0;
     const map = mapRef.current;
     if (map && koords.length >= 2) {
       const bounds = koords.reduce(
@@ -474,28 +582,6 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
     return () => window.removeEventListener("keydown", onKey);
   }, [play, pause, seek, vorgeladen]);
 
-  /* Hover aus dem Höhenprofil → Marker bewegen (Distanzanteil) */
-  useEffect(() => {
-    if (hoverFortschritt == null || !track) return;
-    const map = mapRef.current;
-    if (!map || !bereit) return;
-    const zielDist = hoverFortschritt * track.totalDistance;
-    // grobe Suche über distCum reicht für den Hover-Marker
-    const pts = track.punkte;
-    let lo = 0;
-    let hi = pts.length - 1;
-    while (lo < hi) {
-      const mid = (lo + hi) >> 1;
-      if (pts[mid].distCum < zielDist) lo = mid + 1;
-      else hi = mid;
-    }
-    (map.getSource("laeufer") as maplibregl.GeoJSONSource | undefined)?.setData({
-      type: "Feature",
-      properties: {},
-      geometry: { type: "Point", coordinates: [pts[lo].lng, pts[lo].lat] },
-    });
-  }, [hoverFortschritt, bereit, track]);
-
   if (!track || !graphDaten) {
     return (
       <div className={cn("flex h-64 items-center justify-center rounded-xl bg-muted/40 text-sm text-muted-foreground", className)}>
@@ -525,20 +611,6 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
             <span className="text-[10px] text-muted-foreground">
               {Math.max(1, Math.round(k))}× Zeitraffer
             </span>
-          </div>
-        )}
-
-        {/* Verlaufsgraph als Teil des HUD am unteren Kartenrand */}
-        {vorgeladen && (
-          <div className="absolute inset-x-0 bottom-0">
-            <FlyoverGraph
-              track={track}
-              daten={graphDaten}
-              tVideoRef={tVideoRef}
-              videoDauerS={FLYOVER_DAUER_S}
-              onScrub={seek}
-              heightPx={96}
-            />
           </div>
         )}
 
@@ -589,7 +661,7 @@ export function FlyoverMap({ streams, className, hoverFortschritt }: FlyoverMapP
           ))}
         </div>
         <span className="text-[10px] text-muted-foreground">
-          30-s-Flyover · Tempoverhältnisse originalgetreu
+          30-s-Flyover · Tempoverhältnisse originalgetreu · Zoom mit Pinch/+−
           {track.pausenKomprimiert ? " · Pausen komprimiert" : ""}
         </span>
       </div>

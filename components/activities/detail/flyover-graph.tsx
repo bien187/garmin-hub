@@ -77,7 +77,7 @@ export function FlyoverGraph({
       }
       ctx.lineTo(b, h);
       ctx.closePath();
-      ctx.fillStyle = hell ? FARBE_ELE : "rgba(220,230,240,0.14)";
+      ctx.fillStyle = hell ? FARBE_ELE : "rgba(150,170,190,0.22)";
       ctx.fill();
 
       // Speed-Linie
@@ -88,7 +88,7 @@ export function FlyoverGraph({
         if (i === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       }
-      ctx.strokeStyle = hell ? FARBE_SPEED : "rgba(245,166,35,0.35)";
+      ctx.strokeStyle = hell ? FARBE_SPEED : "rgba(245,166,35,0.45)";
       ctx.lineWidth = 2;
       ctx.stroke();
 
@@ -111,7 +111,7 @@ export function FlyoverGraph({
             ctx.lineTo(x, y);
           }
         }
-        ctx.strokeStyle = hell ? FARBE_HR : "rgba(255,77,106,0.35)";
+        ctx.strokeStyle = hell ? FARBE_HR : "rgba(255,77,106,0.45)";
         ctx.lineWidth = 2;
         ctx.stroke();
       }
@@ -136,17 +136,13 @@ export function FlyoverGraph({
     ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, b, h);
 
-    // dunkler Verlaufs-Hintergrund für Lesbarkeit über hellem Gelände
-    const grad = ctx.createLinearGradient(0, 0, 0, h);
-    grad.addColorStop(0, "rgba(8,12,18,0.15)");
-    grad.addColorStop(1, "rgba(8,12,18,0.55)");
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, b, h);
-
+    // Graph liegt in einer dunklen Card → kein eigener Hintergrund nötig.
+    // Noch nicht durchlaufener Teil bewusst gedimmt (Kontext), der
+    // durchlaufene Teil wird vom Overlay hell überzeichnet.
     zeichneKurven(ctx, b, h, false);
 
     // Zeit-Ticks (Realzeit)
-    ctx.fillStyle = "rgba(255,255,255,0.45)";
+    ctx.fillStyle = "rgba(255,255,255,0.4)";
     ctx.font = "9px ui-monospace, monospace";
     const ticks = 5;
     for (let i = 0; i <= ticks; i++) {
@@ -157,6 +153,24 @@ export function FlyoverGraph({
     // Höhen-Min/Max links
     ctx.fillText(`${Math.round(daten.eleMax)} m`, 3, 10);
     ctx.fillText(`${Math.round(daten.eleMin)} m`, 3, h - 14);
+
+    // Legende oben rechts (nur vorhandene Reihen)
+    const legende: [string, string][] = [
+      ["Höhe", "rgba(180,200,220,0.9)"],
+      ["Pace", FARBE_SPEED],
+    ];
+    if (daten.hatHr) legende.push(["Puls", FARBE_HR]);
+    let lx = b - 6;
+    for (const [txt, farbe] of [...legende].reverse()) {
+      const tw = ctx.measureText(txt).width;
+      lx -= tw;
+      ctx.fillStyle = farbe;
+      ctx.fillText(txt, lx, 10);
+      lx -= 6;
+      ctx.fillStyle = farbe;
+      ctx.fillRect(lx - 5, 4, 5, 5);
+      lx -= 12;
+    }
   }, [heightPx, track.totalDuration, daten, xVonZeit, zeichneKurven]);
 
   /* Overlay: helle Kurven bis zum Indikator (Clip), Linie, Punkte, Labels */

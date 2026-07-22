@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FlyoverMap, FlyoverStreams } from "./flyover-map";
+import { FlyoverApi, FlyoverMap, FlyoverStreams } from "./flyover-map";
+import { FlyoverGraph } from "./flyover-graph";
 import { ElevationChart } from "./elevation-chart";
+import { FLYOVER_DAUER_S } from "@/lib/engine/flyover";
 import { BodyMap } from "@/components/body/body-map";
 import { lastenAusKraft, MUSKEL_NAME, MuskelId } from "@/lib/engine/muscle";
 import {
@@ -62,7 +64,7 @@ const ZONEN_FARBEN: Record<string, string> = {
 export function ActivityDetail({ id }: { id: string }) {
   const [daten, setDaten] = useState<DetailDaten | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);
-  const [hoverF, setHoverF] = useState<number | null>(null);
+  const [flyover, setFlyover] = useState<FlyoverApi | null>(null);
 
   useEffect(() => {
     fetch(`/api/activities/${id}`)
@@ -81,7 +83,7 @@ export function ActivityDetail({ id }: { id: string }) {
     return (
       <div className="space-y-3 p-4 md:p-6">
         <div className="h-8 w-64 animate-pulse rounded bg-muted/50" />
-        <div className="h-[320px] animate-pulse rounded-xl bg-muted/40" />
+        <div className="h-80 animate-pulse rounded-xl bg-muted/40" />
         <div className="h-40 animate-pulse rounded-xl bg-muted/40" />
       </div>
     );
@@ -146,19 +148,33 @@ export function ActivityDetail({ id }: { id: string }) {
 
       {/* 3D-Flyover */}
       {daten.streams && (
-        <FlyoverMap streams={daten.streams} hoverFortschritt={hoverF} />
+        <FlyoverMap streams={daten.streams} onBereit={setFlyover} />
       )}
 
-      {/* Höhenprofil */}
+      {/* Verlaufsgraph (Höhe + Herzfrequenz + Pace) unter der Karte.
+          Läuft der Flyover, wandert der Indikator synchron mit; scrubben
+          steuert die Kamera. Fallback auf das statische Höhenprofil, wenn
+          die Flyover-Engine (noch) keinen Track liefert. */}
       {daten.streams && !istKraftTyp && (
         <Card>
           <CardHeader className="pb-1">
             <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
-              Höhenprofil
+              Verlauf {flyover ? "· Höhe · Herzfrequenz · Pace" : "· Höhenprofil"}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ElevationChart streams={daten.streams} onHover={setHoverF} />
+            {flyover ? (
+              <FlyoverGraph
+                track={flyover.track}
+                daten={flyover.graphDaten}
+                tVideoRef={flyover.tVideoRef}
+                videoDauerS={FLYOVER_DAUER_S}
+                onScrub={flyover.seek}
+                heightPx={132}
+              />
+            ) : (
+              <ElevationChart streams={daten.streams} />
+            )}
           </CardContent>
         </Card>
       )}
