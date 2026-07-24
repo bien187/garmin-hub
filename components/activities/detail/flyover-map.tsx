@@ -242,6 +242,8 @@ export function FlyoverMap({ streams, className, onBereit }: FlyoverMapProps) {
       zoomOffsetRef.current = clamp(aktuell - (autoZoomRef.current ?? aktuell), -6, 6);
     });
     mapRef.current = map;
+    // Debug-Hook: erlaubt Kamera-/Zoom-Messungen von aussen (Verifikation)
+    (window as unknown as { __ghqMap?: maplibregl.Map }).__ghqMap = map;
     map.addControl(new maplibregl.NavigationControl({ showCompass: true }), "top-right");
     map.on("error", (e) => console.error("[maplibre]", e?.error ?? e));
 
