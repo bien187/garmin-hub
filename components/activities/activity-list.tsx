@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Dumbbell, Footprints, RefreshCw, Timer } from "lucide-react";
-import { PolylineSvg } from "./polyline-svg";
+import { Dumbbell, Footprints, RefreshCw } from "lucide-react";
 import { SwipeRow } from "./swipe-row";
 import { useActivityDelete } from "./use-activity-delete";
 import { useToast } from "@/components/ui/toast";
@@ -15,7 +14,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { formatDauer, formatKm, formatPace, formatZeit } from "@/lib/format";
+import {
+  addTage,
+  formatDatum,
+  formatDauer,
+  formatKm,
+  formatPace,
+  formatZeit,
+  isoDatum,
+  montagVon,
+} from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 interface ListenAktivitaet {
@@ -42,6 +50,22 @@ const ZEITRAUM = [
   { id: "30", label: "30 Tage" },
   { id: "90", label: "90 Tage" },
 ] as const;
+
+/** Aktivitäten nach Kalenderwoche gruppieren (Montag als Schlüssel) */
+function nachWoche(aktivitaeten: ListenAktivitaet[]) {
+  const map = new Map<string, ListenAktivitaet[]>();
+  for (const a of aktivitaeten) {
+    const mo = montagVon(isoDatum(new Date(a.startZeit)));
+    (map.get(mo) ?? map.set(mo, []).get(mo)!).push(a);
+  }
+  return [...map.entries()];
+}
+
+/** Wichtigster Wert einer Zeile (rechts, tabellarisch) */
+function hauptwert(a: ListenAktivitaet, istKraft: boolean): string {
+  if (!istKraft && a.distanzM != null && a.distanzM > 100) return formatKm(a.distanzM);
+  return formatDauer(a.dauerS);
+}
 
 export function ActivityList() {
   const [aktivitaeten, setAktivitaeten] = useState<ListenAktivitaet[]>([]);
@@ -206,59 +230,72 @@ export function ActivityList() {
         </Button>
       </div>
 
-      <div className="grid gap-2.5">
-        {aktivitaeten.map((a) => {
-          const datum = new Date(a.startZeit);
-          const istKraftTyp = a.typ.includes("strength") || a.typ.includes("fitness");
-          return (
-            <SwipeRow key={a.id} onDelete={() => setZuLoeschen(a)}>
-              <Link
-                href={`/activities/${a.id}`}
-                className="flex gap-3 border border-border bg-card p-3 transition-colors hover:border-primary/40"
-              >
-                <PolylineSvg encoded={a.polyline} className="size-20 shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    {istKraftTyp ? (
-                      <Dumbbell className="size-3.5" />
-                    ) : (
-                      <Footprints className="size-3.5" />
-                    )}
-                    {datum.toLocaleDateString("de-CH", {
-                      weekday: "short",
-                      day: "numeric",
-                      month: "short",
-                    })}{" "}
-                    · {formatZeit(datum)}
-                  </div>
-                  <div className="mt-0.5 truncate font-medium">{a.name ?? a.typ}</div>
-                  <div className="stat-mono mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Timer className="size-3" />
-                      {formatDauer(a.dauerS)}
-                    </span>
-                    {a.distanzM != null && a.distanzM > 100 && <span>{formatKm(a.distanzM)}</span>}
-                    {a.avgPace != null && !istKraftTyp && <span>{formatPace(a.avgPace)}</span>}
-                    {a.hmAuf != null && a.hmAuf > 20 && <span>{Math.round(a.hmAuf)} Hm</span>}
-                    {a.avgHr != null && <span>{Math.round(a.avgHr)} bpm</span>}
-                  </div>
-                </div>
-              </Link>
-            </SwipeRow>
-          );
-        })}
+      {/* Zeilen mit Haarlinien-Trennern, nach Woche gruppiert — keine Karten */}
+      <div className="space-y-5">
+        {nachWoche(aktivitaeten).map(([montag, wocheAkt]) => (
+          <div key={montag}>
+            <div className="micro-label mb-1 border-b border-line-strong pb-1">
+              {formatDatum(montag)} – {formatDatum(addTage(montag, 6))}
+            </div>
+            <div>
+              {wocheAkt.map((a) => {
+                const datum = new Date(a.startZeit);
+                const istKraftTyp =
+                  a.typ.includes("strength") || a.typ.includes("fitness");
+                return (
+                  <SwipeRow key={a.id} onDelete={() => setZuLoeschen(a)}>
+                    <Link
+                      href={`/activities/${a.id}`}
+                      className="flex items-center gap-3 border-b border-line bg-background py-2.5 transition-colors active:bg-surface"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="micro-label flex items-center gap-1.5">
+                          {istKraftTyp ? (
+                            <Dumbbell className="size-3 text-text-dim" />
+                          ) : (
+                            <Footprints className="size-3 text-text-dim" />
+                          )}
+                          {datum.toLocaleDateString("de-CH", {
+                            weekday: "short",
+                            day: "numeric",
+                            month: "short",
+                          })}
+                          {" · "}
+                          {formatZeit(datum)}
+                        </div>
+                        <div className="mt-0.5 truncate text-[15px] font-medium text-text">
+                          {a.name ?? a.typ}
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <div className="stat-mono text-[17px] font-semibold text-text">
+                          {hauptwert(a, istKraftTyp)}
+                        </div>
+                        {!istKraftTyp && a.avgPace != null && (
+                          <div className="stat-mono text-[11px] text-text-muted">
+                            {formatPace(a.avgPace)}
+                          </div>
+                        )}
+                      </div>
+                    </Link>
+                  </SwipeRow>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
 
       {laedt && (
-        <div className="grid gap-2.5">
+        <div className="space-y-2">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="h-26 animate-pulse rounded-xl bg-muted/40" />
+            <div key={i} className="h-12 animate-pulse rounded bg-surface" />
           ))}
         </div>
       )}
       {!laedt && aktivitaeten.length === 0 && (
-        <p className="py-10 text-center text-sm text-muted-foreground">
-          Keine Aktivitäten gefunden. Zuerst auf dem Dashboard synchronisieren.
+        <p className="py-10 text-center text-sm text-text-muted">
+          Noch keine Aktivitäten. Uhr synchronisieren, um zu starten.
         </p>
       )}
       <div ref={sentinel} />
