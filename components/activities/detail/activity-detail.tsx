@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2 } from "lucide-react";
+import { RefreshCw, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +28,7 @@ import {
   formatPace,
   isoDatum,
 } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 interface DetailDaten {
   aktivitaet: {
@@ -44,6 +46,7 @@ interface DetailDaten {
     kalorien: number | null;
     trainingseffektAerob: number | null;
     vo2maxWert: number | null;
+    syncedAt: string | null;
   };
   streams: FlyoverStreams | null;
   saetze: {
@@ -75,20 +78,50 @@ const ZONEN_FARBEN: Record<string, string> = {
 export function ActivityDetail({ id }: { id: string }) {
   const router = useRouter();
   const loeschen = useActivityDelete();
+  const toast = useToast();
   const [daten, setDaten] = useState<DetailDaten | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);
   const [flyover, setFlyover] = useState<FlyoverApi | null>(null);
   const [loeschenOffen, setLoeschenOffen] = useState(false);
+  const [aktualisiert, setAktualisiert] = useState(false);
+
+  const ladeDetail = useCallback(async () => {
+    const r = await fetch(`/api/activities/${id}`);
+    if (!r.ok) throw new Error((await r.json()).error ?? "Fehler");
+    return (await r.json()) as DetailDaten;
+  }, [id]);
 
   useEffect(() => {
-    fetch(`/api/activities/${id}`)
-      .then(async (r) => {
-        if (!r.ok) throw new Error((await r.json()).error ?? "Fehler");
-        return r.json();
-      })
+    ladeDetail()
       .then(setDaten)
       .catch((e) => setFehler(e.message));
-  }, [id]);
+  }, [ladeDetail]);
+
+  async function aktualisieren() {
+    setAktualisiert(true);
+    try {
+      const res = await fetch(`/api/activities/${id}/resync`, { method: "POST" });
+      const d = await res.json();
+      if (d.code === "not_found_at_garmin") {
+        toast({
+          message: "Bei Garmin nicht mehr vorhanden.",
+          actionLabel: "Aus Hub entfernen",
+          onAction: () => {
+            loeschen(Number(id));
+            router.push("/activities");
+          },
+        });
+        return;
+      }
+      if (!res.ok || !d.ok) throw new Error(d.error ?? "Fehler");
+      setDaten(await ladeDetail());
+      toast({ message: "Aktivität aktualisiert." });
+    } catch {
+      toast({ message: "Aktualisieren fehlgeschlagen.", variant: "error" });
+    } finally {
+      setAktualisiert(false);
+    }
+  }
 
   if (fehler) {
     return <p className="p-6 text-sm text-status-red">{fehler}</p>;
@@ -124,23 +157,39 @@ export function ActivityDetail({ id }: { id: string }) {
   return (
     <div className="mx-auto max-w-4xl space-y-4 p-4 md:p-6">
       <div className="flex items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <div className="text-xs text-muted-foreground">
             {formatDatumLang(isoDatum(new Date(a.startZeit)))} · {a.typ}
           </div>
           <h1 className="stat-display text-2xl uppercase tracking-wide">
             {a.name ?? a.typ}
           </h1>
+          <div className="mt-0.5 text-[11px] text-muted-foreground">
+            {a.syncedAt
+              ? `Zuletzt synchronisiert: ${new Date(a.syncedAt).toLocaleString("de-CH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
+              : "Noch nicht einzeln aktualisiert"}
+          </div>
         </div>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Aktivität löschen"
-          className="shrink-0 text-status-red hover:bg-status-red/10"
-          onClick={() => setLoeschenOffen(true)}
-        >
-          <Trash2 className="size-4" />
-        </Button>
+        <div className="flex shrink-0 items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Von Garmin aktualisieren"
+            disabled={aktualisiert}
+            onClick={aktualisieren}
+          >
+            <RefreshCw className={cn("size-4", aktualisiert && "animate-spin")} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Aktivität löschen"
+            className="text-status-red hover:bg-status-red/10"
+            onClick={() => setLoeschenOffen(true)}
+          >
+            <Trash2 className="size-4" />
+          </Button>
+        </div>
       </div>
 
       <Dialog open={loeschenOffen} onOpenChange={setLoeschenOffen}>

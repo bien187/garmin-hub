@@ -51,10 +51,10 @@ def _aktivitaet_upsert(con, a):
         INSERT INTO activities (id, typ, name, start_zeit, dauer_s, distanz_m,
             hm_auf, hm_ab, avg_hr, max_hr, avg_pace, kalorien, avg_kadenz,
             trainingseffekt_aerob, trainingseffekt_anaerob, vo2max_wert,
-            geraet, raw)
+            geraet, raw, synced_at)
         VALUES (:id, :typ, :name, (:start || '+00')::timestamptz, :dauer, :dist,
             :hm_auf, :hm_ab, :avg_hr, :max_hr, :pace, :kal, :kadenz,
-            :te_a, :te_an, :vo2, :geraet, :raw)
+            :te_a, :te_an, :vo2, :geraet, :raw, now())
         ON CONFLICT (id) DO UPDATE SET
             typ = excluded.typ, name = excluded.name,
             dauer_s = excluded.dauer_s, distanz_m = excluded.distanz_m,
@@ -64,7 +64,8 @@ def _aktivitaet_upsert(con, a):
             avg_kadenz = excluded.avg_kadenz,
             trainingseffekt_aerob = excluded.trainingseffekt_aerob,
             trainingseffekt_anaerob = excluded.trainingseffekt_anaerob,
-            vo2max_wert = excluded.vo2max_wert, raw = excluded.raw
+            vo2max_wert = excluded.vo2max_wert, raw = excluded.raw,
+            synced_at = now()
         """,
         id=a["activityId"],
         typ=(a.get("activityType") or {}).get("typeKey", "unknown"),
@@ -385,3 +386,81 @@ def sync_health(con, garmin) -> dict:
     state["lastSyncAt"] = dt.datetime.utcnow().isoformat() + "Z"
     dbmod.set_sync_state(con, "health", state)
     return {"verarbeitet": verarbeitet, "hasMore": has_more, "state": state}
+
+
+def resync_activity(con, garmin, activity_id) -> dict:
+    """Einzelne Aktivität frisch von Garmin holen und lokal aktualisieren.
+
+    Aktualisiert nur Garmin-Felder (Summary via COALESCE — überschreibt nie
+    mit NULL) und erzwingt frische Streams + Kraftsätze. Manuell gepflegte
+    Spalten werden nicht aufgeführt und bleiben damit erhalten.
+    Rückgabe-Codes: not_local, not_found_at_garmin.
+    """
+    rows = con.run("SELECT typ FROM activities WHERE id = :id", id=activity_id)
+    if not rows:
+        return {"ok": False, "code": "not_local"}
+    typ_local = rows[0][0]
+
+    try:
+        detail = garmin.garth.connectapi(
+            f"/activity-service/activity/{activity_id}"
+        )
+    except Exception:
+        detail = None
+    if not detail:
+        return {"ok": False, "code": "not_found_at_garmin"}
+    _pause()
+
+    s = detail.get("summaryDTO") or {}
+    typ = ((detail.get("activityTypeDTO") or {}).get("typeKey")) or typ_local
+    speed = s.get("averageSpeed") or 0
+    pace = (1000.0 / speed) if speed and speed > 0.5 else None
+
+    con.run(
+        """
+        UPDATE activities SET
+            name = COALESCE(:name, name),
+            typ = COALESCE(:typ, typ),
+            dauer_s = COALESCE(:dauer, dauer_s),
+            distanz_m = COALESCE(:dist, distanz_m),
+            hm_auf = COALESCE(:hmauf, hm_auf),
+            hm_ab = COALESCE(:hmab, hm_ab),
+            avg_hr = COALESCE(:ahr, avg_hr),
+            max_hr = COALESCE(:mhr, max_hr),
+            avg_pace = COALESCE(:pace, avg_pace),
+            kalorien = COALESCE(:kal, kalorien),
+            avg_kadenz = COALESCE(:kad, avg_kadenz),
+            trainingseffekt_aerob = COALESCE(:tea, trainingseffekt_aerob),
+            trainingseffekt_anaerob = COALESCE(:tean, trainingseffekt_anaerob),
+            raw = :raw,
+            synced_at = now()
+        WHERE id = :id
+        """,
+        id=activity_id,
+        name=detail.get("activityName"),
+        typ=typ,
+        dauer=s.get("duration"),
+        dist=s.get("distance"),
+        hmauf=s.get("elevationGain"),
+        hmab=s.get("elevationLoss"),
+        ahr=s.get("averageHR"),
+        mhr=s.get("maxHR"),
+        pace=pace,
+        kal=s.get("calories"),
+        kad=s.get("averageRunCadence"),
+        tea=s.get("trainingEffect"),
+        tean=s.get("anaerobicTrainingEffect"),
+        raw=json.dumps(detail),
+    )
+
+    # Streams erzwingen (nicht an _hat_streams vorbei-skippen)
+    try:
+        _lade_streams(con, garmin, activity_id)
+    except Exception:
+        pass
+    if "strength" in typ or "fitness" in typ:
+        try:
+            _lade_kraft_saetze(con, garmin, activity_id)
+        except Exception:
+            pass
+    return {"ok": True}

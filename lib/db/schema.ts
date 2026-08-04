@@ -35,6 +35,8 @@ export const activities = pgTable("activities", {
   // fasst diese Spalte nie an → gelöschte Aktivitäten kommen nicht zurück
   // (die Zeile selbst ist die Ausschlussliste).
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  // Zeitpunkt des letzten Garmin-Abgleichs (Sync/Resync)
+  syncedAt: timestamp("synced_at", { withTimezone: true }),
 });
 
 /** Zeitreihen-Streams pro Aktivität (für Flyover + Detailanalysen) */

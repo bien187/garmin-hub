@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Dumbbell, Footprints, Timer } from "lucide-react";
+import { Dumbbell, Footprints, RefreshCw, Timer } from "lucide-react";
 import { PolylineSvg } from "./polyline-svg";
 import { SwipeRow } from "./swipe-row";
 import { useActivityDelete } from "./use-activity-delete";
+import { useToast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -53,7 +54,57 @@ export function ActivityList() {
   const stateRef = useRef({ laedt: false, fertig: false, cursor: null as string | null });
   stateRef.current = { laedt, fertig, cursor };
   const loeschen = useActivityDelete();
+  const toast = useToast();
   const [zuLoeschen, setZuLoeschen] = useState<ListenAktivitaet | null>(null);
+  const [resync, setResync] = useState<{ done: number; total: number } | null>(null);
+
+  /** Alle Aktivitäten der letzten 30 Tage sequenziell neu von Garmin holen */
+  const alleAktualisieren = useCallback(async () => {
+    const von = new Date(Date.now() - 30 * 86_400_000).toISOString();
+    const ids: number[] = [];
+    let cur: string | null = null;
+    // IDs des Zeitfensters einsammeln (paginiert)
+    do {
+      const p = new URLSearchParams({ von });
+      if (cur) p.set("cursor", cur);
+      const d = await fetch(`/api/activities?${p}`).then((r) => r.json());
+      for (const a of d.aktivitaeten ?? []) ids.push(a.id);
+      cur = d.nextCursor;
+    } while (cur);
+
+    if (ids.length === 0) {
+      toast({ message: "Keine Aktivitäten in den letzten 30 Tagen." });
+      return;
+    }
+    setResync({ done: 0, total: ids.length });
+    let fehler = 0;
+    for (let i = 0; i < ids.length; i++) {
+      const res = await fetch(`/api/activities/${ids[i]}/resync`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ skipRecompute: true }),
+      }).catch(() => null);
+      if (!res || !res.ok || !(await res.json().catch(() => ({})))?.ok) fehler++;
+      setResync({ done: i + 1, total: ids.length });
+      await new Promise((r) => setTimeout(r, 350)); // Garmin schonen
+    }
+    // Neuberechnung einmal am Ende
+    await fetch("/api/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ typ: "finalize" }),
+    }).catch(() => null);
+    setResync(null);
+    lade(true);
+    toast({
+      message:
+        fehler === 0
+          ? `${ids.length} Aktivitäten aktualisiert.`
+          : `${ids.length - fehler} aktualisiert, ${fehler} fehlgeschlagen.`,
+      variant: fehler === 0 ? "default" : "error",
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toast]);
 
   const entferneAusListe = useCallback((id: number) => {
     setAktivitaeten((alt) => alt.filter((x) => x.id !== id));
@@ -121,7 +172,7 @@ export function ActivityList() {
               key={f.id}
               onClick={() => setTyp(f.id)}
               className={cn(
-                "min-h-[36px] rounded-md px-3 text-sm transition-colors",
+                "min-h-9 rounded-md px-3 text-sm transition-colors",
                 typ === f.id ? "bg-background font-medium" : "text-muted-foreground"
               )}
             >
@@ -135,7 +186,7 @@ export function ActivityList() {
               key={z.id}
               onClick={() => setZeitraum(z.id)}
               className={cn(
-                "min-h-[36px] rounded-md px-3 text-sm transition-colors",
+                "min-h-9 rounded-md px-3 text-sm transition-colors",
                 zeitraum === z.id ? "bg-background font-medium" : "text-muted-foreground"
               )}
             >
@@ -143,6 +194,16 @@ export function ActivityList() {
             </button>
           ))}
         </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          className="ml-auto"
+          disabled={resync != null}
+          onClick={alleAktualisieren}
+        >
+          <RefreshCw className={cn("size-4", resync != null && "animate-spin")} />
+          {resync ? `${resync.done}/${resync.total}` : "Aktualisieren"}
+        </Button>
       </div>
 
       <div className="grid gap-2.5">
@@ -191,7 +252,7 @@ export function ActivityList() {
       {laedt && (
         <div className="grid gap-2.5">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="h-[104px] animate-pulse rounded-xl bg-muted/40" />
+            <div key={i} className="h-26 animate-pulse rounded-xl bg-muted/40" />
           ))}
         </div>
       )}
