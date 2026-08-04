@@ -8,6 +8,17 @@ import { trainingsPaces } from "@/lib/engine/paces";
 import { MuskelId } from "@/lib/engine/muscle";
 import { addTage, heuteIso, montagVon, tageDiff } from "@/lib/format";
 import { ladeLaufModell } from "./ep-service";
+
+/**
+ * Standard, ob eine Einheit an Garmin geht — explizit über den Typ, NICHT
+ * über Namens-Matching. Gym-/nicht-pushbare Einheiten werden ausgeschlossen.
+ * Pro Einheit in der UI überschreibbar.
+ */
+export function standardSyncToGarmin(typ: string): boolean {
+  return !["kraft", "klimmzuege", "gtg", "ruhe", "probe_ep", "liegestuetze"].includes(
+    typ
+  );
+}
 import { istLauf } from "./compute";
 
 /** Trainingsstart für den Wochenindex (Entlastungsrhythmus): fixer Anker */
@@ -140,6 +151,7 @@ export async function generiereUndSpeichereWoche(
       beschreibung: e.beschreibung,
       struktur: e.struktur ?? null,
       erwarteterTrimp: e.erwarteterTrimp ?? null,
+      syncToGarmin: standardSyncToGarmin(e.typ),
       status: "geplant",
     });
   }

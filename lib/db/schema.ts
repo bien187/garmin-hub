@@ -1,5 +1,6 @@
 import {
   bigint,
+  boolean,
   date,
   doublePrecision,
   integer,
@@ -118,6 +119,10 @@ export const plannedWorkouts = pgTable("planned_workouts", {
   struktur: jsonb("struktur"), // WorkoutStruktur (lib/garmin/workout-json.ts)
   erwarteterTrimp: doublePrecision("erwarteter_trimp"),
   garminWorkoutId: bigint("garmin_workout_id", { mode: "number" }),
+  garminScheduleId: bigint("garmin_schedule_id", { mode: "number" }),
+  // Explizites Flag statt Namens-Matching: false = nicht an Garmin senden
+  // (z.B. Gym-Einheiten). Pro Einheit in der UI umschaltbar.
+  syncToGarmin: boolean("sync_to_garmin").notNull().default(true),
   status: text("status").notNull().default("geplant"), // geplant | gepusht | absolviert | verpasst
   matchedActivityId: bigint("matched_activity_id", { mode: "number" }),
 });

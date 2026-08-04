@@ -34,18 +34,34 @@ export async function POST(
       { status: 400 }
     );
   }
+  // Idempotent: bereits übertragene Einheit nicht doppelt anlegen
+  if (einheit.garminWorkoutId) {
+    return NextResponse.json({
+      ok: true,
+      already: true,
+      workoutId: einheit.garminWorkoutId,
+    });
+  }
 
   const workoutJson = baueGarminWorkoutJson(einheit.struktur as WorkoutStruktur);
 
   try {
-    const result = await bridgeFetch<{ ok: boolean; workoutId: number | null }>(
-      "/api/bridge/push_workout",
-      { method: "POST", body: { workout: workoutJson, datum: einheit.datum } }
-    );
+    const result = await bridgeFetch<{
+      ok: boolean;
+      workoutId: number | null;
+      scheduleId: number | null;
+    }>("/api/bridge/push_workout", {
+      method: "POST",
+      body: { workout: workoutJson, datum: einheit.datum },
+    });
     if (result.workoutId) {
       await db
         .update(tables.plannedWorkouts)
-        .set({ garminWorkoutId: result.workoutId, status: "gepusht" })
+        .set({
+          garminWorkoutId: result.workoutId,
+          garminScheduleId: result.scheduleId ?? null,
+          status: "gepusht",
+        })
         .where(eq(tables.plannedWorkouts.id, id));
     }
     return NextResponse.json({

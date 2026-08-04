@@ -8,10 +8,20 @@ import {
   CircleDashed,
   Info,
   RefreshCw,
+  Send,
   Watch,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useToast } from "@/components/ui/toast";
 import { Metronome } from "./metronome";
 import { addTage, formatDatum, heuteIso, montagVon } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -25,7 +35,13 @@ interface PlanEinheit {
   struktur: { sport?: string; metronom?: boolean } | null;
   status: string;
   garminWorkoutId: number | null;
+  syncToGarmin: boolean;
   erwarteterTrimp: number | null;
+}
+
+/** Kann diese Einheit überhaupt als Garmin-Workout übertragen werden? */
+function istPushbar(e: PlanEinheit): boolean {
+  return e.struktur != null && e.typ !== "ruhe" && e.typ !== "gtg";
 }
 
 interface PlanDaten {
@@ -52,12 +68,16 @@ const TYP_FARBEN: Record<string, string> = {
 };
 
 export function WeekView() {
+  const toast = useToast();
   const [woche, setWoche] = useState(() => montagVon(heuteIso()));
   const [daten, setDaten] = useState<PlanDaten | null>(null);
   const [laedt, setLaedt] = useState(false);
   const [generiert, setGeneriert] = useState(false);
   const [meldung, setMeldung] = useState<string | null>(null);
   const [offen, setOffen] = useState<string | null>(null);
+  const [vorschau, setVorschau] = useState(false);
+  const [pushProgress, setPushProgress] = useState<{ done: number; total: number } | null>(null);
+  const [fehlgeschlagen, setFehlgeschlagen] = useState<string[]>([]);
 
   const lade = useCallback(async () => {
     const res = await fetch(`/api/plan?woche=${woche}`);
@@ -103,7 +123,73 @@ export function WeekView() {
     lade();
   }
 
+  /** Garmin-Sync-Flag pro Einheit umschalten */
+  async function toggleSync(id: string, syncToGarmin: boolean) {
+    setDaten((d) =>
+      d
+        ? { ...d, einheiten: d.einheiten.map((e) => (e.id === id ? { ...e, syncToGarmin } : e)) }
+        : d
+    );
+    await fetch(`/api/plan/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ syncToGarmin }),
+    }).catch(() => {});
+  }
+
+  /** Übertragung einer Einheit rückgängig machen */
+  async function entfernenVonUhr(id: string) {
+    const res = await fetch(`/api/plan/${id}/unpush`, { method: "POST" });
+    if (res.ok) toast({ message: "Von der Uhr entfernt." });
+    else toast({ message: "Entfernen fehlgeschlagen.", variant: "error" });
+    lade();
+  }
+
+  /** Einheiten, die beim Sammel-Senden übertragen bzw. übersprungen werden */
+  function partition(einheiten: PlanEinheit[]) {
+    const zuSenden = einheiten.filter(
+      (e) => e.syncToGarmin && istPushbar(e) && !e.garminWorkoutId
+    );
+    const bereits = einheiten.filter((e) => e.garminWorkoutId != null);
+    const uebersprungen = einheiten.filter(
+      (e) => istPushbar(e) && !e.syncToGarmin
+    );
+    return { zuSenden, bereits, uebersprungen };
+  }
+
+  /** Sammel-Übertragung: sequenziell, mit Fortschritt + Teilfehler-Bericht */
+  async function sendeAlle(ids: string[]) {
+    setVorschau(false);
+    setPushProgress({ done: 0, total: ids.length });
+    const neuFehlgeschlagen: string[] = [];
+    for (let i = 0; i < ids.length; i++) {
+      const res = await fetch(`/api/plan/${ids[i]}/push`, { method: "POST" }).catch(
+        () => null
+      );
+      const ok = res?.ok && (await res.json().catch(() => ({})))?.ok;
+      if (!ok) neuFehlgeschlagen.push(ids[i]);
+      setPushProgress({ done: i + 1, total: ids.length });
+      await new Promise((r) => setTimeout(r, 400)); // Garmin schonen
+    }
+    setPushProgress(null);
+    setFehlgeschlagen(neuFehlgeschlagen);
+    await lade();
+    const erfolg = ids.length - neuFehlgeschlagen.length;
+    toast({
+      message:
+        neuFehlgeschlagen.length === 0
+          ? `${erfolg} Einheiten an Garmin gesendet. Uhr synchronisieren.`
+          : `${erfolg} gesendet, ${neuFehlgeschlagen.length} fehlgeschlagen.`,
+      variant: neuFehlgeschlagen.length === 0 ? "default" : "error",
+      actionLabel: neuFehlgeschlagen.length ? "Fehlgeschlagene erneut" : undefined,
+      onAction: neuFehlgeschlagen.length
+        ? () => sendeAlle(neuFehlgeschlagen)
+        : undefined,
+    });
+  }
+
   const heute = heuteIso();
+  const teile = daten ? partition(daten.einheiten) : null;
 
   return (
     <div className="space-y-3">
@@ -169,6 +255,27 @@ export function WeekView() {
         </div>
       ) : (
         <>
+          {/* Sammel-Aktion: der einzige gefüllte Akzentbutton dieser Seite */}
+          {teile && (teile.zuSenden.length > 0 || pushProgress) && (
+            <Button
+              className="w-full"
+              disabled={pushProgress != null}
+              onClick={() => setVorschau(true)}
+            >
+              {pushProgress ? (
+                <>
+                  <RefreshCw className="size-4 animate-spin" />
+                  Sende… {pushProgress.done}/{pushProgress.total}
+                </>
+              ) : (
+                <>
+                  <Send className="size-4" />
+                  Alle an Garmin senden ({teile.zuSenden.length})
+                </>
+              )}
+            </Button>
+          )}
+
           <div className="space-y-3">
             {[0, 1, 2, 3, 4, 5, 6].map((i) => {
               const datum = addTage(woche, i);
@@ -230,12 +337,43 @@ export function WeekView() {
                           {istOffen && (
                             <div className="space-y-2.5 border-t border-border/60 p-3 text-sm">
                               <p className="text-muted-foreground">{e.beschreibung}</p>
+                              {/* Garmin-Sync-Flag pro Einheit + Status */}
+                              {kannPushen && (
+                                <div className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2">
+                                  <div className="flex items-center gap-2">
+                                    <span>An Garmin senden</span>
+                                    {e.garminWorkoutId != null && (
+                                      <span className="flex items-center gap-1 text-[10px] text-primary">
+                                        <Check className="size-3" /> übertragen
+                                      </span>
+                                    )}
+                                    {fehlgeschlagen.includes(e.id) && (
+                                      <span className="text-[10px] text-status-red">
+                                        Fehler
+                                      </span>
+                                    )}
+                                  </div>
+                                  <Switch
+                                    checked={e.syncToGarmin}
+                                    onCheckedChange={(v) => toggleSync(e.id, v)}
+                                  />
+                                </div>
+                              )}
                               {e.struktur?.metronom && <Metronome />}
                               <div className="flex flex-wrap gap-1.5">
-                                {kannPushen && (
+                                {kannPushen && e.garminWorkoutId == null && (
                                   <Button size="sm" variant="secondary" onClick={() => pushe(e.id)}>
                                     <Watch className="size-4" />
-                                    {e.garminWorkoutId ? "Erneut auf die Uhr" : "Auf die Uhr laden"}
+                                    Auf die Uhr laden
+                                  </Button>
+                                )}
+                                {kannPushen && e.garminWorkoutId != null && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => entfernenVonUhr(e.id)}
+                                  >
+                                    <X className="size-4" /> Von der Uhr entfernen
                                   </Button>
                                 )}
                                 {e.status !== "absolviert" ? (
@@ -274,6 +412,60 @@ export function WeekView() {
           </div>
         </>
       )}
+
+      {/* Vorschau vor dem Sammel-Senden */}
+      <Dialog open={vorschau} onOpenChange={setVorschau}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>An Garmin senden</DialogTitle>
+          </DialogHeader>
+          {teile && (
+            <div className="space-y-3 text-sm">
+              <div>
+                <div className="mb-1 text-xs uppercase tracking-wider text-muted-foreground">
+                  Diese {teile.zuSenden.length} Einheiten werden übertragen
+                </div>
+                <ul className="space-y-1">
+                  {teile.zuSenden.map((e) => (
+                    <li key={e.id} className="flex items-center gap-2">
+                      <Watch className="size-3.5 shrink-0 text-primary" />
+                      <span className="flex-1 truncate">{e.titel}</span>
+                      <span className="stat-mono text-[10px] text-muted-foreground">
+                        {formatDatum(e.datum)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              {teile.uebersprungen.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {teile.uebersprungen.length} Einheit(en) übersprungen (nicht für
+                  Garmin markiert, z.B. Gym).
+                </p>
+              )}
+              {teile.bereits.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {teile.bereits.length} bereits übertragen — werden nicht doppelt
+                  angelegt.
+                </p>
+              )}
+            </div>
+          )}
+          <DialogFooter className="flex-row justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setVorschau(false)}>
+              Abbrechen
+            </Button>
+            <Button
+              size="sm"
+              disabled={!teile || teile.zuSenden.length === 0}
+              onClick={() => teile && sendeAlle(teile.zuSenden.map((e) => e.id))}
+            >
+              <Send className="size-4" />
+              Senden
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
