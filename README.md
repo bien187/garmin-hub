@@ -43,6 +43,28 @@ der Schweizer Armee-Grenadiere** (Mitte November 2026) vor.
   muskelspezifisches τ), Bottom-Sheet mit Beiträgen + Sparkline,
   Systemik-Karte (TSB/ACWR/HRV-Trend).
 - **PWA**: installierbar, Dark-first, Offline-Fallback auf letzte Daten.
+- **Aktivitäts-Verwaltung**: **Löschen** (lokaler Soft-Delete, bleibt bei
+  Garmin; kommt nach Sync nicht zurück; Swipe-to-Delete + Undo-Toast) und
+  **Aktualisieren** (einzeln oder „letzte 30 Tage" gesammelt; frische Streams
+  + Sätze von Garmin, manuell gepflegte Felder bleiben erhalten).
+- **Plan → Garmin (Sammel-Push)**: „Alle an Garmin senden" mit Vorschau,
+  explizitem `syncToGarmin`-Flag pro Einheit (kein Namens-Matching; Gym
+  ausgeschlossen, per Switch umschaltbar), idempotent (keine Duplikate) und
+  **rückgängig machbar** (entfernt Workout + Kalendereintrag bei Garmin).
+- **Muskel-Template**: Gym-Einheiten ohne verwertbare Übungsdetails kann man
+  manuell ein Template zuweisen (Push/Pull/Beine/Ganzkörper/Core); die
+  Zuweisung überschreibt die Ableitung und übersteht den Resync.
+
+## Sicherheit
+
+- CSP + HSTS + X-Frame-DENY + Referrer-/Permissions-Policy (Kamera/Mikro aus),
+  `noindex`.
+- App-Login: zeitkonstanter Vergleich, signiertes HttpOnly-Cookie.
+- DB-gestütztes Rate-Limiting: Login 8/15 min, Sync 240/10 min, Push 60/10 min.
+- Handler-seitige Session-Prüfung zusätzlich zur Middleware; Garmin-Zugriff
+  nur serverseitig; garth-Token AES-GCM-verschlüsselt in der DB.
+- **In Vercel manuell aktivieren:** Deployment Protection für Preview-Deploys
+  (sonst sind Preview-URLs öffentlich).
 
 ## Tech-Stack
 
