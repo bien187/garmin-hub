@@ -1,16 +1,23 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb, tables } from "@/lib/db";
 import { bridgeFetch, BridgeError } from "@/lib/garmin/bridge";
 import { baueGarminCourseJson, CourseGeojson } from "@/lib/garmin/course-json";
+import { requireSession } from "@/lib/api";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 export const maxDuration = 60;
 
 /** POST /api/courses/[id]/push — Route an Garmin senden */
 export async function POST(
-  _req: NextRequest,
+  _req: Request,
   ctx: { params: Promise<{ id: string }> }
 ) {
+  const nichtAuth = await requireSession();
+  if (nichtAuth) return nichtAuth;
+  const limit = await rateLimit("push", { max: 60, windowSec: 600 });
+  if (!limit.ok) return tooManyRequests(limit.retryAfterS);
+
   const { id } = await ctx.params;
   const db = getDb();
   const [course] = await db

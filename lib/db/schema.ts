@@ -156,3 +156,10 @@ export const appSettings = pgTable("app_settings", {
   key: text("key").primaryKey(),
   value: jsonb("value").notNull(),
 });
+
+/** Fixed-Window-Rate-Limits (Brute-Force-Schutz Login, Garmin-Schonung) */
+export const rateLimits = pgTable("rate_limits", {
+  key: text("key").primaryKey(), // z.B. "login", "sync", "push"
+  count: integer("count").notNull().default(0),
+  windowStart: timestamp("window_start", { withTimezone: true }).notNull().defaultNow(),
+});

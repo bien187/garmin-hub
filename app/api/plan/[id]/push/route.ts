@@ -1,17 +1,24 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb, tables } from "@/lib/db";
 import { bridgeFetch, BridgeError } from "@/lib/garmin/bridge";
 import { baueGarminWorkoutJson } from "@/lib/garmin/workout-json";
 import { WorkoutStruktur } from "@/lib/garmin/workout-types";
+import { requireSession } from "@/lib/api";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 export const maxDuration = 60;
 
 /** POST /api/plan/[id]/push — geplante Einheit auf die Uhr laden */
 export async function POST(
-  _req: NextRequest,
+  _req: Request,
   ctx: { params: Promise<{ id: string }> }
 ) {
+  const nichtAuth = await requireSession();
+  if (nichtAuth) return nichtAuth;
+  const limit = await rateLimit("push", { max: 60, windowSec: 600 });
+  if (!limit.ok) return tooManyRequests(limit.retryAfterS);
+
   const { id } = await ctx.params;
   const db = getDb();
   const [einheit] = await db

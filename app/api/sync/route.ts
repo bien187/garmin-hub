@@ -1,16 +1,32 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { z } from "zod";
 import { bridgeFetch, BridgeError } from "@/lib/garmin/bridge";
 import { recomputeAll } from "@/lib/server/compute";
+import { parseBody, requireSession } from "@/lib/api";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 export const maxDuration = 60;
+
+const SyncSchema = z.object({
+  typ: z.enum(["activities", "health", "finalize"]),
+});
 
 /**
  * POST /api/sync — führt einen Sync-Chunk aus (Proxy auf die Python-Bridge).
  * Body: { typ: "activities" | "health" | "finalize" }
  * "finalize" stösst die Neuberechnung aller abgeleiteten Daten an.
  */
-export async function POST(req: NextRequest) {
-  const { typ } = await req.json().catch(() => ({ typ: "activities" }));
+export async function POST(req: Request) {
+  const nichtAuth = await requireSession();
+  if (nichtAuth) return nichtAuth;
+
+  // Garmin schonen: grosszügig genug für den Chunk-Backfill, blockt Runaway
+  const limit = await rateLimit("sync", { max: 240, windowSec: 600 });
+  if (!limit.ok) return tooManyRequests(limit.retryAfterS);
+
+  const { data, error } = await parseBody(req, SyncSchema);
+  if (error) return error;
+  const { typ } = data;
 
   if (typ === "finalize") {
     await recomputeAll();
