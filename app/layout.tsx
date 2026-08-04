@@ -43,8 +43,10 @@ export const viewport: Viewport = {
   themeColor: "#10151d",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  // Pinch-Zoom erlaubt (Barrierefreiheit) — Eingabefelder sind 16px, damit
+  // iOS beim Fokussieren nicht auto-zoomt.
   viewportFit: "cover",
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({

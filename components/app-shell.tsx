@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   Activity,
   CalendarRange,
@@ -26,8 +27,27 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(href + "/");
 }
 
+/** Erkennt eine offene Bildschirmtastatur via VisualViewport-Schrumpfung */
+function useKeyboardOpen(): boolean {
+  const [offen, setOffen] = useState(false);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const pruefe = () => {
+      // Tastatur belegt spürbaren Anteil der Höhe → Layout-Viewport minus
+      // sichtbarer Viewport gross
+      setOffen(window.innerHeight - vv.height > 140);
+    };
+    pruefe();
+    vv.addEventListener("resize", pruefe);
+    return () => vv.removeEventListener("resize", pruefe);
+  }, []);
+  return offen;
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const tastaturOffen = useKeyboardOpen();
 
   // Login-Seite ohne Navigation rendern
   if (pathname === "/login") return <>{children}</>;
@@ -82,21 +102,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Content */}
       <main className="flex h-dvh min-w-0 flex-1 flex-col md:ml-56">
         {fullBleed ? (
-          <div className="min-h-0 flex-1 pb-[calc(52px+env(safe-area-inset-bottom))] md:pb-0">
-            {children}
-          </div>
+          // Vollflächige Karte: unten Platz für die Navbar; oben clearen die
+          // MapLibre-Controls die Dynamic Island via CSS (siehe globals.css)
+          <div className="map-bleed-pad min-h-0 flex-1">{children}</div>
         ) : (
           <div
             id="app-scroll"
-            className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[calc(60px+env(safe-area-inset-bottom))] md:pb-4"
+            className="app-scroll-pad min-h-0 flex-1 overflow-y-auto overscroll-contain"
           >
             {children}
           </div>
         )}
       </main>
 
-      {/* Bottom-Tab-Bar (Mobile) */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-sidebar/95 backdrop-blur pb-safe md:hidden">
+      {/* Bottom-Tab-Bar (Mobile) — bei offener Tastatur ausblenden, damit sie
+          auf iOS nicht über der Tastatur schwebt */}
+      <nav
+        className={cn(
+          "fixed inset-x-0 bottom-0 z-40 border-t border-border bg-sidebar/95 backdrop-blur pb-safe transition-transform duration-200 md:hidden",
+          tastaturOffen && "translate-y-full"
+        )}
+      >
         <div className="grid grid-cols-5">
           {TABS.map(({ href, label, icon: Icon }) => {
             const active = isActive(pathname, href);

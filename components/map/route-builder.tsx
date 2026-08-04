@@ -490,7 +490,7 @@ export function RouteBuilder() {
   const dauerS = (stats.gapDist / 1000) * z2PaceSKm;
 
   return (
-    <div className="relative h-full w-full">
+    <div className="map-fullbleed relative h-full w-full">
       {/* Inline-Style nötig: maplibre-gl.css überschreibt die
           Tailwind-Positionsklasse (.maplibregl-map { position: relative }) */}
       <div
@@ -498,8 +498,8 @@ export function RouteBuilder() {
         style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
       />
 
-      {/* Toolbar oben links */}
-      <div className="absolute left-2 top-2 z-10 flex flex-col gap-1.5">
+      {/* Toolbar oben links — clear der Dynamic Island via Safe-Area */}
+      <div className="absolute left-[calc(var(--sal)+8px)] top-[calc(var(--sat)+8px)] z-10 flex flex-col gap-1.5">
         <div className="flex gap-1.5">
           <IconBtn onClick={undo} title="Rückgängig">
             <Undo2 className="size-4" />

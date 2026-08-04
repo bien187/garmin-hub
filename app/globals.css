@@ -155,14 +155,92 @@
   }
 }
 
+/* ---- Mobile-Grundlagen (iPhone 15 Pro, Safari + PWA-Standalone) ---- */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --nav-h: 60px;
+}
+
+html {
+  /* kein horizontales Wegscrollen, kein Gummiband der ganzen Seite */
+  overflow-x: hidden;
+  overscroll-behavior-y: none;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Double-Tap-Zoom-Delay vermeiden; echte Pinch-Zoom-Geste bleibt erlaubt */
+a,
+button,
+[role="button"],
+label,
+summary {
+  touch-action: manipulation;
+}
+
+/* iOS zoomt bei < 16px beim Fokussieren — deshalb Mindestgrösse erzwingen */
+input,
+textarea,
+select {
+  font-size: max(16px, 1em);
+}
+
+/* Safe-Area-Helfer (semantische Klassen statt Tailwind-Arbitrary-Vars —
+   `pt-[var(--sat)]` emittiert in Tailwind v4 keine Regel) */
+.pt-safe {
+  padding-top: var(--sat);
+}
+.pb-safe {
+  padding-bottom: var(--sab);
+}
+.pl-safe {
+  padding-left: var(--sal);
+}
+.pr-safe {
+  padding-right: var(--sar);
+}
+
+/* Haupt-Scroll-Container: oben Island-Freihaltung, unten Navbar-Freihaltung */
+.app-scroll-pad {
+  padding-top: var(--sat);
+  padding-bottom: calc(var(--nav-h) + var(--sab) + 16px);
+}
+/* Vollbild-Karte: nur unten Navbar-Freihaltung (oben clearen die Controls) */
+.map-bleed-pad {
+  padding-bottom: calc(var(--nav-h) + var(--sab));
+}
+@media (min-width: 768px) {
+  .app-scroll-pad {
+    padding-top: 0;
+    padding-bottom: 1rem;
+  }
+  .map-bleed-pad {
+    padding-bottom: 0;
+  }
+}
+
 /* Karten-Gesten nicht mit Seiten-Scroll kollidieren lassen */
 .maplibregl-map {
   touch-action: none;
 }
 
-/* Bottom-Tab-Bar Safe-Area (iOS PWA) */
-.pb-safe {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+/* Vollbild-Karte: Controls + Toolbar clearen Dynamic Island / Home-Indicator */
+.map-fullbleed .maplibregl-ctrl-top-right,
+.map-fullbleed .maplibregl-ctrl-top-left {
+  margin-top: calc(var(--sat) + 8px);
+}
+.map-fullbleed .maplibregl-ctrl-top-left {
+  margin-left: calc(var(--sal) + 8px);
+}
+.map-fullbleed .maplibregl-ctrl-top-right {
+  margin-right: calc(var(--sar) + 8px);
 }
 
 @media (prefers-reduced-motion: reduce) {
