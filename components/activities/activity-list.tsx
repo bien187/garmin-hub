@@ -4,6 +4,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Dumbbell, Footprints, Timer } from "lucide-react";
 import { PolylineSvg } from "./polyline-svg";
+import { SwipeRow } from "./swipe-row";
+import { useActivityDelete } from "./use-activity-delete";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { formatDauer, formatKm, formatPace, formatZeit } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +52,17 @@ export function ActivityList() {
   const sentinel = useRef<HTMLDivElement>(null);
   const stateRef = useRef({ laedt: false, fertig: false, cursor: null as string | null });
   stateRef.current = { laedt, fertig, cursor };
+  const loeschen = useActivityDelete();
+  const [zuLoeschen, setZuLoeschen] = useState<ListenAktivitaet | null>(null);
+
+  const entferneAusListe = useCallback((id: number) => {
+    setAktivitaeten((alt) => alt.filter((x) => x.id !== id));
+  }, []);
+  const wiederEinfuegen = useCallback((a: ListenAktivitaet) => {
+    setAktivitaeten((alt) =>
+      [...alt, a].sort((x, y) => y.startZeit.localeCompare(x.startZeit))
+    );
+  }, []);
 
   const lade = useCallback(
     async (reset: boolean) => {
@@ -129,39 +150,40 @@ export function ActivityList() {
           const datum = new Date(a.startZeit);
           const istKraftTyp = a.typ.includes("strength") || a.typ.includes("fitness");
           return (
-            <Link
-              key={a.id}
-              href={`/activities/${a.id}`}
-              className="flex gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:border-primary/40"
-            >
-              <PolylineSvg encoded={a.polyline} className="size-20 shrink-0" />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  {istKraftTyp ? (
-                    <Dumbbell className="size-3.5" />
-                  ) : (
-                    <Footprints className="size-3.5" />
-                  )}
-                  {datum.toLocaleDateString("de-CH", {
-                    weekday: "short",
-                    day: "numeric",
-                    month: "short",
-                  })}{" "}
-                  · {formatZeit(datum)}
+            <SwipeRow key={a.id} onDelete={() => setZuLoeschen(a)}>
+              <Link
+                href={`/activities/${a.id}`}
+                className="flex gap-3 border border-border bg-card p-3 transition-colors hover:border-primary/40"
+              >
+                <PolylineSvg encoded={a.polyline} className="size-20 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    {istKraftTyp ? (
+                      <Dumbbell className="size-3.5" />
+                    ) : (
+                      <Footprints className="size-3.5" />
+                    )}
+                    {datum.toLocaleDateString("de-CH", {
+                      weekday: "short",
+                      day: "numeric",
+                      month: "short",
+                    })}{" "}
+                    · {formatZeit(datum)}
+                  </div>
+                  <div className="mt-0.5 truncate font-medium">{a.name ?? a.typ}</div>
+                  <div className="stat-mono mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Timer className="size-3" />
+                      {formatDauer(a.dauerS)}
+                    </span>
+                    {a.distanzM != null && a.distanzM > 100 && <span>{formatKm(a.distanzM)}</span>}
+                    {a.avgPace != null && !istKraftTyp && <span>{formatPace(a.avgPace)}</span>}
+                    {a.hmAuf != null && a.hmAuf > 20 && <span>{Math.round(a.hmAuf)} Hm</span>}
+                    {a.avgHr != null && <span>{Math.round(a.avgHr)} bpm</span>}
+                  </div>
                 </div>
-                <div className="mt-0.5 truncate font-medium">{a.name ?? a.typ}</div>
-                <div className="stat-mono mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Timer className="size-3" />
-                    {formatDauer(a.dauerS)}
-                  </span>
-                  {a.distanzM != null && a.distanzM > 100 && <span>{formatKm(a.distanzM)}</span>}
-                  {a.avgPace != null && !istKraftTyp && <span>{formatPace(a.avgPace)}</span>}
-                  {a.hmAuf != null && a.hmAuf > 20 && <span>{Math.round(a.hmAuf)} Hm</span>}
-                  {a.avgHr != null && <span>{Math.round(a.avgHr)} bpm</span>}
-                </div>
-              </div>
-            </Link>
+              </Link>
+            </SwipeRow>
           );
         })}
       </div>
@@ -179,6 +201,39 @@ export function ActivityList() {
         </p>
       )}
       <div ref={sentinel} />
+
+      <Dialog open={zuLoeschen != null} onOpenChange={(o) => !o && setZuLoeschen(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Aktivität aus dem Hub entfernen?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            «{zuLoeschen?.name ?? zuLoeschen?.typ}» wird nur hier ausgeblendet.
+            Bei Garmin Connect bleibt sie bestehen. Rückgängig direkt danach möglich.
+          </p>
+          <DialogFooter className="flex-row justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setZuLoeschen(null)}>
+              Abbrechen
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-status-red/50 text-status-red hover:bg-status-red/10"
+              onClick={() => {
+                const a = zuLoeschen;
+                setZuLoeschen(null);
+                if (a)
+                  loeschen(a.id, {
+                    onRemoved: () => entferneAusListe(a.id),
+                    onRestore: () => wiederEinfuegen(a),
+                  });
+              }}
+            >
+              Entfernen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

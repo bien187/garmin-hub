@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, lte } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, lte } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { getDb, tables } from "@/lib/db";
 import { ladeProfil, hrZonen } from "@/lib/profile";
@@ -38,7 +38,8 @@ export async function generiereUndSpeichereWoche(
     .where(
       and(
         gte(tables.activities.startZeit, new Date(vorwocheVon + "T00:00:00")),
-        lte(tables.activities.startZeit, new Date(montag + "T00:00:00"))
+        lte(tables.activities.startZeit, new Date(montag + "T00:00:00")),
+        isNull(tables.activities.deletedAt)
       )
     );
   const vorwocheLaufMin = Math.round(

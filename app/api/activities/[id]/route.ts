@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { getDb, tables } from "@/lib/db";
 import { ladeProfil, hrZonen } from "@/lib/profile";
 import { gapAusStreams } from "@/lib/engine/gap";
@@ -9,6 +9,8 @@ import {
   zonenVerteilung,
 } from "@/lib/engine/efficiency";
 import { mappeUebung } from "@/lib/engine/muscle";
+import { requireSession } from "@/lib/api";
+import { recomputeAll } from "@/lib/server/compute";
 
 /** GET /api/activities/[id] — Detail inkl. Streams + berechneter Metriken */
 export async function GET(
@@ -25,7 +27,9 @@ export async function GET(
   const [aktivitaet] = await db
     .select()
     .from(tables.activities)
-    .where(eq(tables.activities.id, activityId));
+    .where(
+      and(eq(tables.activities.id, activityId), isNull(tables.activities.deletedAt))
+    );
   if (!aktivitaet) {
     return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
   }
@@ -109,4 +113,34 @@ export async function GET(
       zonen,
     },
   });
+}
+
+/**
+ * DELETE /api/activities/[id] — lokaler Soft-Delete (Aktivität bleibt bei
+ * Garmin). Setzt deleted_at; die Zeile bleibt als Ausschluss bestehen, damit
+ * der Sync sie nicht wieder einblendet. Idempotent. Danach Neuberechnung,
+ * damit Statistiken und Muskelstatus die Einheit sofort ausklammern.
+ */
+export async function DELETE(
+  _req: NextRequest,
+  ctx: { params: Promise<{ id: string }> }
+) {
+  const nichtAuth = await requireSession();
+  if (nichtAuth) return nichtAuth;
+
+  const { id } = await ctx.params;
+  const activityId = Number(id);
+  if (!Number.isFinite(activityId)) {
+    return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
+  }
+
+  const db = getDb();
+  await db
+    .update(tables.activities)
+    .set({ deletedAt: new Date() })
+    .where(
+      and(eq(tables.activities.id, activityId), isNull(tables.activities.deletedAt))
+    );
+  await recomputeAll();
+  return NextResponse.json({ ok: true });
 }

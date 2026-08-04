@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { getDb, tables } from "@/lib/db";
 import { ladeProfil, speichereProfil } from "@/lib/profile";
 import { trimpFuerEinheit } from "@/lib/engine/trimp";
@@ -56,7 +56,8 @@ export async function recomputeAll(): Promise<void> {
       hmAb: tables.activities.hmAb,
       avgHr: tables.activities.avgHr,
     })
-    .from(tables.activities);
+    .from(tables.activities)
+    .where(isNull(tables.activities.deletedAt));
 
   if (alleAktivitaeten.length === 0) return;
 
@@ -400,7 +401,12 @@ export async function matcheGeplanteEinheiten(): Promise<void> {
       dauerS: tables.activities.dauerS,
     })
     .from(tables.activities)
-    .where(gte(tables.activities.startZeit, new Date(addTage(heute, -22) + "T00:00:00")));
+    .where(
+      and(
+        gte(tables.activities.startZeit, new Date(addTage(heute, -22) + "T00:00:00")),
+        isNull(tables.activities.deletedAt)
+      )
+    );
 
   const laufPlanTypen = ["lauf_z2", "intervalle", "huegel_intervalle", "langer_lauf", "lastlauf", "probe_ep"];
 

@@ -31,6 +31,10 @@ export const activities = pgTable("activities", {
   geraet: text("geraet"),
   polyline: text("polyline"), // encoded polyline
   raw: jsonb("raw"),
+  // Soft-Delete: gesetzt = im Hub ausgeblendet. Der Garmin-Sync-Upsert
+  // fasst diese Spalte nie an → gelöschte Aktivitäten kommen nicht zurück
+  // (die Zeile selbst ist die Ausschlussliste).
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 /** Zeitreihen-Streams pro Aktivität (für Flyover + Detailanalysen) */

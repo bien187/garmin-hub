@@ -1,4 +1,4 @@
-import { gte, inArray } from "drizzle-orm";
+import { and, gte, inArray, isNull } from "drizzle-orm";
 import { getDb, tables } from "@/lib/db";
 import { ladeProfil } from "@/lib/profile";
 import { trimpFuerEinheit } from "@/lib/engine/trimp";
@@ -36,7 +36,7 @@ export async function ladeMuskelBeitraege(tage = 7): Promise<MuskelBeitrag[]> {
       avgHr: tables.activities.avgHr,
     })
     .from(tables.activities)
-    .where(gte(tables.activities.startZeit, seit));
+    .where(and(gte(tables.activities.startZeit, seit), isNull(tables.activities.deletedAt)));
 
   const kraftIds = acts.filter((a) => istKraft(a.typ)).map((a) => a.id);
   const saetze = kraftIds.length

@@ -1,7 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useActivityDelete } from "../use-activity-delete";
 import { FlyoverApi, FlyoverMap, FlyoverStreams } from "./flyover-map";
 import { FlyoverGraph } from "./flyover-graph";
 import { ElevationChart } from "./elevation-chart";
@@ -62,9 +73,12 @@ const ZONEN_FARBEN: Record<string, string> = {
 };
 
 export function ActivityDetail({ id }: { id: string }) {
+  const router = useRouter();
+  const loeschen = useActivityDelete();
   const [daten, setDaten] = useState<DetailDaten | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);
   const [flyover, setFlyover] = useState<FlyoverApi | null>(null);
+  const [loeschenOffen, setLoeschenOffen] = useState(false);
 
   useEffect(() => {
     fetch(`/api/activities/${id}`)
@@ -109,14 +123,56 @@ export function ActivityDetail({ id }: { id: string }) {
 
   return (
     <div className="mx-auto max-w-4xl space-y-4 p-4 md:p-6">
-      <div>
-        <div className="text-xs text-muted-foreground">
-          {formatDatumLang(isoDatum(new Date(a.startZeit)))} · {a.typ}
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-xs text-muted-foreground">
+            {formatDatumLang(isoDatum(new Date(a.startZeit)))} · {a.typ}
+          </div>
+          <h1 className="stat-display text-2xl uppercase tracking-wide">
+            {a.name ?? a.typ}
+          </h1>
         </div>
-        <h1 className="stat-display text-2xl uppercase tracking-wide">
-          {a.name ?? a.typ}
-        </h1>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Aktivität löschen"
+          className="shrink-0 text-status-red hover:bg-status-red/10"
+          onClick={() => setLoeschenOffen(true)}
+        >
+          <Trash2 className="size-4" />
+        </Button>
       </div>
+
+      <Dialog open={loeschenOffen} onOpenChange={setLoeschenOffen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Aktivität aus dem Hub entfernen?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            «{a.name ?? a.typ}» wird nur hier ausgeblendet. Bei Garmin Connect
+            bleibt sie bestehen. Rückgängig direkt danach möglich.
+          </p>
+          <DialogFooter className="flex-row justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setLoeschenOffen(false)}>
+              Abbrechen
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-status-red/50 text-status-red hover:bg-status-red/10"
+              onClick={() => {
+                setLoeschenOffen(false);
+                loeschen(a.id, {
+                  onRestore: () => router.push(`/activities/${a.id}`),
+                });
+                router.push("/activities");
+              }}
+            >
+              Entfernen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Kernmetriken */}
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">

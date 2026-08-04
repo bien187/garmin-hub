@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull } from "drizzle-orm";
 import { getDb, tables } from "@/lib/db";
 import { ladeProfil, PROFIL_DEFAULTS, Profil } from "@/lib/profile";
 import { EpPrognose, berechneEpPrognose } from "@/lib/ep/prognose";
@@ -82,6 +82,7 @@ export async function ladeDashboard(): Promise<DashboardDaten> {
             distanzM: tables.activities.distanzM,
           })
           .from(tables.activities)
+          .where(isNull(tables.activities.deletedAt))
           .orderBy(desc(tables.activities.startZeit))
           .limit(1),
         db

@@ -13,6 +13,7 @@ import {
   Mountain,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ToastProvider } from "@/components/ui/toast";
 
 const TABS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -57,6 +58,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Fester App-Rahmen: die Seite selbst scrollt nie (Navbar bleibt immer
   // stehen), Inhalte scrollen bei Bedarf im internen Container.
   return (
+    <ToastProvider>
     <div className="flex h-dvh overflow-hidden">
       {/* Sidebar (Desktop) */}
       <aside className="hidden md:flex md:w-56 md:flex-col md:border-r md:border-sidebar-border md:bg-sidebar fixed inset-y-0 z-40">
@@ -143,5 +145,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </nav>
     </div>
+    </ToastProvider>
   );
 }

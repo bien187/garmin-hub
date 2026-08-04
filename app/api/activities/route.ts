@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, desc, gte, lt, like, SQL } from "drizzle-orm";
+import { and, desc, gte, isNull, lt, like, SQL } from "drizzle-orm";
 import { getDb, tables } from "@/lib/db";
 
 /**
@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   const typ = p.get("typ");
   const von = p.get("von");
 
-  const bedingungen: SQL[] = [];
+  const bedingungen: SQL[] = [isNull(tables.activities.deletedAt)];
   if (cursor) bedingungen.push(lt(tables.activities.startZeit, new Date(cursor)));
   if (typ && typ !== "alle") {
     if (typ === "running") bedingungen.push(like(tables.activities.typ, "%running%"));
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
       polyline: tables.activities.polyline,
     })
     .from(tables.activities)
-    .where(bedingungen.length ? and(...bedingungen) : undefined)
+    .where(and(...bedingungen))
     .orderBy(desc(tables.activities.startZeit))
     .limit(20);
 
