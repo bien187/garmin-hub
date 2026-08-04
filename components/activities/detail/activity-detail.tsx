@@ -19,7 +19,13 @@ import { FlyoverGraph } from "./flyover-graph";
 import { ElevationChart } from "./elevation-chart";
 import { FLYOVER_DAUER_S } from "@/lib/engine/flyover";
 import { BodyMap } from "@/components/body/body-map";
-import { lastenAusKraft, MUSKEL_NAME, MuskelId } from "@/lib/engine/muscle";
+import {
+  lastenAusKraft,
+  lastenAusTemplate,
+  MUSKEL_NAME,
+  MUSKEL_TEMPLATES,
+  MuskelId,
+} from "@/lib/engine/muscle";
 import {
   formatDauer,
   formatDatumLang,
@@ -47,6 +53,7 @@ interface DetailDaten {
     trainingseffektAerob: number | null;
     vo2maxWert: number | null;
     syncedAt: string | null;
+    manualMuscleTemplate: string | null;
   };
   streams: FlyoverStreams | null;
   saetze: {
@@ -97,6 +104,22 @@ export function ActivityDetail({ id }: { id: string }) {
       .catch((e) => setFehler(e.message));
   }, [ladeDetail]);
 
+  async function setzeTemplate(template: string | null) {
+    // optimistisch
+    setDaten((d) => (d ? { ...d, aktivitaet: { ...d.aktivitaet, manualMuscleTemplate: template } } : d));
+    const res = await fetch(`/api/activities/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ manualMuscleTemplate: template }),
+    }).catch(() => null);
+    if (res && res.ok) {
+      setDaten(await ladeDetail());
+      toast({ message: template ? "Template zugewiesen." : "Template entfernt." });
+    } else {
+      toast({ message: "Konnte Template nicht speichern.", variant: "error" });
+    }
+  }
+
   async function aktualisieren() {
     setAktualisiert(true);
     try {
@@ -141,18 +164,23 @@ export function ActivityDetail({ id }: { id: string }) {
   const istKraftTyp = a.typ.includes("strength") || a.typ.includes("fitness");
   const zonenGesamt = m.zonenZeit?.reduce((s, z) => s + z.sekunden, 0) ?? 0;
 
-  /* Muskel-Lasten dieser Kraft-Einheit für die Mini-Body-Map */
-  const kraftLasten = istKraftTyp
-    ? lastenAusKraft(
-        daten.saetze.map((s) => ({
-          uebungKey: s.uebungName,
-          saetze: s.saetze,
-          wdh: s.wdh,
-          gewichtKg: s.gewichtKg,
-        })),
-        88
-      )
-    : {};
+  /* Muskel-Lasten dieser Kraft-Einheit für die Mini-Body-Map.
+     Manuelles Template hat Vorrang vor der Ableitung aus den Sätzen. */
+  const kraftLasten = !istKraftTyp
+    ? {}
+    : a.manualMuscleTemplate
+      ? lastenAusTemplate(a.manualMuscleTemplate, 60)
+      : daten.saetze.length > 0
+        ? lastenAusKraft(
+            daten.saetze.map((s) => ({
+              uebungKey: s.uebungName,
+              saetze: s.saetze,
+              wdh: s.wdh,
+              gewichtKg: s.gewichtKg,
+            })),
+            88
+          )
+        : lastenAusTemplate("ganzkoerper", 55);
 
   return (
     <div className="mx-auto max-w-4xl space-y-4 p-4 md:p-6">
@@ -353,6 +381,51 @@ export function ActivityDetail({ id }: { id: string }) {
                 })()}
               </tbody>
             </table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Krafttraining: manuelles Muskel-Template (überschreibt Ableitung) */}
+      {istKraftTyp && (
+        <Card>
+          <CardHeader className="pb-1">
+            <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
+              Muskel-Template
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="mb-2 text-xs text-muted-foreground">
+              {daten.saetze.length > 0
+                ? "Überschreibt die aus den Sätzen abgeleitete Belastung."
+                : "Keine Übungsdetails von Garmin — weise die Belastung manuell zu."}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                onClick={() => setzeTemplate(null)}
+                className={cn(
+                  "min-h-9 rounded-md border px-3 text-sm",
+                  a.manualMuscleTemplate == null
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground"
+                )}
+              >
+                Automatisch
+              </button>
+              {MUSKEL_TEMPLATES.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setzeTemplate(t.id)}
+                  className={cn(
+                    "min-h-9 rounded-md border px-3 text-sm",
+                    a.manualMuscleTemplate === t.id
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground"
+                  )}
+                >
+                  {t.name}
+                </button>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}

@@ -11,6 +11,7 @@ import {
   LastEreignis,
   lastenAusKraft,
   lastenAusLauf,
+  lastenAusTemplate,
   MUSKELGRUPPEN,
   restErschoepfung,
 } from "@/lib/engine/muscle";
@@ -55,6 +56,7 @@ export async function recomputeAll(): Promise<void> {
       hmAuf: tables.activities.hmAuf,
       hmAb: tables.activities.hmAb,
       avgHr: tables.activities.avgHr,
+      manualMuscleTemplate: tables.activities.manualMuscleTemplate,
     })
     .from(tables.activities)
     .where(isNull(tables.activities.deletedAt));
@@ -195,7 +197,14 @@ export async function recomputeAll(): Promise<void> {
     const zeitpunktMs = new Date(a.startZeit).getTime() + a.dauerS * 1000;
     if (istKraft(a.typ)) {
       const list = saetzeProAktivitaet.get(a.id) ?? [];
-      if (list.length > 0) {
+      const trimp = trimpProAktivitaet.get(a.id) ?? 0;
+      if (a.manualMuscleTemplate) {
+        // Manuell zugewiesenes Template hat Vorrang (überschreibt Ableitung)
+        ereignisse.push({
+          zeitpunktMs,
+          lasten: lastenAusTemplate(a.manualMuscleTemplate, trimp),
+        });
+      } else if (list.length > 0) {
         ereignisse.push({
           zeitpunktMs,
           lasten: lastenAusKraft(
@@ -209,18 +218,10 @@ export async function recomputeAll(): Promise<void> {
           ),
         });
       } else {
-        // Kraft ohne Satzdaten: pauschale Ganzkörperlast aus TRIMP
-        const trimp = trimpProAktivitaet.get(a.id) ?? 0;
+        // Kraft ohne Satzdaten und ohne Template: Ganzkörper-Fallback aus TRIMP
         ereignisse.push({
           zeitpunktMs,
-          lasten: {
-            brust: trimp * 0.3,
-            oberer_ruecken_lat: trimp * 0.3,
-            schultern: trimp * 0.25,
-            bizeps: trimp * 0.2,
-            trizeps: trimp * 0.2,
-            bauch: trimp * 0.15,
-          },
+          lasten: lastenAusTemplate("ganzkoerper", trimp),
         });
       }
     } else if (istLauf(a.typ) || (a.distanzM ?? 0) > 500) {

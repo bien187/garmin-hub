@@ -38,6 +38,10 @@ export const activities = pgTable("activities", {
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   // Zeitpunkt des letzten Garmin-Abgleichs (Sync/Resync)
   syncedAt: timestamp("synced_at", { withTimezone: true }),
+  // Manuell zugewiesenes Muskel-Template (überschreibt die abgeleitete
+  // Belastung — z.B. für Gym-Einheiten ohne Übungsdetails). Bleibt beim
+  // Resync erhalten, da nicht Teil des Garmin-Upserts.
+  manualMuscleTemplate: text("manual_muscle_template"),
 });
 
 /** Zeitreihen-Streams pro Aktivität (für Flyover + Detailanalysen) */

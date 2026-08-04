@@ -8,7 +8,7 @@ import {
   effizienzIndex,
   zonenVerteilung,
 } from "@/lib/engine/efficiency";
-import { mappeUebung } from "@/lib/engine/muscle";
+import { mappeUebung, MUSKEL_TEMPLATES } from "@/lib/engine/muscle";
 import { requireSession } from "@/lib/api";
 import { recomputeAll } from "@/lib/server/compute";
 
@@ -113,6 +113,42 @@ export async function GET(
       zonen,
     },
   });
+}
+
+/**
+ * PATCH /api/activities/[id] — manuelles Muskel-Template setzen/entfernen.
+ * Body: { manualMuscleTemplate: string | null }. Überschreibt die abgeleitete
+ * Belastung (z.B. für Gym ohne Übungsdetails). Danach Neuberechnung.
+ */
+export async function PATCH(
+  req: NextRequest,
+  ctx: { params: Promise<{ id: string }> }
+) {
+  const nichtAuth = await requireSession();
+  if (nichtAuth) return nichtAuth;
+
+  const { id } = await ctx.params;
+  const activityId = Number(id);
+  if (!Number.isFinite(activityId)) {
+    return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
+  }
+  const body = await req.json().catch(() => ({}));
+  const template = body?.manualMuscleTemplate ?? null;
+  const gueltig =
+    template === null || MUSKEL_TEMPLATES.some((t) => t.id === template);
+  if (!gueltig) {
+    return NextResponse.json({ error: "Unbekanntes Template" }, { status: 400 });
+  }
+
+  const db = getDb();
+  await db
+    .update(tables.activities)
+    .set({ manualMuscleTemplate: template })
+    .where(
+      and(eq(tables.activities.id, activityId), isNull(tables.activities.deletedAt))
+    );
+  await recomputeAll();
+  return NextResponse.json({ ok: true });
 }
 
 /**

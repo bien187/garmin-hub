@@ -3,7 +3,9 @@ import {
   erschoepfungFarbe,
   lastenAusKraft,
   lastenAusLauf,
+  lastenAusTemplate,
   mappeUebung,
+  MUSKEL_TEMPLATES,
   restErschoepfung,
   stundenBisBelastbar,
 } from "../muscle";
@@ -118,6 +120,39 @@ describe("stundenBisBelastbar", () => {
 
   it("τ·ln(aktuell/ziel)", () => {
     expect(stundenBisBelastbar(40, "waden")).toBeCloseTo(30 * Math.log(2), 3);
+  });
+});
+
+describe("lastenAusTemplate", () => {
+  it("Push-Template belastet Brust am stärksten", () => {
+    const l = lastenAusTemplate("oberkoerper_push", 60);
+    expect(l.brust).toBeGreaterThan(l.trizeps ?? 0);
+    expect(l.brust).toBeGreaterThan(0);
+    expect(l.oberer_ruecken_lat ?? 0).toBe(0);
+  });
+
+  it("Beine-Template trifft Quadrizeps/Gesäss, nicht die Brust", () => {
+    const l = lastenAusTemplate("beine", 60);
+    expect(l.quadrizeps).toBeGreaterThan(0);
+    expect(l.gesaess).toBeGreaterThan(0);
+    expect(l.brust ?? 0).toBe(0);
+  });
+
+  it("skaliert mit Intensität (geklemmt) und deckelt bei 110", () => {
+    const leicht = lastenAusTemplate("core", 20);
+    const hart = lastenAusTemplate("core", 200);
+    expect((hart.bauch ?? 0)).toBeGreaterThan(leicht.bauch ?? 0);
+    for (const v of Object.values(hart)) expect(v).toBeLessThanOrEqual(110);
+  });
+
+  it("unbekanntes Template → leer", () => {
+    expect(lastenAusTemplate("gibtsnicht", 60)).toEqual({});
+  });
+
+  it("alle Templates liefern mindestens eine Muskelgruppe", () => {
+    for (const t of MUSKEL_TEMPLATES) {
+      expect(Object.keys(lastenAusTemplate(t.id, 60)).length).toBeGreaterThan(0);
+    }
   });
 });
 

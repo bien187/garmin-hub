@@ -6,6 +6,7 @@ import {
   Lasten,
   lastenAusKraft,
   lastenAusLauf,
+  lastenAusTemplate,
 } from "@/lib/engine/muscle";
 import { istKraft, istLauf } from "./compute";
 
@@ -34,6 +35,7 @@ export async function ladeMuskelBeitraege(tage = 7): Promise<MuskelBeitrag[]> {
       hmAuf: tables.activities.hmAuf,
       hmAb: tables.activities.hmAb,
       avgHr: tables.activities.avgHr,
+      manualMuscleTemplate: tables.activities.manualMuscleTemplate,
     })
     .from(tables.activities)
     .where(and(gte(tables.activities.startZeit, seit), isNull(tables.activities.deletedAt)));
@@ -50,8 +52,17 @@ export async function ladeMuskelBeitraege(tage = 7): Promise<MuskelBeitrag[]> {
   for (const a of acts) {
     let lasten: Lasten = {};
     if (istKraft(a.typ)) {
+      const trimp = trimpFuerEinheit({
+        dauerS: a.dauerS,
+        avgHr: a.avgHr,
+        istKraft: true,
+        hrRuhe: profil.ruhepuls,
+        hrMax: profil.hfMax,
+      });
       const eigene = saetze.filter((s) => s.activityId === a.id);
-      if (eigene.length > 0) {
+      if (a.manualMuscleTemplate) {
+        lasten = lastenAusTemplate(a.manualMuscleTemplate, trimp);
+      } else if (eigene.length > 0) {
         lasten = lastenAusKraft(
           eigene.map((s) => ({
             uebungKey: s.uebungName,
@@ -61,6 +72,8 @@ export async function ladeMuskelBeitraege(tage = 7): Promise<MuskelBeitrag[]> {
           })),
           profil.gewichtKg
         );
+      } else {
+        lasten = lastenAusTemplate("ganzkoerper", trimp);
       }
     } else if (istLauf(a.typ) || (a.distanzM ?? 0) > 500) {
       const trimp = trimpFuerEinheit({

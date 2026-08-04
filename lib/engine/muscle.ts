@@ -190,6 +190,85 @@ export function lastenAusKraft(
   return lasten;
 }
 
+/**
+ * Manuelle Muskel-Templates für Gym-Einheiten ohne (brauchbare)
+ * Übungsdetails. Gewichte 0–1 relativ zum Hauptmuskel; werden mit der
+ * Einheiten-Intensität skaliert.
+ */
+export const MUSKEL_TEMPLATES: {
+  id: string;
+  name: string;
+  gewichte: Partial<Record<MuskelId, number>>;
+}[] = [
+  {
+    id: "oberkoerper_push",
+    name: "Oberkörper Push",
+    gewichte: { brust: 1.0, trizeps: 0.7, schultern: 0.7, bauch: 0.2 },
+  },
+  {
+    id: "oberkoerper_pull",
+    name: "Oberkörper Pull",
+    gewichte: {
+      oberer_ruecken_lat: 1.0,
+      bizeps: 0.7,
+      nacken_trapez: 0.4,
+      unterarme: 0.3,
+    },
+  },
+  {
+    id: "beine",
+    name: "Beine",
+    gewichte: {
+      quadrizeps: 1.0,
+      gesaess: 0.9,
+      hamstrings: 0.8,
+      waden: 0.6,
+      adduktoren: 0.4,
+    },
+  },
+  {
+    id: "ganzkoerper",
+    name: "Ganzkörper",
+    gewichte: {
+      brust: 0.6,
+      oberer_ruecken_lat: 0.6,
+      schultern: 0.5,
+      quadrizeps: 0.6,
+      gesaess: 0.5,
+      hamstrings: 0.4,
+      bizeps: 0.4,
+      trizeps: 0.4,
+      bauch: 0.4,
+    },
+  },
+  {
+    id: "core",
+    name: "Core",
+    gewichte: { bauch: 1.0, seitlicher_rumpf: 0.8, unterer_ruecken: 0.6 },
+  },
+];
+
+const TEMPLATE_MAP = Object.fromEntries(MUSKEL_TEMPLATES.map((t) => [t.id, t]));
+
+export const MUSKEL_TEMPLATE_NAME: Record<string, string> = Object.fromEntries(
+  MUSKEL_TEMPLATES.map((t) => [t.id, t.name])
+);
+
+/**
+ * Last aus einem manuellen Template: Gewichte × Intensität (aus TRIMP der
+ * Einheit, geklemmt), sodass der Hauptmuskel ~50–85 erreicht.
+ */
+export function lastenAusTemplate(templateId: string, trimp: number): Lasten {
+  const t = TEMPLATE_MAP[templateId];
+  if (!t) return {};
+  const intensitaet = Math.min(85, Math.max(35, trimp || 45));
+  const lasten: Lasten = {};
+  for (const [m, w] of Object.entries(t.gewichte) as [MuskelId, number][]) {
+    lasten[m] = Math.min(110, w * intensitaet);
+  }
+  return lasten;
+}
+
 export interface LaufLastInput {
   trimp: number;
   hmAuf: number;
