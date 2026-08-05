@@ -23,7 +23,7 @@ export function SwipeRow({
   const REVEAL = 88;
 
   return (
-    <div className="relative overflow-hidden">
+    <div className="relative overflow-hidden rounded-xl">
       {/* Aktion dahinter */}
       <button
         onClick={onDelete}

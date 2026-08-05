@@ -1,19 +1,22 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo, Archivo_Narrow } from "next/font/google";
+import { Inter, JetBrains_Mono, Saira_Condensed } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
 import { SwRegister } from "@/components/sw-register";
 
-// Eine Superfamilie in zwei Breiten (Landeskarten-Charakter):
-// Archivo für Fliesstext/UI, Archivo Narrow für Zahlen + Micro-Labels.
-const sans = Archivo({
+const sans = Inter({
   variable: "--font-sans",
   subsets: ["latin"],
 });
 
-const narrow = Archivo_Narrow({
-  variable: "--font-narrow",
-  weight: ["400", "500", "600", "700"],
+const mono = JetBrains_Mono({
+  variable: "--font-mono",
+  subsets: ["latin"],
+});
+
+const display = Saira_Condensed({
+  variable: "--font-display",
+  weight: ["500", "600", "700"],
   subsets: ["latin"],
 });
 
@@ -52,7 +55,7 @@ export default function RootLayout({
   return (
     <html
       lang="de-CH"
-      className={`dark ${sans.variable} ${narrow.variable}`}
+      className={`dark ${sans.variable} ${mono.variable} ${display.variable}`}
     >
       <body className="antialiased">
         <AppShell>{children}</AppShell>
