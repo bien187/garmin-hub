@@ -23,8 +23,8 @@ interface FlyoverGraphProps {
 }
 
 const FARBE_ELE = "rgba(220,230,240,0.35)";
-const FARBE_SPEED = "#f5a623";
-const FARBE_HR = "#ff4d6a";
+const FARBE_SPEED = "#c2954e";
+const FARBE_HR = "#c15b4e";
 
 export function FlyoverGraph({
   track,

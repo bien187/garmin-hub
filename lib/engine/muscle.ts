@@ -363,6 +363,39 @@ export function stundenBisBelastbar(
   return tau * Math.log(aktuellProzent / zielProzent);
 }
 
+/**
+ * Geländefarbe der Belastungsskala (Landeskarte): Flechte → Ocker → Fels-Rot.
+ * Stützpunkte = die Design-Tokens --load-fresh/mid/high.
+ */
+const LOAD_STOPS: [number, [number, number, number]][] = [
+  [0, [126, 155, 114]], // #7E9B72 fresh
+  [50, [185, 138, 78]], // #B98A4E mid
+  [100, [168, 84, 72]], // #A85448 high
+];
+
+export function gelaendeFarbe(prozent: number): string {
+  const p = Math.min(100, Math.max(0, prozent));
+  for (let i = 1; i < LOAD_STOPS.length; i++) {
+    const [p0, c0] = LOAD_STOPS[i - 1];
+    const [p1, c1] = LOAD_STOPS[i];
+    if (p <= p1) {
+      const f = (p - p0) / (p1 - p0);
+      const c = c0.map((v, k) => Math.round(v + (c1[k] - v) * f));
+      return `rgb(${c[0]} ${c[1]} ${c[2]})`;
+    }
+  }
+  return "rgb(168 84 72)";
+}
+
+/**
+ * Linienabstand (px im 220×460-SVG) für das topografische Relief:
+ * erholt weit (≈10), stark belastet eng (≈2.5) — umgekehrt proportional.
+ */
+export function reliefAbstand(prozent: number): number {
+  const p = Math.min(100, Math.max(0, prozent));
+  return 10 - (p / 100) * 7.5;
+}
+
 /** Ampelfarbe (HSL-interpoliert) für Rest-Erschöpfung 0–100 % */
 export function erschoepfungFarbe(prozent: number): string {
   // 0 % = Grün (145°), 50 % = Gelb (55°), 100 % = Rot (12°)

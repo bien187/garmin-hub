@@ -46,7 +46,7 @@ export function ProfileForm() {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
+        <CardTitle className="micro-label">
           Profil & Zonen
         </CardTitle>
       </CardHeader>

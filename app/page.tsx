@@ -32,28 +32,37 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-4 p-4 md:p-6">
-      {/* Kopfzeile: EP-Countdown — das Signatur-Element */}
+      {/* Signatur: EP-Countdown mit dem EINEN Schweizer-Rot-Fixpunkt */}
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-xs uppercase tracking-widest text-muted-foreground">
-            Eignungsprüfung Grenadier
-          </div>
+        <div className="min-w-0">
+          <div className="micro-label">Eignungsprüfung Grenadier</div>
           {countdown.vorbei ? (
-            <div className="stat-display text-4xl md:text-5xl">EP absolviert</div>
+            <div className="stat-display mt-1 text-5xl">EP absolviert</div>
           ) : (
-            <div className="stat-display text-4xl leading-tight md:text-5xl">
-              {countdown.wochen}
-              <span className="text-xl text-muted-foreground"> Wo </span>
-              {countdown.tage}
-              <span className="text-xl text-muted-foreground"> Tage</span>
+            <div className="mt-1 flex items-end gap-3">
+              {/* Fixpunkt-Markierung (Landeskarten-Vermessungspunkt), einmalig */}
+              <span
+                aria-hidden
+                className="mb-2 inline-block size-3 rotate-45 border-2"
+                style={{ borderColor: "var(--fixpoint)" }}
+              />
+              <div className="stat-display text-6xl leading-none text-text">
+                {countdown.gesamtTage}
+                <span className="ml-2 align-baseline text-xl text-text-muted">
+                  Tage
+                </span>
+              </div>
             </div>
           )}
-          <div className="mt-1 flex items-center gap-2 text-sm">
-            <span className="rounded bg-primary/15 px-2 py-0.5 font-medium text-primary">
+          {!countdown.vorbei && (
+            <div className="stat-mono mt-1 text-[13px] text-text-dim">
+              {countdown.wochen} Wochen {countdown.tage} Tage · bis{" "}
+              {formatDatumLang(d.profil.epDatum)}
+            </div>
+          )}
+          <div className="mt-2 text-sm">
+            <span className="font-medium text-primary">
               Phase {phase.nr}: {phase.name}
-            </span>
-            <span className="text-muted-foreground">
-              bis {formatDatumLang(d.profil.epDatum)}
             </span>
           </div>
         </div>
@@ -73,7 +82,7 @@ export default async function DashboardPage() {
         {/* Readiness */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
+            <CardTitle className="micro-label">
               Bereitschaft heute
             </CardTitle>
           </CardHeader>
@@ -85,7 +94,7 @@ export default async function DashboardPage() {
         {/* EP-Prognose */}
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
+            <CardTitle className="micro-label">
               EP-Notenprognose
             </CardTitle>
           </CardHeader>
@@ -97,7 +106,7 @@ export default async function DashboardPage() {
         {/* Fitness-Kurve */}
         <Card className="lg:col-span-2">
           <CardHeader className="flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
+            <CardTitle className="micro-label">
               Fitness · 90 Tage
             </CardTitle>
             {d.tsbHeute != null && (
@@ -127,7 +136,7 @@ export default async function DashboardPage() {
         {/* Mini-Body-Map */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
+            <CardTitle className="micro-label">
               Muskelstatus
             </CardTitle>
           </CardHeader>
@@ -147,7 +156,7 @@ export default async function DashboardPage() {
         {/* Woche + letzte Aktivität + nächstes Training */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
+            <CardTitle className="micro-label">
               Diese Woche
             </CardTitle>
           </CardHeader>
@@ -166,7 +175,7 @@ export default async function DashboardPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
+            <CardTitle className="micro-label">
               Letzte Aktivität
             </CardTitle>
           </CardHeader>
@@ -194,7 +203,7 @@ export default async function DashboardPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
+            <CardTitle className="micro-label">
               Nächstes Training
             </CardTitle>
           </CardHeader>
@@ -222,7 +231,7 @@ export default async function DashboardPage() {
       {/* Insights */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
+          <CardTitle className="micro-label">
             Insights
           </CardTitle>
         </CardHeader>
