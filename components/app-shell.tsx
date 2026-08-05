@@ -28,20 +28,29 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(href + "/");
 }
 
-/** Erkennt eine offene Bildschirmtastatur via VisualViewport-Schrumpfung */
+/**
+ * Navbar nur ausblenden, wenn tatsächlich ein Textfeld fokussiert ist
+ * (fokus-basiert statt Viewport-Heuristik — die löste im iOS-PWA-Standalone
+ * falsch aus und konnte die Navbar unerwartet wegschieben).
+ */
 function useKeyboardOpen(): boolean {
   const [offen, setOffen] = useState(false);
   useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
     const pruefe = () => {
-      // Tastatur belegt spürbaren Anteil der Höhe → Layout-Viewport minus
-      // sichtbarer Viewport gross
-      setOffen(window.innerHeight - vv.height > 140);
+      const el = document.activeElement as HTMLElement | null;
+      setOffen(
+        !!el &&
+          (el.tagName === "INPUT" ||
+            el.tagName === "TEXTAREA" ||
+            el.isContentEditable)
+      );
     };
-    pruefe();
-    vv.addEventListener("resize", pruefe);
-    return () => vv.removeEventListener("resize", pruefe);
+    document.addEventListener("focusin", pruefe);
+    document.addEventListener("focusout", pruefe);
+    return () => {
+      document.removeEventListener("focusin", pruefe);
+      document.removeEventListener("focusout", pruefe);
+    };
   }, []);
   return offen;
 }
