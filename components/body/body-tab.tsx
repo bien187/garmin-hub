@@ -9,10 +9,10 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BodyMap, ReliefLegende } from "./body-map";
+import { BodyMap } from "./body-map";
 import { MiniSparkline } from "@/components/dashboard/fitness-chart";
 import {
-  gelaendeFarbe,
+  erschoepfungFarbe,
   MUSKEL_NAME,
   MuskelId,
 } from "@/lib/engine/muscle";
@@ -78,12 +78,25 @@ export function BodyTab() {
             onSelect={setAusgewaehlt}
             ausgewaehlt={ausgewaehlt}
           />
-          {/* Kartenlegende: Liniendichte = Belastung */}
-          <div className="mt-3">
-            <ReliefLegende />
+          {/* Legende */}
+          <div className="mt-3 flex items-center justify-center gap-3 text-[10px] text-muted-foreground">
+            {[
+              { label: "frisch", p: 5 },
+              { label: "leicht", p: 35 },
+              { label: "belastet", p: 65 },
+              { label: "erschöpft", p: 90 },
+            ].map((l) => (
+              <span key={l.label} className="flex items-center gap-1">
+                <span
+                  className="size-2.5 rounded-full"
+                  style={{ background: erschoepfungFarbe(l.p) }}
+                />
+                {l.label}
+              </span>
+            ))}
           </div>
-          <p className="mt-2 text-center text-[11px] text-text-dim">
-            Dichte der Höhenlinien = Belastung. Modellschätzung, kein Messwert.
+          <p className="mt-2 text-center text-[10px] text-muted-foreground">
+            Modellbasierte Schätzung aus Kraft- und Laufeinheiten — kein Messwert.
           </p>
         </CardContent>
       </Card>
@@ -91,7 +104,7 @@ export function BodyTab() {
       {/* Systemische Ermüdung */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="micro-label">
+          <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
             Systemische Ermüdung
           </CardTitle>
         </CardHeader>
@@ -181,7 +194,7 @@ export function BodyTab() {
                 <SheetTitle className="flex items-center gap-2.5">
                   <span
                     className="size-3.5 rounded-full"
-                    style={{ background: gelaendeFarbe(wert) }}
+                    style={{ background: erschoepfungFarbe(wert) }}
                   />
                   {MUSKEL_NAME[ausgewaehlt]}
                 </SheetTitle>
@@ -201,7 +214,7 @@ export function BodyTab() {
                         daten.sparklines[ausgewaehlt] as unknown as Record<string, unknown>[]
                       }
                       dataKey="wert"
-                      farbe={gelaendeFarbe(wert)}
+                      farbe={erschoepfungFarbe(wert)}
                     />
                   </div>
                 )}

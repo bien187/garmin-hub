@@ -291,7 +291,7 @@ export function ActivityDetail({ id }: { id: string }) {
       {daten.streams && !istKraftTyp && (
         <Card>
           <CardHeader className="pb-1">
-            <CardTitle className="micro-label">
+            <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
               Verlauf {flyover ? "· Höhe · Herzfrequenz · Pace" : "· Höhenprofil"}
             </CardTitle>
           </CardHeader>
@@ -316,7 +316,7 @@ export function ActivityDetail({ id }: { id: string }) {
       {m.zonenZeit && zonenGesamt > 0 && (
         <Card>
           <CardHeader className="pb-1">
-            <CardTitle className="micro-label">
+            <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
               Herzfrequenz-Zonen
             </CardTitle>
           </CardHeader>
@@ -346,7 +346,7 @@ export function ActivityDetail({ id }: { id: string }) {
       {m.splits.length > 0 && (
         <Card>
           <CardHeader className="pb-1">
-            <CardTitle className="micro-label">
+            <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
               Splits
             </CardTitle>
           </CardHeader>
@@ -389,7 +389,7 @@ export function ActivityDetail({ id }: { id: string }) {
       {istKraftTyp && (
         <Card>
           <CardHeader className="pb-1">
-            <CardTitle className="micro-label">
+            <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
               Muskel-Template
             </CardTitle>
           </CardHeader>
@@ -435,7 +435,7 @@ export function ActivityDetail({ id }: { id: string }) {
         <div className="grid gap-4 md:grid-cols-2">
           <Card>
             <CardHeader className="pb-1">
-              <CardTitle className="micro-label">
+              <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
                 Sätze
               </CardTitle>
             </CardHeader>
@@ -466,7 +466,7 @@ export function ActivityDetail({ id }: { id: string }) {
           </Card>
           <Card>
             <CardHeader className="pb-1">
-              <CardTitle className="micro-label">
+              <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
                 Belastete Muskeln
               </CardTitle>
             </CardHeader>

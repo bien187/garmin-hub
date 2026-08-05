@@ -297,7 +297,7 @@ export function RouteBuilder() {
         type: "line",
         source: "builder-route",
         layout: { "line-cap": "round", "line-join": "round" },
-        paint: { "line-width": 4.5, "line-color": "#5b8fa8" },
+        paint: { "line-width": 4.5, "line-color": "#2ee6c7" },
       });
       map.addSource("gespeicherte", {
         type: "geojson",
@@ -307,7 +307,7 @@ export function RouteBuilder() {
         id: "gespeicherte-linien",
         type: "line",
         source: "gespeicherte",
-        paint: { "line-width": 3, "line-color": "#8aa0b0", "line-opacity": 0.75 },
+        paint: { "line-width": 3, "line-color": "#7aa2f7", "line-opacity": 0.75 },
         layout: { visibility: "none" },
       });
       map.addSource("heatmap", {
@@ -319,7 +319,7 @@ export function RouteBuilder() {
           id: "heatmap-linien",
           type: "line",
           source: "heatmap",
-          paint: { "line-width": 2, "line-color": "#b98a4e", "line-opacity": 0.18 },
+          paint: { "line-width": 2, "line-color": "#ff7043", "line-opacity": 0.18 },
           layout: { visibility: "none" },
         },
         "builder-linie"

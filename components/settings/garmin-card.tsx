@@ -56,7 +56,7 @@ export function GarminCard() {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="micro-label">
+        <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
           Garmin-Verbindung
         </CardTitle>
       </CardHeader>

@@ -63,7 +63,7 @@ function baueFarbStops(track: ProcessedTrack, modus: "hr" | "pace"): FarbStop[] 
   const werte = track.punkte
     .map((p) => (modus === "hr" ? p.hr : p.speed))
     .filter((v): v is number => v != null && v > 0);
-  if (werte.length < 10) return [{ pos: 0, farbe: "#5b8fa8" }, { pos: 1, farbe: "#5b8fa8" }];
+  if (werte.length < 10) return [{ pos: 0, farbe: "#2ee6c7" }, { pos: 1, farbe: "#2ee6c7" }];
   const sortiert = [...werte].sort((a, b) => a - b);
   const min = sortiert[Math.floor(sortiert.length * 0.05)];
   const max = sortiert[Math.floor(sortiert.length * 0.95)];
@@ -291,7 +291,7 @@ export function FlyoverMap({ streams, className, onBereit }: FlyoverMapProps) {
         source: "laeufer",
         paint: {
           "circle-radius": 7,
-          "circle-color": "#5b8fa8",
+          "circle-color": "#2ee6c7",
           "circle-stroke-width": 2.5,
           "circle-stroke-color": "#ffffff",
         },

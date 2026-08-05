@@ -1,19 +1,12 @@
 "use client";
 
 import { memo } from "react";
-import {
-  gelaendeFarbe,
-  MuskelId,
-  reliefAbstand,
-} from "@/lib/engine/muscle";
+import { erschoepfungFarbe, MuskelId } from "@/lib/engine/muscle";
 import { cn } from "@/lib/utils";
 
 /**
- * Topografisches Muskelrelief (Landeskarte): jede Muskelgruppe ist ein Pfad,
- * gefüllt mit Höhenlinien, deren Dichte die Belastung zeigt (eng = stark
- * belastet, wie ein steiler Hang). Die Information steckt in der Dichte —
- * damit auch ohne Farbunterscheidung lesbar. Strichfarbe interpoliert über
- * die Geländeskala.
+ * Selbst gezeichnete Flat-Silhouette (vorne + hinten), jede Muskelgruppe ein
+ * eigener Pfad. Färbung nach Rest-Erschöpfung 0–100 %.
  */
 
 interface MuskelPfad {
@@ -49,56 +42,13 @@ const PFADE: MuskelPfad[] = [
   { id: "waden", seite: "hinten", d: "M81,332 Q91,325 97,332 L93,390 Q86,395 80,388 Q77,356 81,332 Z" },
 ];
 
-/** Basis-Silhouette als Haarlinien-Umriss (Kartenkontur) */
+/** Basis-Silhouette (Kopf, Rumpf-Umriss, Arme, Beine) */
 function Silhouette() {
   return (
-    <g fill="var(--surface)" stroke="var(--line-strong)" strokeWidth={1}>
+    <g className="fill-muted/60">
       <circle cx="110" cy="36" r="21" />
       <path d="M92,60 L128,60 L131,82 Q148,78 158,88 Q166,104 162,130 Q158,158 150,200 L143,198 Q140,230 136,252 L140,300 Q141,360 136,392 L142,418 L118,418 L120,392 Q116,340 113,300 L107,300 Q104,340 100,392 L102,418 L78,418 L84,392 Q79,360 80,300 L84,252 Q80,230 77,198 L70,200 Q62,158 58,130 Q54,104 62,88 Q72,78 89,82 Z" />
     </g>
-  );
-}
-
-/** Kartenlegende: drei Linienmuster von erholt (weit) bis stark belastet (eng) */
-export function ReliefLegende() {
-  const proben: { p: number; label: string }[] = [
-    { p: 8, label: "erholt" },
-    { p: 55, label: "belastet" },
-    { p: 92, label: "stark belastet" },
-  ];
-  return (
-    <div className="flex items-center justify-center gap-4">
-      {proben.map((pr) => {
-        const gap = reliefAbstand(pr.p);
-        const farbe = gelaendeFarbe(pr.p);
-        const id = `leg-${pr.p}`;
-        return (
-          <div key={pr.p} className="flex items-center gap-1.5">
-            <svg width="22" height="14" aria-hidden>
-              <defs>
-                <pattern
-                  id={id}
-                  width="6"
-                  height={gap}
-                  patternUnits="userSpaceOnUse"
-                  patternTransform="rotate(-30)"
-                >
-                  <line x1="0" y1="0" x2="6" y2="0" stroke={farbe} strokeWidth="1" />
-                </pattern>
-              </defs>
-              <rect
-                width="22"
-                height="14"
-                fill={`url(#${id})`}
-                stroke="var(--line-strong)"
-                strokeWidth="0.75"
-              />
-            </svg>
-            <span className="micro-label">{pr.label}</span>
-          </div>
-        );
-      })}
-    </div>
   );
 }
 
@@ -126,36 +76,19 @@ export const BodyMap = memo(function BodyMap({
       role="img"
       aria-label={`Muskelstatus ${seite}`}
     >
-      <defs>
-        {PFADE.filter((p) => p.seite === seite).map((p) => {
-          const wert = werte[p.id] ?? 0;
-          const gap = reliefAbstand(wert);
-          const farbe = gelaendeFarbe(wert);
-          return (
-            <pattern
-              key={`pat-${p.seite}-${p.id}`}
-              id={`pat-${p.seite}-${p.id}`}
-              width="8"
-              height={gap}
-              patternUnits="userSpaceOnUse"
-              patternTransform="rotate(-30)"
-            >
-              <line x1="0" y1="0" x2="8" y2="0" stroke={farbe} strokeWidth="1" />
-            </pattern>
-          );
-        })}
-      </defs>
       <Silhouette />
       {PFADE.filter((p) => p.seite === seite).map((p) => {
+        const wert = werte[p.id] ?? 0;
+        const farbe = erschoepfungFarbe(wert);
         const istAktiv = ausgewaehlt === p.id;
         const gemeinsam = {
-          fill: `url(#pat-${p.seite}-${p.id})`,
-          stroke: istAktiv ? "var(--primary)" : "var(--line-strong)",
-          strokeWidth: istAktiv ? 1.5 : 0.75,
+          fill: farbe,
           className: cn(
             "transition-opacity",
-            onSelect && "cursor-pointer hover:opacity-75"
+            onSelect && "cursor-pointer hover:opacity-80",
+            istAktiv && "stroke-foreground"
           ),
+          strokeWidth: istAktiv ? 2 : 0,
           onClick: onSelect ? () => onSelect(p.id) : undefined,
         };
         return (
@@ -168,8 +101,13 @@ export const BodyMap = memo(function BodyMap({
         );
       })}
       {!mini && (
-        <text x="110" y="452" textAnchor="middle" fill="var(--text-dim)" className="micro-label">
-          {seite === "vorne" ? "VORNE" : "HINTEN"}
+        <text
+          x="110"
+          y="452"
+          textAnchor="middle"
+          className="fill-muted-foreground text-[13px]"
+        >
+          {seite === "vorne" ? "Vorne" : "Hinten"}
         </text>
       )}
     </svg>
