@@ -285,15 +285,14 @@ export function WeekView() {
                 <div key={datum}>
                   <div
                     className={cn(
-                      "mb-1 flex items-baseline gap-2 text-xs",
-                      datum === heute ? "text-primary" : "text-muted-foreground"
+                      "micro-label mb-1 border-b border-line-strong pb-1",
+                      datum === heute && "text-primary"
                     )}
                   >
-                    <span className="stat-display text-sm">{WOCHENTAGE[i]}</span>
-                    {formatDatum(datum)}
-                    {datum === heute && <span className="font-medium">· heute</span>}
+                    {WOCHENTAGE[i]} · {formatDatum(datum)}
+                    {datum === heute && " · heute"}
                   </div>
-                  <div className="space-y-1.5">
+                  <div>
                     {einheiten.map((e) => {
                       const istOffen = offen === e.id;
                       const kannPushen =
@@ -302,8 +301,8 @@ export function WeekView() {
                         <div
                           key={e.id}
                           className={cn(
-                            "rounded-xl border border-border border-l-4 bg-card",
-                            TYP_FARBEN[e.typ] ?? "border-l-muted",
+                            "border-b border-line border-l-2 bg-transparent",
+                            TYP_FARBEN[e.typ] ?? "border-l-line-strong",
                             e.status === "absolviert" && "opacity-60"
                           )}
                         >
