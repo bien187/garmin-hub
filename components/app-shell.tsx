@@ -110,49 +110,46 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      {/* Content */}
+      {/* Content-Spalte: Scrollbereich + Navbar sitzen im Flow. Die Navbar ist
+          KEIN fixed-Element mehr (das schwebte auf iOS im PWA-Standalone eine
+          Navbarhöhe über der Unterkante) — als letztes Flex-Kind der h-dvh-
+          Spalte hugt sie garantiert die echte Unterkante. */}
       <main className="flex h-dvh min-w-0 flex-1 flex-col md:ml-56">
         {fullBleed ? (
-          // Vollflächige Karte: unten Platz für die Navbar; oben clearen die
-          // MapLibre-Controls die Dynamic Island via CSS (siehe globals.css)
-          <div className="map-bleed-pad min-h-0 flex-1">{children}</div>
+          <div className="min-h-0 flex-1">{children}</div>
         ) : (
           <div
             id="app-scroll"
-            className="app-scroll-pad min-h-0 flex-1 overflow-y-auto overscroll-contain"
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain pt-safe"
           >
             {children}
           </div>
         )}
-      </main>
 
-      {/* Bottom-Tab-Bar (Mobile) — bei offener Tastatur ausblenden, damit sie
-          auf iOS nicht über der Tastatur schwebt */}
-      <nav
-        className={cn(
-          "fixed inset-x-0 bottom-0 z-40 border-t border-border bg-sidebar/95 backdrop-blur pb-safe transition-transform duration-200 md:hidden",
-          tastaturOffen && "translate-y-full"
+        {/* Bottom-Tab-Bar (Mobile) — bei offener Tastatur ausblenden */}
+        {!tastaturOffen && (
+          <nav className="shrink-0 border-t border-border bg-sidebar/95 backdrop-blur pb-safe md:hidden">
+            <div className="grid grid-cols-5">
+              {TABS.map(({ href, label, icon: Icon }) => {
+                const active = isActive(pathname, href);
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={cn(
+                      "flex min-h-13 flex-col items-center justify-center gap-0.5 py-1.5 text-[10px] font-medium",
+                      active ? "text-primary" : "text-muted-foreground"
+                    )}
+                  >
+                    <Icon className="size-5" strokeWidth={active ? 2.5 : 2} />
+                    {label}
+                  </Link>
+                );
+              })}
+            </div>
+          </nav>
         )}
-      >
-        <div className="grid grid-cols-5">
-          {TABS.map(({ href, label, icon: Icon }) => {
-            const active = isActive(pathname, href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={cn(
-                  "flex min-h-13 flex-col items-center justify-center gap-0.5 py-1.5 text-[10px] font-medium",
-                  active ? "text-primary" : "text-muted-foreground"
-                )}
-              >
-                <Icon className="size-5" strokeWidth={active ? 2.5 : 2} />
-                {label}
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
+      </main>
     </div>
     </ToastProvider>
   );
