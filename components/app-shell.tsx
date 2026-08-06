@@ -65,11 +65,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const fullBleed = pathname === "/map";
   const aktiverIndex = TABS.findIndex((t) => isActive(pathname, t.href));
 
-  // Fester App-Rahmen: die Seite selbst scrollt nie (Navbar bleibt immer
-  // stehen), Inhalte scrollen bei Bedarf im internen Container.
+  // Fester App-Rahmen als `fixed inset-0` statt `h-dvh`: 100dvh unter-
+  // meldet im iOS-PWA-Standalone auf manchen Geräten die echte Bildschirm-
+  // höhe (Navbar schwebte dadurch weit über der Unterkante). `fixed inset-0`
+  // entspricht exakt dem sichtbaren Viewport — die Navbar als letztes
+  // Flex-Kind hugt damit garantiert die physische Unterkante.
   return (
     <ToastProvider>
-    <div className="flex h-dvh overflow-hidden">
+    <div className="fixed inset-0 flex overflow-hidden bg-background">
       {/* Sidebar (Desktop) */}
       <aside className="hidden md:flex md:w-56 md:flex-col md:border-r md:border-sidebar-border md:bg-sidebar fixed inset-y-0 z-40">
         <Link href="/" className="flex items-center gap-2.5 px-5 py-5">
@@ -111,11 +114,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      {/* Content-Spalte: Scrollbereich + Navbar sitzen im Flow. Die Navbar ist
-          KEIN fixed-Element mehr (das schwebte auf iOS im PWA-Standalone eine
-          Navbarhöhe über der Unterkante) — als letztes Flex-Kind der h-dvh-
-          Spalte hugt sie garantiert die echte Unterkante. */}
-      <main className="flex h-dvh min-w-0 flex-1 flex-col md:ml-56">
+      {/* Content-Spalte: Scrollbereich (flex-1) + Navbar (shrink-0) im Flow.
+          Da der Rahmen `fixed inset-0` exakt den Viewport füllt, sitzt die
+          Navbar als letztes Flex-Kind bündig an der physischen Unterkante. */}
+      <main className="flex min-w-0 flex-1 flex-col md:ml-56">
         {fullBleed ? (
           <div className="min-h-0 flex-1">{children}</div>
         ) : (
@@ -150,11 +152,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     key={href}
                     href={href}
                     className={cn(
-                      "flex min-h-13 flex-col items-center justify-center gap-0.5 py-1.5 text-[10px] font-medium",
+                      "flex min-h-9 flex-col items-center justify-center gap-0.5 py-1 text-[10px] font-medium",
                       active ? "text-primary" : "text-muted-foreground"
                     )}
                   >
-                    <Icon className="size-5" strokeWidth={active ? 2.5 : 2} />
+                    <Icon className="size-4.75" strokeWidth={active ? 2.5 : 2} />
                     {label}
                   </Link>
                 );
