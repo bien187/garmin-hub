@@ -586,7 +586,7 @@ export function FlyoverMap({ streams, className, onBereit }: FlyoverMapProps) {
 
   if (!track || !graphDaten) {
     return (
-      <div className={cn("flex h-64 items-center justify-center rounded-xl bg-muted/40 text-sm text-muted-foreground", className)}>
+      <div className={cn("flex h-64 items-center justify-center rounded-xl bg-muted text-sm text-muted-foreground", className)}>
         Keine verwertbaren GPS-Daten für diese Aktivität.
       </div>
     );

@@ -125,7 +125,7 @@ export function ReadinessCard({ daten }: { daten: ReadinessDaten }) {
         {einzel.map((e) => (
           <div
             key={e.label}
-            className="flex flex-col items-center gap-1 rounded-lg bg-muted/50 px-1 py-2"
+            className="flex flex-col items-center gap-1 rounded-lg bg-muted px-1 py-2"
           >
             <span className={cn("size-1.5 rounded-full", ampelFarbe(e.ampel))} />
             <span className="stat-display text-lg leading-none">{e.wert}</span>

@@ -14,13 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { SheetShell } from "@/components/ui/sheet-confirm";
 import { useToast } from "@/components/ui/toast";
 import { Metronome } from "./metronome";
 import { addTage, formatDatum, heuteIso, montagVon } from "@/lib/format";
@@ -73,7 +67,6 @@ export function WeekView() {
   const [daten, setDaten] = useState<PlanDaten | null>(null);
   const [laedt, setLaedt] = useState(false);
   const [generiert, setGeneriert] = useState(false);
-  const [meldung, setMeldung] = useState<string | null>(null);
   const [offen, setOffen] = useState<string | null>(null);
   const [vorschau, setVorschau] = useState(false);
   const [pushProgress, setPushProgress] = useState<{ done: number; total: number } | null>(null);
@@ -102,15 +95,22 @@ export function WeekView() {
       setGeneriert(true);
       lade();
     } else {
-      setMeldung("Generierung fehlgeschlagen — ist die Datenbank erreichbar?");
+      toast({
+        message: "Generierung fehlgeschlagen — ist die Datenbank erreichbar?",
+        variant: "error",
+      });
     }
   }
 
   async function pushe(id: string) {
-    setMeldung("Sende an Garmin…");
     const res = await fetch(`/api/plan/${id}/push`, { method: "POST" });
     const data = await res.json();
-    setMeldung(res.ok ? data.hinweis : (data.error ?? "Push fehlgeschlagen"));
+    toast({
+      message: res.ok
+        ? (data.hinweis ?? "An Garmin gesendet.")
+        : (data.error ?? "Push fehlgeschlagen"),
+      variant: res.ok ? "default" : "error",
+    });
     lade();
   }
 
@@ -199,11 +199,11 @@ export function WeekView() {
           <ChevronLeft className="size-4" />
         </Button>
         <div className="text-center">
-          <div className="stat-display text-lg">
+          <div className="stat-display text-[17px]">
             {formatDatum(woche)} – {formatDatum(addTage(woche, 6))}
           </div>
           {daten && (
-            <div className="text-xs text-primary">
+            <div className="text-[10px] font-medium uppercase tracking-[0.06em] text-primary">
               Phase {daten.phase.nr}: {daten.phase.name}
             </div>
           )}
@@ -213,16 +213,7 @@ export function WeekView() {
         </Button>
       </div>
 
-      {meldung && (
-        <div
-          className="cursor-pointer rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs"
-          onClick={() => setMeldung(null)}
-        >
-          {meldung}
-        </div>
-      )}
-
-      {/* Hinweise der Adaptionslogik */}
+      {/* Hinweise der Adaptionslogik (bleiben inline, §11.3) */}
       {daten && daten.hinweise.length > 0 && (
         <div className="space-y-1.5">
           {daten.hinweise.map((h, i) => (
@@ -240,7 +231,7 @@ export function WeekView() {
       {!daten ? (
         <div className="space-y-2">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-16 animate-pulse rounded-xl bg-muted/40" />
+            <div key={i} className="h-16 animate-pulse rounded-xl bg-muted" />
           ))}
         </div>
       ) : daten.einheiten.length === 0 ? (
@@ -255,25 +246,38 @@ export function WeekView() {
         </div>
       ) : (
         <>
-          {/* Sammel-Aktion: der einzige gefüllte Akzentbutton dieser Seite */}
+          {/* Sammel-Aktion: der einzige gefüllte Akzentbutton dieser Seite.
+              Während des Sendens ist der Button die Fortschrittsanzeige
+              (Füllung von links + „x von y"). */}
           {teile && (teile.zuSenden.length > 0 || pushProgress) && (
-            <Button
-              className="w-full"
+            <button
               disabled={pushProgress != null}
               onClick={() => setVorschau(true)}
+              className="relative flex min-h-11 w-full items-center justify-center gap-2 overflow-hidden rounded-lg bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-90"
             >
-              {pushProgress ? (
-                <>
-                  <RefreshCw className="size-4 animate-spin" />
-                  Sende… {pushProgress.done}/{pushProgress.total}
-                </>
-              ) : (
-                <>
-                  <Send className="size-4" />
-                  Alle an Garmin senden ({teile.zuSenden.length})
-                </>
+              {pushProgress && (
+                <span
+                  className="absolute inset-y-0 left-0 bg-white/20"
+                  style={{
+                    width: `${(pushProgress.done / pushProgress.total) * 100}%`,
+                    transition: "width var(--dur-base) var(--ease-base)",
+                  }}
+                />
               )}
-            </Button>
+              <span className="relative flex items-center gap-2">
+                {pushProgress ? (
+                  <>
+                    <RefreshCw className="size-4 gh-spin" />
+                    {pushProgress.done} von {pushProgress.total}
+                  </>
+                ) : (
+                  <>
+                    <Send className="size-4" />
+                    Alle an Garmin senden ({teile.zuSenden.length})
+                  </>
+                )}
+              </span>
+            </button>
           )}
 
           <div className="space-y-3">
@@ -334,22 +338,33 @@ export function WeekView() {
                               </span>
                             )}
                           </button>
-                          {istOffen && (
+                          <div
+                            className="grid transition-[grid-template-rows]"
+                            style={{
+                              gridTemplateRows: istOffen ? "1fr" : "0fr",
+                              transitionDuration: "var(--dur-base)",
+                            }}
+                          >
+                           <div className="min-h-0 overflow-hidden">
                             <div className="space-y-2.5 border-t border-border/60 p-3 text-sm">
                               <p className="text-muted-foreground">{e.beschreibung}</p>
                               {/* Garmin-Sync-Flag pro Einheit + Status */}
                               {kannPushen && (
-                                <div className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2">
-                                  <div className="flex items-center gap-2">
+                                <div className="flex items-center justify-between rounded-lg bg-muted px-3 py-2">
+                                  <div className="flex items-center gap-2.5">
                                     <span>An Garmin senden</span>
-                                    {e.garminWorkoutId != null && (
-                                      <span className="flex items-center gap-1 text-[10px] text-primary">
+                                    {/* Status immer Icon + Text, nie nur Farbe */}
+                                    {e.garminWorkoutId != null ? (
+                                      <span className="flex items-center gap-1 text-[10px] text-status-green">
                                         <Check className="size-3" /> übertragen
                                       </span>
-                                    )}
-                                    {fehlgeschlagen.includes(e.id) && (
-                                      <span className="text-[10px] text-status-red">
-                                        Fehler
+                                    ) : fehlgeschlagen.includes(e.id) ? (
+                                      <span className="flex items-center gap-1 text-[10px] text-status-red">
+                                        <X className="size-3" /> Fehler
+                                      </span>
+                                    ) : (
+                                      <span className="flex items-center gap-1 text-[10px] text-dim-foreground">
+                                        <CircleDashed className="size-3" /> offen
                                       </span>
                                     )}
                                   </div>
@@ -395,7 +410,8 @@ export function WeekView() {
                                 )}
                               </div>
                             </div>
-                          )}
+                           </div>
+                          </div>
                         </div>
                       );
                     })}
@@ -413,59 +429,58 @@ export function WeekView() {
         </>
       )}
 
-      {/* Vorschau vor dem Sammel-Senden */}
-      <Dialog open={vorschau} onOpenChange={setVorschau}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>An Garmin senden</DialogTitle>
-          </DialogHeader>
+      {/* Vorschau vor dem Sammel-Senden (Bottom-Sheet) */}
+      <SheetShell open={vorschau} onClose={() => setVorschau(false)}>
+        <div className="px-5 pt-1.5">
+          <h2 className="text-base font-semibold">An Garmin senden</h2>
           {teile && (
-            <div className="space-y-3 text-sm">
-              <div>
-                <div className="mb-1 text-xs uppercase tracking-wider text-muted-foreground">
-                  Diese {teile.zuSenden.length} Einheiten werden übertragen
-                </div>
-                <ul className="space-y-1">
-                  {teile.zuSenden.map((e) => (
-                    <li key={e.id} className="flex items-center gap-2">
-                      <Watch className="size-3.5 shrink-0 text-primary" />
-                      <span className="flex-1 truncate">{e.titel}</span>
-                      <span className="stat-mono text-[10px] text-muted-foreground">
-                        {formatDatum(e.datum)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+            <div className="mt-3 space-y-3 text-sm">
+              <div className="text-[10px] font-medium uppercase tracking-[0.06em] text-dim-foreground">
+                Diese {teile.zuSenden.length} Einheiten werden übertragen
               </div>
+              <ul className="max-h-56 space-y-1 overflow-y-auto">
+                {teile.zuSenden.map((e) => (
+                  <li key={e.id} className="flex items-center gap-2">
+                    <Watch className="size-3.5 shrink-0 text-primary" />
+                    <span className="flex-1 truncate">{e.titel}</span>
+                    <span className="stat-mono text-[10px] text-dim-foreground">
+                      {formatDatum(e.datum)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
               {teile.uebersprungen.length > 0 && (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-[13px] text-dim-foreground">
                   {teile.uebersprungen.length} Einheit(en) übersprungen (nicht für
                   Garmin markiert, z.B. Gym).
                 </p>
               )}
               {teile.bereits.length > 0 && (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-[13px] text-dim-foreground">
                   {teile.bereits.length} bereits übertragen — werden nicht doppelt
                   angelegt.
                 </p>
               )}
             </div>
           )}
-          <DialogFooter className="flex-row justify-end gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setVorschau(false)}>
+          <div className="mt-4 flex gap-2.5">
+            <button
+              onClick={() => setVorschau(false)}
+              className="min-h-11 flex-1 rounded-lg bg-muted text-sm font-medium"
+            >
               Abbrechen
-            </Button>
-            <Button
-              size="sm"
+            </button>
+            <button
               disabled={!teile || teile.zuSenden.length === 0}
               onClick={() => teile && sendeAlle(teile.zuSenden.map((e) => e.id))}
+              className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-50"
             >
               <Send className="size-4" />
               Senden
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </button>
+          </div>
+        </div>
+      </SheetShell>
     </div>
   );
 }

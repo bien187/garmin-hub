@@ -8,23 +8,21 @@ import { BenchmarkListe } from "@/components/plan/benchmark-liste";
 export const metadata = { title: "Plan" };
 
 export default function PlanPage() {
+  // Kein h1 (dupliziert das Tab-Label); die Tabs-Zeile ist der Kopf.
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-4 md:p-6">
-      <h1 className="stat-display text-2xl uppercase tracking-wide">
-        Trainingsplan
-      </h1>
+    <div className="mx-auto max-w-3xl space-y-4 px-4 pt-2 pb-4 md:px-6">
       <Tabs defaultValue="woche">
         <TabsList className="w-full">
-          <TabsTrigger value="woche" className="flex-1">
+          <TabsTrigger value="woche" className="min-h-10 flex-1">
             Woche
           </TabsTrigger>
-          <TabsTrigger value="generator" className="flex-1">
+          <TabsTrigger value="generator" className="min-h-10 flex-1">
             Generator
           </TabsTrigger>
-          <TabsTrigger value="benchmarks" className="flex-1">
+          <TabsTrigger value="benchmarks" className="min-h-10 flex-1">
             Benchmarks
           </TabsTrigger>
-          <TabsTrigger value="probe" className="flex-1">
+          <TabsTrigger value="probe" className="min-h-10 flex-1">
             Probe-EP
           </TabsTrigger>
         </TabsList>

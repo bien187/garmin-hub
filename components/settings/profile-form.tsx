@@ -39,14 +39,14 @@ export function ProfileForm() {
     }
   }
 
-  if (!form) return <div className="h-40 animate-pulse rounded-xl bg-muted/40" />;
+  if (!form) return <div className="h-40 animate-pulse rounded-xl bg-muted" />;
 
   const zonen = hrZonen({ ruhepuls: form.ruhepuls, hfMax: form.hfMax });
 
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
+        <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
           Profil & Zonen
         </CardTitle>
       </CardHeader>
@@ -87,7 +87,7 @@ export function ProfileForm() {
         </div>
         <div className="stat-mono grid grid-cols-5 gap-1 text-center text-[11px]">
           {(["z1", "z2", "z3", "z4", "z5"] as const).map((z) => (
-            <div key={z} className="rounded bg-muted/50 px-1 py-1.5">
+            <div key={z} className="rounded bg-muted px-1 py-1.5">
               <div className="font-semibold uppercase">{z}</div>
               <div className="text-muted-foreground">
                 {zonen[z].von}–{zonen[z].bis}

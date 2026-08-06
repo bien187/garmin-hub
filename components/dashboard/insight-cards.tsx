@@ -28,7 +28,7 @@ export function InsightCards() {
   }, []);
 
   if (karten === null) {
-    return <div className="h-24 animate-pulse rounded-xl bg-muted/40" />;
+    return <div className="h-24 animate-pulse rounded-xl bg-muted" />;
   }
   if (karten.length === 0 && tipps.length === 0) {
     return (

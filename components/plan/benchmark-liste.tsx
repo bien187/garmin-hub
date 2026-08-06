@@ -31,7 +31,7 @@ export function BenchmarkListe() {
   }
 
   if (eintraege === null) {
-    return <div className="h-20 animate-pulse rounded-xl bg-muted/40" />;
+    return <div className="h-20 animate-pulse rounded-xl bg-muted" />;
   }
   if (eintraege.length === 0) {
     return (
@@ -52,7 +52,7 @@ export function BenchmarkListe() {
         return (
           <div
             key={b.id}
-            className="flex items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2 text-sm"
+            className="flex items-center justify-between gap-2 rounded-lg bg-muted px-3 py-2 text-sm"
           >
             <div className="min-w-0">
               <span className="font-medium">{d.kurzname}</span>

@@ -97,7 +97,7 @@ export function ProbeEp() {
             {EP_REIHENFOLGE.map((id) => (
               <div
                 key={id}
-                className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2 text-sm"
+                className="flex items-center justify-between rounded-lg bg-muted px-3 py-2 text-sm"
               >
                 <span>{EP_DISZIPLINEN[id].kurzname}</span>
                 <span className="stat-mono">

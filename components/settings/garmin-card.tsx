@@ -56,7 +56,7 @@ export function GarminCard() {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
+        <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
           Garmin-Verbindung
         </CardTitle>
       </CardHeader>
@@ -104,7 +104,7 @@ export function GarminCard() {
                   {status.log.map((l, i) => (
                     <div
                       key={i}
-                      className="stat-mono flex justify-between rounded bg-muted/40 px-2 py-1 text-[11px]"
+                      className="stat-mono flex justify-between rounded bg-muted px-2 py-1 text-[11px]"
                     >
                       <span>
                         {new Date(l.zeit).toLocaleString("de-CH", {
@@ -125,7 +125,7 @@ export function GarminCard() {
             )}
           </div>
         ) : (
-          <div className="h-16 animate-pulse rounded-lg bg-muted/40" />
+          <div className="h-16 animate-pulse rounded-lg bg-muted" />
         )}
 
         {/* MFA */}

@@ -63,6 +63,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (pathname === "/login") return <>{children}</>;
 
   const fullBleed = pathname === "/map";
+  const aktiverIndex = TABS.findIndex((t) => isActive(pathname, t.href));
 
   // Fester App-Rahmen: die Seite selbst scrollt nie (Navbar bleibt immer
   // stehen), Inhalte scrollen bei Bedarf im internen Container.
@@ -129,7 +130,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {/* Bottom-Tab-Bar (Mobile) — bei offener Tastatur ausblenden */}
         {!tastaturOffen && (
           <nav className="shrink-0 border-t border-border bg-sidebar/95 backdrop-blur pb-safe md:hidden">
-            <div className="grid grid-cols-5">
+            <div className="relative grid grid-cols-5">
+              {/* Aktiv-Indikator: fährt per translateX zur aktiven Zelle (§6 Nr.1) */}
+              {aktiverIndex >= 0 && (
+                <div
+                  className="pointer-events-none absolute top-0 left-0 h-0.5 w-1/5"
+                  style={{
+                    transform: `translateX(${aktiverIndex * 100}%)`,
+                    transition: "transform var(--dur-base) var(--ease-base)",
+                  }}
+                >
+                  <div className="mx-auto h-full w-8 rounded-full bg-primary" />
+                </div>
+              )}
               {TABS.map(({ href, label, icon: Icon }) => {
                 const active = isActive(pathname, href);
                 return (

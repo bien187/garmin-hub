@@ -4,15 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { ConfirmSheet } from "@/components/ui/sheet-confirm";
 import { useActivityDelete } from "../use-activity-delete";
 import { FlyoverApi, FlyoverMap, FlyoverStreams } from "./flyover-map";
 import { FlyoverGraph } from "./flyover-graph";
@@ -152,9 +145,9 @@ export function ActivityDetail({ id }: { id: string }) {
   if (!daten) {
     return (
       <div className="space-y-3 p-4 md:p-6">
-        <div className="h-8 w-64 animate-pulse rounded bg-muted/50" />
-        <div className="h-80 animate-pulse rounded-xl bg-muted/40" />
-        <div className="h-40 animate-pulse rounded-xl bg-muted/40" />
+        <div className="h-8 w-64 animate-pulse rounded bg-muted" />
+        <div className="h-80 animate-pulse rounded-xl bg-muted" />
+        <div className="h-40 animate-pulse rounded-xl bg-muted" />
       </div>
     );
   }
@@ -186,70 +179,56 @@ export function ActivityDetail({ id }: { id: string }) {
     <div className="mx-auto max-w-4xl space-y-4 p-4 md:p-6">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-xs text-muted-foreground">
+          <div className="text-[10px] font-medium uppercase tracking-[0.06em] text-dim-foreground">
             {formatDatumLang(isoDatum(new Date(a.startZeit)))} · {a.typ}
           </div>
-          <h1 className="stat-display text-2xl uppercase tracking-wide">
+          <h1 className="stat-display text-xl uppercase tracking-[0.03em]">
             {a.name ?? a.typ}
           </h1>
-          <div className="mt-0.5 text-[11px] text-muted-foreground">
+          <div className="stat-mono mt-0.5 text-[10px] text-dim-foreground">
             {a.syncedAt
-              ? `Zuletzt synchronisiert: ${new Date(a.syncedAt).toLocaleString("de-CH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
-              : "Noch nicht einzeln aktualisiert"}
+              ? `zuletzt synchronisiert · ${new Date(a.syncedAt).toLocaleString("de-CH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
+              : "noch nicht einzeln aktualisiert"}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon-sm"
+          <button
             aria-label="Von Garmin aktualisieren"
             disabled={aktualisiert}
             onClick={aktualisieren}
+            className="flex size-11 items-center justify-center rounded-lg"
           >
-            <RefreshCw className={cn("size-4", aktualisiert && "animate-spin")} />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
+            <RefreshCw className={cn("size-4.5", aktualisiert && "gh-spin")} />
+          </button>
+          <button
             aria-label="Aktivität löschen"
-            className="text-status-red hover:bg-status-red/10"
             onClick={() => setLoeschenOffen(true)}
+            className="flex size-11 items-center justify-center rounded-lg text-status-red"
           >
-            <Trash2 className="size-4" />
-          </Button>
+            <Trash2 className="size-4.5" />
+          </button>
         </div>
       </div>
 
-      <Dialog open={loeschenOffen} onOpenChange={setLoeschenOffen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Aktivität aus dem Hub entfernen?</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
+      <ConfirmSheet
+        open={loeschenOffen}
+        onClose={() => setLoeschenOffen(false)}
+        title="Aktivität aus dem Hub entfernen?"
+        description={
+          <>
             «{a.name ?? a.typ}» wird nur hier ausgeblendet. Bei Garmin Connect
             bleibt sie bestehen. Rückgängig direkt danach möglich.
-          </p>
-          <DialogFooter className="flex-row justify-end gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setLoeschenOffen(false)}>
-              Abbrechen
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-status-red/50 text-status-red hover:bg-status-red/10"
-              onClick={() => {
-                setLoeschenOffen(false);
-                loeschen(a.id, {
-                  onRestore: () => router.push(`/activities/${a.id}`),
-                });
-                router.push("/activities");
-              }}
-            >
-              Entfernen
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </>
+        }
+        confirmLabel="Entfernen"
+        danger
+        onConfirm={() => {
+          loeschen(a.id, {
+            onRestore: () => router.push(`/activities/${a.id}`),
+          });
+          router.push("/activities");
+        }}
+      />
 
       {/* Kernmetriken */}
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
@@ -291,7 +270,7 @@ export function ActivityDetail({ id }: { id: string }) {
       {daten.streams && !istKraftTyp && (
         <Card>
           <CardHeader className="pb-1">
-            <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
+            <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
               Verlauf {flyover ? "· Höhe · Herzfrequenz · Pace" : "· Höhenprofil"}
             </CardTitle>
           </CardHeader>
@@ -316,7 +295,7 @@ export function ActivityDetail({ id }: { id: string }) {
       {m.zonenZeit && zonenGesamt > 0 && (
         <Card>
           <CardHeader className="pb-1">
-            <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
+            <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
               Herzfrequenz-Zonen
             </CardTitle>
           </CardHeader>
@@ -346,7 +325,7 @@ export function ActivityDetail({ id }: { id: string }) {
       {m.splits.length > 0 && (
         <Card>
           <CardHeader className="pb-1">
-            <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
+            <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
               Splits
             </CardTitle>
           </CardHeader>
@@ -389,7 +368,7 @@ export function ActivityDetail({ id }: { id: string }) {
       {istKraftTyp && (
         <Card>
           <CardHeader className="pb-1">
-            <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
+            <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
               Muskel-Template
             </CardTitle>
           </CardHeader>
@@ -399,14 +378,14 @@ export function ActivityDetail({ id }: { id: string }) {
                 ? "Überschreibt die aus den Sätzen abgeleitete Belastung."
                 : "Keine Übungsdetails von Garmin — weise die Belastung manuell zu."}
             </p>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1 rounded-lg bg-muted p-0.5">
               <button
                 onClick={() => setzeTemplate(null)}
                 className={cn(
-                  "min-h-9 rounded-md border px-3 text-sm",
+                  "min-h-11 rounded-md px-3 text-[13px]",
                   a.manualMuscleTemplate == null
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border text-muted-foreground"
+                    ? "bg-background font-semibold"
+                    : "text-muted-foreground"
                 )}
               >
                 Automatisch
@@ -416,10 +395,10 @@ export function ActivityDetail({ id }: { id: string }) {
                   key={t.id}
                   onClick={() => setzeTemplate(t.id)}
                   className={cn(
-                    "min-h-9 rounded-md border px-3 text-sm",
+                    "min-h-11 rounded-md px-3 text-[13px]",
                     a.manualMuscleTemplate === t.id
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border text-muted-foreground"
+                      ? "bg-background font-semibold"
+                      : "text-muted-foreground"
                   )}
                 >
                   {t.name}
@@ -435,7 +414,7 @@ export function ActivityDetail({ id }: { id: string }) {
         <div className="grid gap-4 md:grid-cols-2">
           <Card>
             <CardHeader className="pb-1">
-              <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
+              <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                 Sätze
               </CardTitle>
             </CardHeader>
@@ -466,7 +445,7 @@ export function ActivityDetail({ id }: { id: string }) {
           </Card>
           <Card>
             <CardHeader className="pb-1">
-              <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
+              <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                 Belastete Muskeln
               </CardTitle>
             </CardHeader>
@@ -506,10 +485,10 @@ function Stat({
 }) {
   return (
     <div
-      className={`rounded-lg p-2.5 ${hebe ? "bg-primary/10 ring-1 ring-primary/25" : "bg-muted/50"}`}
+      className={`rounded-md p-2.5 ${hebe ? "bg-primary/10 ring-1 ring-primary/25" : "bg-muted"}`}
     >
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className={`stat-display text-lg leading-tight ${farbe ?? ""}`}>{wert}</div>
+      <div className={`stat-display text-[17px] leading-tight ${farbe ?? ""}`}>{wert}</div>
     </div>
   );
 }

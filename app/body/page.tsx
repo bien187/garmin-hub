@@ -3,15 +3,10 @@ import { BodyTab } from "@/components/body/body-tab";
 export const metadata = { title: "Körper" };
 
 export default function BodyPage() {
+  // Kein h1/Intro (dupliziert das Tab-Label) — die Body-Map ist das
+  // Hero-Element und beginnt direkt unter der Safe Area.
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-4 md:p-6">
-      <div>
-        <h1 className="stat-display text-2xl uppercase tracking-wide">Körper</h1>
-        <p className="text-sm text-muted-foreground">
-          Live-Muskelstatus über Kraft- und Ausdauertraining hinweg. Tippe auf
-          eine Muskelgruppe.
-        </p>
-      </div>
+    <div className="mx-auto max-w-3xl space-y-4 px-4 pt-2 pb-4 md:px-6">
       <BodyTab />
     </div>
   );

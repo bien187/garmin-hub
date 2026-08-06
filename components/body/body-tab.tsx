@@ -59,7 +59,7 @@ export function BodyTab() {
   if (!daten) {
     return (
       <div className="space-y-3">
-        <div className="h-105 animate-pulse rounded-xl bg-muted/40" />
+        <div className="h-105 animate-pulse rounded-xl bg-muted" />
       </div>
     );
   }
@@ -71,49 +71,57 @@ export function BodyTab() {
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardContent className="pt-2">
-          <BodyMap
-            werte={daten.heute as Partial<Record<MuskelId, number>>}
-            onSelect={setAusgewaehlt}
-            ausgewaehlt={ausgewaehlt}
-          />
-          {/* Legende */}
-          <div className="mt-3 flex items-center justify-center gap-3 text-[10px] text-muted-foreground">
-            {[
-              { label: "frisch", p: 5 },
-              { label: "leicht", p: 35 },
-              { label: "belastet", p: 65 },
-              { label: "erschöpft", p: 90 },
-            ].map((l) => (
-              <span key={l.label} className="flex items-center gap-1">
-                <span
-                  className="size-2.5 rounded-full"
-                  style={{ background: erschoepfungFarbe(l.p) }}
-                />
-                {l.label}
-              </span>
-            ))}
-          </div>
-          <p className="mt-2 text-center text-[10px] text-muted-foreground">
-            Modellbasierte Schätzung aus Kraft- und Laufeinheiten — kein Messwert.
-          </p>
-        </CardContent>
-      </Card>
+      {/* Map ist das Hero-Element — ohne Karten-Hülle, direkt auf dem Grund */}
+      <div>
+        <BodyMap
+          werte={daten.heute as Partial<Record<MuskelId, number>>}
+          onSelect={setAusgewaehlt}
+          ausgewaehlt={ausgewaehlt}
+        />
+        {/* Legende: auch ohne Farbe unterscheidbar (Outline / halb / voll) */}
+        <div className="mt-3 flex items-center justify-center gap-3 text-[10px] text-muted-foreground">
+          {[
+            { label: "frisch", p: 5, fill: 0 },
+            { label: "leicht", p: 35, fill: 1 },
+            { label: "belastet", p: 65, fill: 2 },
+            { label: "erschöpft", p: 90, fill: 3 },
+          ].map((l) => (
+            <span key={l.label} className="flex items-center gap-1">
+              <span
+                className="size-2.5 rounded-full border"
+                style={{
+                  borderColor: erschoepfungFarbe(l.p),
+                  borderWidth: l.fill === 3 ? 2 : 1,
+                  background:
+                    l.fill === 0
+                      ? "transparent"
+                      : l.fill === 1
+                        ? `linear-gradient(90deg, ${erschoepfungFarbe(l.p)} 50%, transparent 50%)`
+                        : erschoepfungFarbe(l.p),
+                }}
+              />
+              {l.label}
+            </span>
+          ))}
+        </div>
+        <p className="mt-2 text-center text-[10px] text-dim-foreground">
+          Modellbasierte Schätzung aus Kraft- und Laufeinheiten — kein Messwert.
+        </p>
+      </div>
 
       {/* Systemische Ermüdung */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
+          <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
             Systemische Ermüdung
           </CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-3 gap-3">
-          <div className="rounded-lg bg-muted/50 p-3">
+          <div className="rounded-lg bg-muted p-3">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">TSB</div>
             <div
               className={cn(
-                "stat-display text-2xl",
+                "stat-display text-xl",
                 tsbInfo === "warnung" && "text-status-red",
                 tsbInfo === "frisch" && "text-status-green"
               )}
@@ -132,11 +140,11 @@ export function BodyTab() {
                     : "ermüdet"}
             </div>
           </div>
-          <div className="rounded-lg bg-muted/50 p-3">
+          <div className="rounded-lg bg-muted p-3">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">ACWR</div>
             <div
               className={cn(
-                "stat-display text-2xl",
+                "stat-display text-xl",
                 acwrInfo === "gefahr" && "text-status-red",
                 acwrInfo === "erhoeht" && "text-status-orange",
                 acwrInfo === "sweetspot" && "text-status-green"
@@ -156,7 +164,7 @@ export function BodyTab() {
                       : "zu wenig Daten"}
             </div>
           </div>
-          <div className="rounded-lg bg-muted/50 p-3">
+          <div className="rounded-lg bg-muted p-3">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
               HRV 7 Tage
             </div>
@@ -166,7 +174,7 @@ export function BodyTab() {
                 dataKey="hrv"
               />
             ) : (
-              <div className="stat-display text-2xl">–</div>
+              <div className="stat-display text-xl">–</div>
             )}
           </div>
         </CardContent>
@@ -231,7 +239,7 @@ export function BodyTab() {
                     {beitraegeFuer.map((b) => (
                       <div
                         key={b.activityId}
-                        className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2 text-sm"
+                        className="flex items-center justify-between rounded-lg bg-muted px-3 py-2 text-sm"
                       >
                         <div className="min-w-0">
                           <div className="truncate">{b.name ?? b.typ}</div>

@@ -155,7 +155,7 @@ export function WorkoutGenerator() {
                   "rounded-lg px-3 py-2 text-sm",
                   ergebnis.tsbMorgen < -10
                     ? "bg-status-orange/10 text-status-orange"
-                    : "bg-muted/50"
+                    : "bg-muted"
                 )}
               >
                 Nach diesem Lauf: TSB {ergebnis.tsbMorgen > 0 ? "+" : ""}
@@ -172,7 +172,7 @@ export function WorkoutGenerator() {
                   {ergebnis.routenVorschlaege.map((r) => (
                     <div
                       key={r.id}
-                      className="stat-mono flex justify-between rounded-lg bg-muted/50 px-3 py-1.5 text-xs"
+                      className="stat-mono flex justify-between rounded-lg bg-muted px-3 py-1.5 text-xs"
                     >
                       <span>{r.name}</span>
                       <span>
