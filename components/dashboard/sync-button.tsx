@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
 type SyncPhase = "idle" | "activities" | "health" | "finalize" | "fehler";
@@ -99,30 +98,50 @@ export function SyncButton({ kompakt = false }: { kompakt?: boolean }) {
     };
   }, [sync]);
 
-  const label =
+  // Ehrlicher Chunk-Zähler (KEINE erfundene Prozent-Progressbar)
+  const zaehler =
     phase === "activities"
-      ? `Aktivitäten… (${chunks})`
+      ? `Läufe ${chunks}`
       : phase === "health"
-        ? `Gesundheit… (${chunks})`
+        ? `Gesundheit ${chunks}`
         : phase === "finalize"
-          ? "Berechne…"
-          : "Sync";
+          ? "Berechne"
+          : null;
+
+  if (kompakt) {
+    // Dashboard: reiner Icon-Button (44×44), Zähler nur während des Syncs
+    return (
+      <div className="flex flex-col items-end gap-1">
+        <button
+          onClick={sync}
+          disabled={laeuft}
+          aria-label="Synchronisieren"
+          className={cn(
+            "flex min-h-11 items-center gap-1.5 rounded-lg bg-muted px-2.5",
+            phase === "fehler" && "text-status-red"
+          )}
+        >
+          <RefreshCw className={cn("size-4.25", laeuft && "gh-spin")} />
+          {zaehler && (
+            <span className="stat-mono text-xs tabular-nums">{zaehler}</span>
+          )}
+        </button>
+        {fehler && <p className="max-w-56 text-right text-xs text-status-red">{fehler}</p>}
+      </div>
+    );
+  }
 
   return (
-    <div className={cn("flex flex-col gap-1", kompakt ? "items-end" : "items-stretch")}>
+    <div className="flex flex-col items-stretch gap-1">
       <Button
         variant={phase === "fehler" ? "destructive" : "secondary"}
-        size={kompakt ? "sm" : "default"}
         onClick={sync}
         disabled={laeuft}
-        className="min-h-10"
+        className="min-h-11"
       >
-        <RefreshCw className={cn("size-4", laeuft && "animate-spin")} />
-        {label}
+        <RefreshCw className={cn("size-4", laeuft && "gh-spin")} />
+        {zaehler ?? "Synchronisieren"}
       </Button>
-      {laeuft && chunks > 0 && (
-        <Progress value={Math.min(95, chunks * 4)} className="h-1" />
-      )}
       {fehler && <p className="max-w-56 text-right text-xs text-status-red">{fehler}</p>}
     </div>
   );

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, CalendarRange, TrendingUp, TrendingDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CountdownHero } from "@/components/dashboard/countdown-hero";
 import { ReadinessCard } from "@/components/dashboard/readiness-card";
 import { FitnessChart } from "@/components/dashboard/fitness-chart";
 import { EpWidget } from "@/components/dashboard/ep-widget";
@@ -31,32 +32,17 @@ export default async function DashboardPage() {
         }[tsbZone(d.tsbHeute)] ?? null);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4 p-4 md:p-6">
-      {/* Kopfzeile: EP-Countdown — das Signatur-Element */}
+    <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
+      {/* Kopfzeile: EP-Countdown — das Signatur-Element (Hero-Zahl) */}
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-xs uppercase tracking-widest text-muted-foreground">
-            Eignungsprüfung Grenadier
-          </div>
-          {countdown.vorbei ? (
-            <div className="stat-display text-4xl md:text-5xl">EP absolviert</div>
-          ) : (
-            <div className="stat-display text-4xl leading-tight md:text-5xl">
-              {countdown.wochen}
-              <span className="text-xl text-muted-foreground"> Wo </span>
-              {countdown.tage}
-              <span className="text-xl text-muted-foreground"> Tage</span>
-            </div>
-          )}
-          <div className="mt-1 flex items-center gap-2 text-sm">
-            <span className="rounded bg-primary/15 px-2 py-0.5 font-medium text-primary">
-              Phase {phase.nr}: {phase.name}
-            </span>
-            <span className="text-muted-foreground">
-              bis {formatDatumLang(d.profil.epDatum)}
-            </span>
-          </div>
-        </div>
+        <CountdownHero
+          wochen={countdown.wochen}
+          tage={countdown.tage}
+          vorbei={countdown.vorbei}
+          phaseNr={phase.nr}
+          phaseName={phase.name}
+          epDatumLang={formatDatumLang(d.profil.epDatum)}
+        />
         <SyncButton kompakt />
       </div>
 
@@ -73,7 +59,7 @@ export default async function DashboardPage() {
         {/* Readiness */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
+            <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
               Bereitschaft heute
             </CardTitle>
           </CardHeader>
@@ -85,7 +71,7 @@ export default async function DashboardPage() {
         {/* EP-Prognose */}
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
+            <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
               EP-Notenprognose
             </CardTitle>
           </CardHeader>
@@ -97,13 +83,15 @@ export default async function DashboardPage() {
         {/* Fitness-Kurve */}
         <Card className="lg:col-span-2">
           <CardHeader className="flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
+            <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
               Fitness · 90 Tage
             </CardTitle>
             {d.tsbHeute != null && (
-              <div className="text-right">
-                <span className="stat-display text-2xl">{d.tsbHeute > 0 ? "+" : ""}{d.tsbHeute}</span>
-                <span className={`ml-1.5 text-xs ${tsbInfo?.farbe ?? ""}`}>
+              <div className="flex items-baseline gap-1.5 text-right">
+                <span className="stat-display text-xl">{d.tsbHeute > 0 ? "+" : ""}{d.tsbHeute}</span>
+                <span
+                  className={`text-[10px] font-medium uppercase tracking-[0.06em] ${tsbInfo?.farbe ?? "text-dim-foreground"}`}
+                >
                   TSB · {tsbInfo?.text}
                 </span>
               </div>
@@ -127,7 +115,7 @@ export default async function DashboardPage() {
         {/* Mini-Body-Map */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
+            <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
               Muskelstatus
             </CardTitle>
           </CardHeader>
@@ -147,7 +135,7 @@ export default async function DashboardPage() {
         {/* Woche + letzte Aktivität + nächstes Training */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
+            <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
               Diese Woche
             </CardTitle>
           </CardHeader>
@@ -166,7 +154,7 @@ export default async function DashboardPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
+            <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
               Letzte Aktivität
             </CardTitle>
           </CardHeader>
@@ -174,7 +162,7 @@ export default async function DashboardPage() {
             {d.letzteAktivitaet ? (
               <Link
                 href={`/activities/${d.letzteAktivitaet.id}`}
-                className="block rounded-lg bg-muted/50 p-3 transition-colors hover:bg-muted"
+                className="block rounded-lg bg-muted p-3 transition-colors hover:bg-muted"
               >
                 <div className="truncate font-medium">
                   {d.letzteAktivitaet.name ?? d.letzteAktivitaet.typ}
@@ -194,7 +182,7 @@ export default async function DashboardPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
+            <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
               Nächstes Training
             </CardTitle>
           </CardHeader>
@@ -202,7 +190,7 @@ export default async function DashboardPage() {
             {d.naechsteEinheit ? (
               <Link
                 href="/plan"
-                className="block rounded-lg bg-muted/50 p-3 transition-colors hover:bg-muted"
+                className="block rounded-lg bg-muted p-3 transition-colors hover:bg-muted"
               >
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <CalendarRange className="size-3.5" />
@@ -222,7 +210,7 @@ export default async function DashboardPage() {
       {/* Insights */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
+          <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
             Insights
           </CardTitle>
         </CardHeader>
@@ -247,7 +235,7 @@ function WochenWert({
 }) {
   const diff = vorwoche > 0 ? ((wert - vorwoche) / vorwoche) * 100 : null;
   return (
-    <div className="rounded-lg bg-muted/50 p-3">
+    <div className="rounded-lg bg-muted p-3">
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className="stat-display text-2xl">
         {wert}

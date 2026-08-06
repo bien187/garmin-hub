@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { EP_DISZIPLINEN, DisziplinId, berechneNote } from "@/lib/ep/disziplinen";
 import { EpPrognose } from "@/lib/ep/prognose";
@@ -35,15 +38,19 @@ export function EpWidget({ prognose }: { prognose: EpPrognose }) {
 
   const skala = (note: number) => ((note - 1) / 4) * 100; // 1.0 → 0 %, 5.0 → 100 %
 
+  // Balken beim ersten Mount 0→x fahren (§6 Nr. 10); reduced-motion: sofort
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   return (
     <div className="space-y-3">
       <div className="flex items-end justify-between">
         <div>
-          <div className="text-xs uppercase tracking-wider text-muted-foreground">
+          <div className="text-[10px] font-medium uppercase tracking-[0.06em] text-dim-foreground">
             Prognose Gesamtschnitt
           </div>
           <div
-            className="stat-display text-5xl leading-none"
+            className="stat-display text-[28px] leading-none"
             style={{ color: notenFarbe(prognose.schnitt) }}
           >
             {formatNote(prognose.schnitt)}
@@ -61,7 +68,7 @@ export function EpWidget({ prognose }: { prognose: EpPrognose }) {
       </div>
 
       <div className="space-y-2.5">
-        {reihenfolge.map((id) => {
+        {reihenfolge.map((id, i) => {
           const d = EP_DISZIPLINEN[id];
           const p = prognose.disziplinen[id];
           const note = p.prognoseNote;
@@ -83,8 +90,13 @@ export function EpWidget({ prognose }: { prognose: EpPrognose }) {
               <div className="relative h-2.5 overflow-hidden rounded-full bg-muted">
                 {note != null && (
                   <div
-                    className="absolute inset-y-0 left-0 rounded-full transition-all duration-500"
-                    style={{ width: `${skala(note)}%`, background: notenFarbe(note) }}
+                    className="absolute inset-y-0 left-0 rounded-full"
+                    style={{
+                      width: `${mounted ? skala(note) : 0}%`,
+                      background: notenFarbe(note),
+                      transition: "width var(--dur-emphasis) var(--ease-emphasis)",
+                      transitionDelay: `${i * 40}ms`,
+                    }}
                   />
                 )}
                 {/* Note-4.0-Linie */}

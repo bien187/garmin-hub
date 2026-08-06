@@ -1,0 +1,14 @@
+import { chromium } from "playwright";
+const [path, out] = [process.argv[2], process.argv[3]];
+const b = await chromium.launch();
+const p = await (await b.newContext({viewport:{width:393,height:852},isMobile:true,hasTouch:true,deviceScaleFactor:2})).newPage();
+const errs=[]; p.on("pageerror",e=>errs.push(String(e).slice(0,140)));
+await p.goto("http://localhost:3000/login",{waitUntil:"domcontentloaded"});
+await p.addStyleTag({content:":root{--sat:59px!important;--sab:34px!important}"});
+await p.fill("input[type=password]","dev"); await p.click("button[type=submit]"); await p.waitForTimeout(3000);
+await p.goto("http://localhost:3000"+path,{waitUntil:"domcontentloaded"});
+await p.addStyleTag({content:":root{--sat:59px!important;--sab:34px!important}"});
+await p.waitForTimeout(3500);
+console.log(path, "Fehler:", errs.length?errs.slice(0,2).join(" | "):"keine");
+await p.screenshot({path:out});
+await b.close();
