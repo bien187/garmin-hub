@@ -75,24 +75,31 @@ function ToastItem({
   return (
     <div
       className={cn(
-        "pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-xl border px-4 py-3 text-sm shadow-lg motion-safe:animate-in motion-safe:slide-in-from-bottom-4 motion-safe:zoom-in-95",
-        toast.variant === "error"
-          ? "border-status-red/40 bg-card text-foreground"
-          : "border-border bg-card text-foreground"
+        "gh-toast-in pointer-events-auto relative w-full max-w-sm overflow-hidden rounded-xl border bg-card text-foreground shadow-lg",
+        toast.variant === "error" ? "border-status-red/40" : "border-border"
       )}
     >
-      <span className="min-w-0 flex-1">{toast.message}</span>
-      {toast.actionLabel && (
-        <button
-          onClick={() => {
-            toast.onAction?.();
-            onClose();
-          }}
-          className="min-h-8 shrink-0 rounded-md px-2.5 font-semibold text-primary"
-        >
-          {toast.actionLabel}
-        </button>
-      )}
+      <div className="flex items-center gap-3 px-3.5 py-2.5 text-[13px]">
+        <span className="min-w-0 flex-1">{toast.message}</span>
+        {toast.actionLabel && (
+          <button
+            onClick={() => {
+              toast.onAction?.();
+              onClose();
+            }}
+            // sichtbar kompakt, Hit-Area 44px
+            className="-my-3 -mr-1.5 flex min-h-11 shrink-0 items-center px-2.5 text-[13px] font-semibold text-primary"
+          >
+            {toast.actionLabel}
+          </button>
+        )}
+      </div>
+      {/* Fortschrittslinie: läuft über die Anzeigedauer ab (bleibt in
+          reduced-motion, weil sie Information trägt) */}
+      <div
+        className="absolute inset-x-0 bottom-0 h-0.5 origin-left bg-primary"
+        style={{ animation: `gh-toast-bar ${dauer}ms linear forwards` }}
+      />
     </div>
   );
 }

@@ -44,13 +44,16 @@
   --color-status-yellow: var(--status-yellow);
   --color-status-orange: var(--status-orange);
   --color-status-red: var(--status-red);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --color-dim-foreground: var(--dim-foreground);
+  /* Exakt zwei Radien: 8px (Buttons/Segmente/Inputs/Minimaps) · 12px (Karten/
+     Dialoge/Toasts). Vollrund nur für Badges/Pills. */
+  --radius-sm: 8px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 12px;
+  --radius-2xl: 12px;
+  --radius-3xl: 12px;
+  --radius-4xl: 12px;
 }
 
 /*
@@ -62,74 +65,95 @@
 :root,
 .dark {
   --background: oklch(0.155 0.014 252);
-  --foreground: oklch(0.94 0.008 220);
+  --foreground: oklch(0.94 0.008 220); /* Text 1 */
+  --muted-foreground: oklch(0.66 0.014 240); /* Text 2 */
+  --dim-foreground: oklch(0.5 0.014 240); /* Text 3 — NEU */
   --card: oklch(0.195 0.016 252);
   --card-foreground: oklch(0.94 0.008 220);
-  --popover: oklch(0.21 0.018 252);
+  /* Konsolidiert: popover = card (waren 2 % auseinander) */
+  --popover: var(--card);
   --popover-foreground: oklch(0.94 0.008 220);
-  --primary: oklch(0.83 0.13 180);
+  --primary: oklch(0.83 0.13 180); /* einziger Interaktionsakzent */
   --primary-foreground: oklch(0.17 0.02 220);
-  --secondary: oklch(0.26 0.018 252);
-  --secondary-foreground: oklch(0.94 0.008 220);
+  /* Konsolidiert: ein Grauton statt drei (muted/secondary/accent) */
   --muted: oklch(0.25 0.016 252);
-  --muted-foreground: oklch(0.66 0.014 240);
-  --accent: oklch(0.27 0.02 240);
+  --secondary: var(--muted);
+  --secondary-foreground: oklch(0.94 0.008 220);
+  --accent: var(--muted);
   --accent-foreground: oklch(0.94 0.008 220);
-  --destructive: oklch(0.64 0.2 25);
+  /* Konsolidiert: eine Linienfarbe (border = input = sidebar-border) */
   --border: oklch(0.95 0.01 220 / 9%);
-  --input: oklch(0.95 0.01 220 / 13%);
+  --input: var(--border);
+  /* Konsolidiert: destructive = status-red */
+  --status-red: oklch(0.63 0.21 25);
+  --destructive: var(--status-red);
+  --status-green: oklch(0.78 0.17 152);
+  --status-yellow: oklch(0.85 0.14 95);
+  --status-orange: oklch(0.75 0.15 60);
   --ring: oklch(0.83 0.13 180 / 60%);
   --chart-1: oklch(0.83 0.13 180);
   --chart-2: oklch(0.68 0.1 250);
   --chart-3: oklch(0.75 0.13 85);
   --chart-4: oklch(0.63 0.17 25);
-  --chart-5: oklch(0.55 0.05 240);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.175 0.015 252);
+  --chart-5: var(--dim-foreground); /* redundant → Text 3 */
+  --radius: 0.75rem;
+  /* Konsolidiert: sidebar = background (2 % Unterschied) */
+  --sidebar: var(--background);
   --sidebar-foreground: oklch(0.94 0.008 220);
   --sidebar-primary: oklch(0.83 0.13 180);
   --sidebar-primary-foreground: oklch(0.17 0.02 220);
-  --sidebar-accent: oklch(0.26 0.018 252);
+  --sidebar-accent: var(--muted);
   --sidebar-accent-foreground: oklch(0.94 0.008 220);
-  --sidebar-border: oklch(0.95 0.01 220 / 8%);
+  --sidebar-border: var(--border);
   --sidebar-ring: oklch(0.83 0.13 180 / 60%);
-  --status-green: oklch(0.78 0.17 152);
-  --status-yellow: oklch(0.85 0.14 95);
-  --status-orange: oklch(0.75 0.15 60);
-  --status-red: oklch(0.63 0.21 25);
+
+  /* Motion-Tokens */
+  --dur-instant: 120ms;
+  --ease-instant: ease-out;
+  --dur-base: 180ms;
+  --ease-base: cubic-bezier(0.2, 0, 0, 1);
+  --dur-sheet: 280ms;
+  --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-emphasis: 420ms;
+  --ease-emphasis: ease-out;
+  /* Von reduced-motion auf 0 gesetzt → Transform-Keyframes werden zu reinen
+     Opacity-Fades, ohne jede Bewegung zu killen. */
+  --gh-shift: 6px;
+  --gh-scale: 0.97;
 }
 
 .light {
   --background: oklch(0.97 0.004 240);
   --foreground: oklch(0.2 0.015 252);
+  --muted-foreground: oklch(0.5 0.012 240);
+  --dim-foreground: oklch(0.62 0.012 240);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.2 0.015 252);
-  --popover: oklch(1 0 0);
+  --popover: var(--card);
   --popover-foreground: oklch(0.2 0.015 252);
   --primary: oklch(0.6 0.12 180);
   --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.93 0.006 240);
-  --secondary-foreground: oklch(0.2 0.015 252);
   --muted: oklch(0.93 0.006 240);
-  --muted-foreground: oklch(0.5 0.012 240);
-  --accent: oklch(0.92 0.01 240);
+  --secondary: var(--muted);
+  --secondary-foreground: oklch(0.2 0.015 252);
+  --accent: var(--muted);
   --accent-foreground: oklch(0.2 0.015 252);
-  --destructive: oklch(0.58 0.22 27);
   --border: oklch(0.2 0.015 252 / 10%);
-  --input: oklch(0.2 0.015 252 / 14%);
-  --ring: oklch(0.6 0.12 180 / 60%);
-  --sidebar: oklch(0.95 0.005 240);
-  --sidebar-foreground: oklch(0.2 0.015 252);
-  --sidebar-primary: oklch(0.6 0.12 180);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.93 0.006 240);
-  --sidebar-accent-foreground: oklch(0.2 0.015 252);
-  --sidebar-border: oklch(0.2 0.015 252 / 9%);
-  --sidebar-ring: oklch(0.6 0.12 180 / 60%);
+  --input: var(--border);
+  --status-red: oklch(0.55 0.21 25);
+  --destructive: var(--status-red);
   --status-green: oklch(0.62 0.17 152);
   --status-yellow: oklch(0.7 0.14 95);
   --status-orange: oklch(0.65 0.15 60);
-  --status-red: oklch(0.55 0.21 25);
+  --ring: oklch(0.6 0.12 180 / 60%);
+  --sidebar: var(--background);
+  --sidebar-foreground: oklch(0.2 0.015 252);
+  --sidebar-primary: oklch(0.6 0.12 180);
+  --sidebar-primary-foreground: oklch(0.98 0 0);
+  --sidebar-accent: var(--muted);
+  --sidebar-accent-foreground: oklch(0.2 0.015 252);
+  --sidebar-border: var(--border);
+  --sidebar-ring: oklch(0.6 0.12 180 / 60%);
 }
 
 @layer base {
@@ -243,11 +267,95 @@ select {
   margin-right: calc(var(--sar) + 8px);
 }
 
+/* ---- Motion-Keyframes (zentral, §6) ---- */
+@keyframes gh-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--gh-shift));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes gh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes gh-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--gh-shift) + 8px)) scale(var(--gh-scale));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes gh-toast-bar {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+@keyframes gh-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes gh-dim {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes gh-opacity-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.gh-row-in {
+  animation: gh-row-in var(--dur-base) var(--ease-base) both;
+}
+.gh-spin {
+  animation: gh-spin 900ms linear infinite;
+}
+.gh-spin-slow {
+  animation: gh-spin 800ms linear infinite;
+}
+.gh-toast-in {
+  animation: gh-toast-in 320ms cubic-bezier(0.34, 1.3, 0.64, 1) both;
+}
+
+/* reduced-motion: KEINE Bewegung, aber Überblendungen bleiben.
+   Transform-Keyframes werden über --gh-shift/--gh-scale = 0 zu reinen Fades;
+   Dauerrotationen werden zu einem Opacity-Puls. */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
+  :root,
+  .dark,
+  .light {
+    --gh-shift: 0px;
+    --gh-scale: 1;
+  }
+  .gh-spin,
+  .gh-spin-slow {
+    animation: gh-opacity-pulse var(--dur-base) ease-in-out infinite;
+  }
+  /* Scroll-Ruckeln vermeiden */
+  html {
+    scroll-behavior: auto !important;
   }
 }

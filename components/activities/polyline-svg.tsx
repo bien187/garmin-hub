@@ -1,24 +1,28 @@
+import { Dumbbell } from "lucide-react";
 import { decodePolyline } from "@/lib/geo/polyline";
 
 /** Statische Mini-Karte einer Aktivität als SVG-Pfad (kein Karten-Request) */
 export function PolylineSvg({
   encoded,
   className,
+  strokeWidth = 2.5,
 }: {
   encoded: string | null;
   className?: string;
+  strokeWidth?: number;
 }) {
   if (!encoded) {
+    // Kraft/ohne GPS: gleiche Fläche mit Hantel-Icon (kein Text)
     return (
       <div
-        className={`flex items-center justify-center rounded-md bg-muted/60 text-[10px] text-muted-foreground ${className ?? ""}`}
+        className={`flex items-center justify-center rounded-lg bg-card text-dim-foreground ${className ?? ""}`}
       >
-        ohne GPS
+        <Dumbbell className="size-4.5" />
       </div>
     );
   }
   const punkte = decodePolyline(encoded);
-  if (punkte.length < 2) return <div className={className} />;
+  if (punkte.length < 2) return <div className={`rounded-lg bg-card ${className ?? ""}`} />;
 
   const lats = punkte.map((p) => p[0]);
   const lngs = punkte.map((p) => p[1]);
@@ -30,7 +34,7 @@ export function PolylineSvg({
   const cosLat = Math.cos(((minLat + maxLat) / 2) * (Math.PI / 180));
   const breite = Math.max((maxLng - minLng) * cosLat, 1e-6);
   const hoehe = Math.max(maxLat - minLat, 1e-6);
-  const skala = 92 / Math.max(breite, hoehe);
+  const skala = 88 / Math.max(breite, hoehe);
   const dx = (100 - breite * skala) / 2;
   const dy = (100 - hoehe * skala) / 2;
 
@@ -43,12 +47,12 @@ export function PolylineSvg({
     .join("");
 
   return (
-    <svg viewBox="0 0 100 100" className={`rounded-md bg-muted/60 ${className ?? ""}`}>
+    <svg viewBox="0 0 100 100" className={`rounded-lg bg-card ${className ?? ""}`}>
       <path
         d={d}
         fill="none"
         stroke="var(--primary)"
-        strokeWidth="2.5"
+        strokeWidth={strokeWidth}
         strokeLinejoin="round"
         strokeLinecap="round"
       />

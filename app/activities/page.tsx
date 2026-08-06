@@ -3,9 +3,10 @@ import { ActivityList } from "@/components/activities/activity-list";
 export const metadata = { title: "Aktivitäten" };
 
 export default function ActivitiesPage() {
+  // Kein h1 (dupliziert das Tab-Label) und kein Seiten-Padding — die Liste
+  // bringt ihre eigenen 16px-Ränder und die Filterzeile als Kopf mit.
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-4 md:p-6">
-      <h1 className="stat-display text-2xl uppercase tracking-wide">Aktivitäten</h1>
+    <div className="mx-auto max-w-3xl">
       <ActivityList />
     </div>
   );

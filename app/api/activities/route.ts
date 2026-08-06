@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, desc, gte, isNull, lt, like, SQL } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, lt, like, SQL } from "drizzle-orm";
 import { getDb, tables } from "@/lib/db";
 
 /**
@@ -40,8 +40,20 @@ export async function GET(req: NextRequest) {
     .orderBy(desc(tables.activities.startZeit))
     .limit(20);
 
+  // „Zuletzt synchronisiert" nur auf der ersten Seite mitliefern
+  let lastSync: string | null = null;
+  if (!cursor) {
+    const [s] = await db
+      .select({ value: tables.syncState.value })
+      .from(tables.syncState)
+      .where(eq(tables.syncState.key, "activities"));
+    const v = s?.value as { lastSyncAt?: string } | undefined;
+    lastSync = v?.lastSyncAt ?? null;
+  }
+
   return NextResponse.json({
     aktivitaeten: rows,
     nextCursor: rows.length === 20 ? rows[rows.length - 1].startZeit : null,
+    lastSync,
   });
 }
