@@ -55,9 +55,38 @@ function useKeyboardOpen(): boolean {
   return offen;
 }
 
+/**
+ * Echte sichtbare Höhe als CSS-Variable `--app-h`. Auf iOS-Standalone-PWA
+ * unterschätzen 100dvh UND `position:fixed; inset:0` auf manchen Geräten die
+ * Bildschirmhöhe (grosse Lücke unter der Navbar). `window.innerHeight` ist
+ * der zuverlässigste Wert der wirklich gezeichneten Höhe.
+ */
+function useAppHeight() {
+  useEffect(() => {
+    const setzen = () => {
+      const h = Math.max(
+        window.innerHeight,
+        document.documentElement.clientHeight || 0,
+        window.visualViewport?.height ?? 0
+      );
+      document.documentElement.style.setProperty("--app-h", `${h}px`);
+    };
+    setzen();
+    window.addEventListener("resize", setzen);
+    window.addEventListener("orientationchange", setzen);
+    window.visualViewport?.addEventListener("resize", setzen);
+    return () => {
+      window.removeEventListener("resize", setzen);
+      window.removeEventListener("orientationchange", setzen);
+      window.visualViewport?.removeEventListener("resize", setzen);
+    };
+  }, []);
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const tastaturOffen = useKeyboardOpen();
+  useAppHeight();
 
   // Login-Seite ohne Navigation rendern
   if (pathname === "/login") return <>{children}</>;
@@ -72,7 +101,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Flex-Kind hugt damit garantiert die physische Unterkante.
   return (
     <ToastProvider>
-    <div className="fixed inset-0 flex overflow-hidden bg-background">
+    <div
+      className="fixed inset-x-0 top-0 flex overflow-hidden bg-background"
+      style={{ height: "var(--app-h, 100dvh)" }}
+    >
       {/* Sidebar (Desktop) */}
       <aside className="hidden md:flex md:w-56 md:flex-col md:border-r md:border-sidebar-border md:bg-sidebar fixed inset-y-0 z-40">
         <Link href="/" className="flex items-center gap-2.5 px-5 py-5">
