@@ -13,13 +13,96 @@
 
 export const FLYOVER_DAUER_S = 30;
 
+/**
+ * Aufnahmeprofil je Aktivitätsart. Ein Lauf und eine Wanderung wollen
+ * verschieden erzählt werden: Wandern ist langsam und findet im Detail
+ * statt (Wegverlauf, Gelände), also längere Spielzeit, engerer Zoom und
+ * eine feinere Auflösung des Tracks. Für Radfahren gilt das Gegenteil —
+ * dort muss vor allem der Ausreisserfilter höhere Tempi zulassen.
+ */
+export interface FlyoverProfil {
+  /** Spielzeit des Flyovers in Sekunden */
+  dauerS: number;
+  /** Zuschlag auf den geschwindigkeitsabhängigen Basiszoom */
+  zoomBonus: number;
+  /** Zuschlag auf den Kamera-Pitch (Grad) */
+  pitchBonus: number;
+  /** Ausreisserfilter: max. plausible Geschwindigkeit in m/s */
+  vMax: number;
+  /** Glättungsfenster der Geschwindigkeit in Sekunden */
+  glaettungS: number;
+  /** Obergrenze der Stützpunkte nach der Ausdünnung */
+  maxPunkte: number;
+  label: string;
+}
+
+const PROFIL_LAUF: FlyoverProfil = {
+  dauerS: 30,
+  zoomBonus: 0,
+  pitchBonus: 0,
+  vMax: 12,
+  glaettungS: 5,
+  maxPunkte: 5000,
+  label: "Lauf",
+};
+
+const PROFIL_WANDERUNG: FlyoverProfil = {
+  dauerS: 40,
+  zoomBonus: 1.3,
+  pitchBonus: 6,
+  vMax: 6,
+  glaettungS: 3,
+  maxPunkte: 9000,
+  label: "Wanderung",
+};
+
+const PROFIL_RAD: FlyoverProfil = {
+  dauerS: 30,
+  zoomBonus: -0.4,
+  pitchBonus: -4,
+  vMax: 25,
+  glaettungS: 6,
+  maxPunkte: 5000,
+  label: "Rad",
+};
+
+export function flyoverProfil(typ?: string | null): FlyoverProfil {
+  const t = (typ ?? "").toLowerCase();
+  if (
+    t.includes("hiking") ||
+    t.includes("walking") ||
+    t.includes("mountaineering") ||
+    t.includes("rucking")
+  ) {
+    return PROFIL_WANDERUNG;
+  }
+  if (t.includes("cycling") || t.includes("biking")) return PROFIL_RAD;
+  return PROFIL_LAUF;
+}
+
+/**
+ * Streams, wie sie aus der DB kommen. Ganze Spalten können fehlen: eine
+ * Halleneinheit hat keine Koordinaten, Garmin liefert dann JSON-`null`
+ * statt eines Arrays. Deshalb ist hier jede Reihe optional — wer das
+ * ignoriert, greift auf `null[i]` zu und reisst die Seite ab.
+ */
 export interface FlyoverStreamsInput {
-  zeitS: number[];
-  lat: (number | null)[];
-  lng: (number | null)[];
-  ele: (number | null)[];
-  hr: (number | null)[];
-  distanzM: (number | null)[];
+  zeitS: number[] | null;
+  lat?: (number | null)[] | null;
+  lng?: (number | null)[] | null;
+  ele?: (number | null)[] | null;
+  hr?: (number | null)[] | null;
+  distanzM?: (number | null)[] | null;
+}
+
+/** true, wenn die Streams überhaupt eine Strecke enthalten */
+export function hatKoordinaten(s: FlyoverStreamsInput | null | undefined): boolean {
+  return Boolean(
+    s?.zeitS?.length &&
+      Array.isArray(s.lat) &&
+      Array.isArray(s.lng) &&
+      s.lat.some((v, i) => v != null && s.lng?.[i] != null)
+  );
 }
 
 export interface TrackPunkt {
@@ -126,14 +209,19 @@ export function verarbeiteStreams(
     hr: number | null;
   }
   const roh: Roh[] = [];
-  const n = s.zeitS.length;
+  const zeit = s.zeitS;
+  const latReihe = s.lat;
+  const lngReihe = s.lng;
+  // Ohne Zeit oder ohne Koordinaten gibt es nichts zu fliegen
+  if (!zeit?.length || !latReihe || !lngReihe) return null;
+  const n = zeit.length;
   for (let i = 0; i < n; i++) {
-    const lat = s.lat[i];
-    const lng = s.lng[i];
-    const t = s.zeitS[i];
+    const lat = latReihe[i];
+    const lng = lngReihe[i];
+    const t = zeit[i];
     if (lat == null || lng == null || !isFinite(t)) continue;
     if (Math.abs(lat) < 0.01 && Math.abs(lng) < 0.01) continue;
-    roh.push({ t, lat, lng, ele: s.ele[i], hr: s.hr[i] });
+    roh.push({ t, lat, lng, ele: s.ele?.[i] ?? null, hr: s.hr?.[i] ?? null });
   }
   roh.sort((a, b) => a.t - b.t);
   // Zeitsprünge rückwärts / Duplikate entfernen

@@ -19,10 +19,10 @@ export async function GET(req: NextRequest) {
 
   const startMs = Date.now();
   const budgetMs = 45_000;
-  const stats = { activities: 0, health: 0, fehler: null as string | null };
+  const stats = { activities: 0, health: 0, zonen: 0, fehler: null as string | null };
 
   try {
-    for (const typ of ["activities", "health"] as const) {
+    for (const typ of ["zonen", "activities", "health"] as const) {
       let hasMore = true;
       while (hasMore && Date.now() - startMs < budgetMs) {
         const r = await bridgeFetch<{ hasMore: boolean; verarbeitet: number }>(

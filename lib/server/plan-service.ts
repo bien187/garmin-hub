@@ -1,7 +1,8 @@
 import { and, desc, eq, gte, isNull, lte } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { getDb, tables } from "@/lib/db";
-import { ladeProfil, hrZonen } from "@/lib/profile";
+import { ladeProfil } from "@/lib/profile";
+import { ladeZonen } from "./zonen-service";
 import { aktuellePhase, restwochen } from "@/lib/ep/phasen";
 import { generiereWochenplan, Wochenplan } from "@/lib/engine/plan";
 import { trainingsPaces } from "@/lib/engine/paces";
@@ -103,7 +104,9 @@ export async function generiereUndSpeichereWoche(
   const kgMatch = lastlaeufe[0]?.titel.match(/(\d{1,2})\s*kg/i);
   const letztesLastKg = kgMatch ? parseInt(kgMatch[1], 10) : 4;
 
-  const zonen = hrZonen(profil);
+  // Laufzonen wie auf der Uhr: nur so trifft ein „Zone 2"-Plan auch die
+  // Zone 2, die die FR 265 später in der Aktivität ausweist.
+  const zonen = await ladeZonen("running");
   const plan = generiereWochenplan({
     wochenstart: montag,
     phaseNr: phase.nr,

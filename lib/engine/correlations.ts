@@ -32,6 +32,42 @@ export function pearson(
   return { r: sxy / Math.sqrt(sxx * syy), n, punkte };
 }
 
+/**
+ * Ausgleichsgerade (kleinste Quadrate), zurückgegeben als ihre beiden
+ * Endpunkte über die Spannweite der Daten — genau das, was ein Chart zum
+ * Zeichnen einer Linie braucht.
+ *
+ * Sie macht das r einer Insight-Kachel sichtbar. Die Punkte in ihrer
+ * zeitlichen Reihenfolge zu verbinden wäre die falsche Linie: bei einer
+ * Streuung über Tage ergäbe das nur Zickzack ohne Aussage.
+ */
+export function ausgleichsgerade(
+  punkte: { x: number; y: number }[]
+): { x: number; y: number }[] {
+  const gueltig = punkte.filter((p) => isFinite(p.x) && isFinite(p.y));
+  const n = gueltig.length;
+  if (n < 3) return [];
+  const mx = gueltig.reduce((s, p) => s + p.x, 0) / n;
+  const my = gueltig.reduce((s, p) => s + p.y, 0) / n;
+  let sxy = 0;
+  let sxx = 0;
+  for (const p of gueltig) {
+    sxy += (p.x - mx) * (p.y - my);
+    sxx += (p.x - mx) ** 2;
+  }
+  if (sxx === 0) return [];
+  const steigung = sxy / sxx;
+  const achsenabschnitt = my - steigung * mx;
+  const xs = gueltig.map((p) => p.x);
+  const xMin = Math.min(...xs);
+  const xMax = Math.max(...xs);
+  if (xMin === xMax) return [];
+  return [
+    { x: xMin, y: achsenabschnitt + steigung * xMin },
+    { x: xMax, y: achsenabschnitt + steigung * xMax },
+  ];
+}
+
 export interface InsightKarte {
   id: string;
   titel: string;

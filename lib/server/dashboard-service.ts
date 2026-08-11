@@ -1,10 +1,11 @@
-import { and, asc, desc, eq, gte, inArray, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { getDb, tables } from "@/lib/db";
 import { ladeProfil, PROFIL_DEFAULTS, Profil } from "@/lib/profile";
 import { EpPrognose, berechneEpPrognose } from "@/lib/ep/prognose";
 import { ladeEpPrognose } from "./ep-service";
 import { addTage, heuteIso, montagVon } from "@/lib/format";
 import { MuskelId } from "@/lib/engine/muscle";
+import { fasseZusammen } from "@/lib/engine/pace-bei-hr";
 
 export interface DashboardDaten {
   dbBereit: boolean;
@@ -33,7 +34,38 @@ export interface DashboardDaten {
   naechsteEinheit: { id: string; datum: string; titel: string; typ: string } | null;
   woche: { km: number; hm: number };
   vorwoche: { km: number; hm: number };
+  allTime: AllTimeStats;
+  paceFortschritt: { refHr: number | null; wochen: PaceWoche[] };
 }
+
+/** Summenwerte über die gesamte Historie */
+export interface AllTimeStats {
+  aktivitaeten: number;
+  distanzKm: number;
+  laufKm: number;
+  hm: number;
+  stunden: number;
+  kalorien: number;
+  laengsterLaufKm: number;
+  seit: string | null;
+}
+
+/** Ein Punkt der Fortschrittskurve (Wochenmontag → Pace bei Referenzpuls) */
+export interface PaceWoche {
+  woche: string;
+  paceSKm: number;
+}
+
+const ALL_TIME_LEER: AllTimeStats = {
+  aktivitaeten: 0,
+  distanzKm: 0,
+  laufKm: 0,
+  hm: 0,
+  stunden: 0,
+  kalorien: 0,
+  laengsterLaufKm: 0,
+  seit: null,
+};
 
 const LEER: DashboardDaten = {
   dbBereit: false,
@@ -55,6 +87,8 @@ const LEER: DashboardDaten = {
   naechsteEinheit: null,
   woche: { km: 0, hm: 0 },
   vorwoche: { km: 0, hm: 0 },
+  allTime: ALL_TIME_LEER,
+  paceFortschritt: { refHr: null, wochen: [] },
 };
 
 export async function ladeDashboard(): Promise<DashboardDaten> {
@@ -63,8 +97,15 @@ export async function ladeDashboard(): Promise<DashboardDaten> {
     const heute = heuteIso();
     const profil = await ladeProfil();
 
-    const [healthRows, fitnessRows, muskelRows, letzteActs, naechste] =
-      await Promise.all([
+    const [
+      healthRows,
+      fitnessRows,
+      muskelRows,
+      letzteActs,
+      naechste,
+      summenRows,
+      refHrRows,
+    ] = await Promise.all([
         db.select().from(tables.dailyHealth).where(eq(tables.dailyHealth.datum, heute)),
         db
           .select()
@@ -101,6 +142,25 @@ export async function ladeDashboard(): Promise<DashboardDaten> {
           )
           .orderBy(asc(tables.plannedWorkouts.datum))
           .limit(1),
+        /* All-Time-Summen — eine Aggregation in der DB statt aller Zeilen
+           im Speicher. FILTER trennt die Lauf-Anteile ab. */
+        db
+          .select({
+            anzahl: sql<number>`count(*)::int`,
+            dauerS: sql<number>`coalesce(sum(${tables.activities.dauerS}), 0)`,
+            distanzM: sql<number>`coalesce(sum(${tables.activities.distanzM}), 0)`,
+            hm: sql<number>`coalesce(sum(${tables.activities.hmAuf}), 0)`,
+            kalorien: sql<number>`coalesce(sum(${tables.activities.kalorien}), 0)`,
+            laufDistanzM: sql<number>`coalesce(sum(${tables.activities.distanzM}) filter (where ${tables.activities.typ} like '%running%'), 0)`,
+            laengsterLaufM: sql<number>`coalesce(max(${tables.activities.distanzM}) filter (where ${tables.activities.typ} like '%running%'), 0)`,
+            seit: sql<string | null>`min(${tables.activities.startZeit})`,
+          })
+          .from(tables.activities)
+          .where(isNull(tables.activities.deletedAt)),
+        db
+          .select()
+          .from(tables.appSettings)
+          .where(eq(tables.appSettings.key, "pace_ref_hr")),
       ]);
 
     const { prognose } = await ladeEpPrognose();
@@ -122,6 +182,34 @@ export async function ladeDashboard(): Promise<DashboardDaten> {
     for (const m of muskelRows) {
       muskelnHeute[m.muskelId as MuskelId] = m.restbelastungProzent;
     }
+
+    const s = summenRows[0];
+    const allTime: AllTimeStats = {
+      aktivitaeten: Number(s?.anzahl ?? 0),
+      distanzKm: Math.round(Number(s?.distanzM ?? 0) / 1000),
+      laufKm: Math.round(Number(s?.laufDistanzM ?? 0) / 1000),
+      hm: Math.round(Number(s?.hm ?? 0)),
+      stunden: Math.round(Number(s?.dauerS ?? 0) / 3600),
+      kalorien: Math.round(Number(s?.kalorien ?? 0)),
+      laengsterLaufKm: Math.round(Number(s?.laengsterLaufM ?? 0) / 100) / 10,
+      seit: s?.seit ? new Date(s.seit).toISOString().slice(0, 10) : null,
+    };
+
+    /* Fortschritt: Tageswerte je Kalenderwoche zeitgewichtet zusammenfassen */
+    const proWoche = new Map<string, { paceSKm: number; sekunden: number }[]>();
+    for (const r of fitnessRows) {
+      if (r.paceRefHrSKm == null) continue;
+      const woche = montagVon(r.datum);
+      const liste = proWoche.get(woche) ?? [];
+      liste.push({ paceSKm: r.paceRefHrSKm, sekunden: r.paceRefHrSekunden ?? 60 });
+      proWoche.set(woche, liste);
+    }
+    const paceWochen: PaceWoche[] = [...proWoche.entries()]
+      .map(([woche, liste]) => ({ woche, zusammen: fasseZusammen(liste) }))
+      .filter((w) => w.zusammen != null)
+      .map((w) => ({ woche: w.woche, paceSKm: Math.round(w.zusammen!.paceSKm) }))
+      .sort((a, b) => a.woche.localeCompare(b.woche));
+    const refHrWert = (refHrRows[0]?.value as { refHr?: number } | undefined)?.refHr;
 
     return {
       dbBereit: true,
@@ -150,6 +238,11 @@ export async function ladeDashboard(): Promise<DashboardDaten> {
       naechsteEinheit: naechste[0] ?? null,
       woche: summe(montag, heute),
       vorwoche: summe(vorMontag, addTage(montag, -1)),
+      allTime,
+      paceFortschritt: {
+        refHr: typeof refHrWert === "number" ? refHrWert : null,
+        wochen: paceWochen,
+      },
     };
   } catch {
     return LEER;

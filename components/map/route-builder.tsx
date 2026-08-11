@@ -33,7 +33,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { aktiviere3D, BASEMAP_STYLE, deaktiviere3D } from "@/lib/geo/map-style";
+import {
+  aktiviere3D,
+  BASEMAP_STYLE,
+  deaktiviere3D,
+  fuegeRasterBasemapsHinzu,
+  KARTEN_TYPEN,
+  setzeKartenTyp,
+  type KartenTyp,
+} from "@/lib/geo/map-style";
 import { gapFaktor } from "@/lib/engine/gap";
 import { decodePolyline } from "@/lib/geo/polyline";
 import { geojsonZuGpx } from "@/lib/geo/gpx";
@@ -103,6 +111,7 @@ export function RouteBuilder() {
 
   const [bereit, setBereit] = useState(false);
   const [ist3D, setIst3D] = useState(false);
+  const [kartenTyp, setKartenTyp] = useState<KartenTyp>("karte");
   const [luftlinie, setLuftlinie] = useState(false);
   const [laedt, setLaedt] = useState(false);
   const [meldung, setMeldung] = useState<string | null>(null);
@@ -288,6 +297,7 @@ export function RouteBuilder() {
     );
 
     map.on("load", () => {
+      fuegeRasterBasemapsHinzu(map);
       map.addSource("builder-route", {
         type: "geojson",
         data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [] } },
@@ -363,6 +373,14 @@ export function RouteBuilder() {
       map.easeTo({ pitch: 0, duration: 500 });
     }
   }, [ist3D, bereit]);
+
+  /* Kartentyp (nach dem 3D-Effekt, damit der frisch angelegte Hillshade
+     bei Satellit/Topo gleich wieder ausgeblendet wird) */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !bereit) return;
+    setzeKartenTyp(map, kartenTyp);
+  }, [kartenTyp, ist3D, bereit]);
 
   /* Gespeicherte Routen + Heatmap Layer */
   useEffect(() => {
@@ -546,6 +564,21 @@ export function RouteBuilder() {
           >
             <Flame className="size-4" />
           </IconBtn>
+        </div>
+        <div className="flex rounded-lg bg-background/90 p-0.5 backdrop-blur">
+          {KARTEN_TYPEN.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setKartenTyp(t.id)}
+              aria-pressed={kartenTyp === t.id}
+              className={cn(
+                "min-h-8 rounded-md px-2 text-[11px]",
+                kartenTyp === t.id ? "bg-muted font-semibold" : "text-muted-foreground"
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
       </div>
 

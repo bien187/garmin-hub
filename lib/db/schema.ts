@@ -99,6 +99,10 @@ export const computedDaily = pgTable("computed_daily", {
   laufKm: doublePrecision("lauf_km").notNull().default(0),
   hm: doublePrecision("hm").notNull().default(0),
   effizienzIndex: doublePrecision("effizienz_index"),
+  // Höhenkorrigierte Pace bei Referenzpuls + Zeit im Pulsfenster (das
+  // Gewicht, mit dem der Tag in die Wochenauswertung eingeht)
+  paceRefHrSKm: doublePrecision("pace_ref_hr_s_km"),
+  paceRefHrSekunden: doublePrecision("pace_ref_hr_sekunden"),
 });
 
 /** Muskel-Restbelastung pro Tag (materialisiert) */

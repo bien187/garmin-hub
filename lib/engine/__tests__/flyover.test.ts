@@ -3,7 +3,9 @@ import {
   baueGraphDaten,
   berechneK,
   FLYOVER_DAUER_S,
+  flyoverProfil,
   FlyoverStreamsInput,
+  hatKoordinaten,
   ProcessedTrack,
   SampleCursor,
   sampleAt,
@@ -15,7 +17,7 @@ import {
 function syntheticTrack(
   segmente: [number, number][],
   schrittS = 1
-): FlyoverStreamsInput {
+): Required<{ [K in keyof FlyoverStreamsInput]: NonNullable<FlyoverStreamsInput[K]> }> {
   const zeitS: number[] = [];
   const lat: number[] = [];
   const lng: number[] = [];
@@ -245,6 +247,80 @@ describe("Graph-Aufbereitung (7.5)", () => {
     const g = baueGraphDaten(tr);
     expect(g.hatHr).toBe(false);
     expect(g.zeit.length).toBeGreaterThan(100);
+  });
+});
+
+describe("Streams ohne GPS (Halleneinheit)", () => {
+  /* Garmin liefert für Krafttraining kein directLatitude — in der DB steht
+     dann JSON-null statt eines Arrays. Früher lief das in `null[i]` und
+     riss die ganze Detailseite mit einer Client-Exception ab. */
+  const halle = {
+    zeitS: Array.from({ length: 120 }, (_, i) => i),
+    lat: null,
+    lng: null,
+    ele: null,
+    hr: Array.from({ length: 120 }, () => 110),
+    distanzM: Array.from({ length: 120 }, () => 0),
+  };
+
+  it("verarbeitet fehlende Reihen ohne Exception", () => {
+    expect(() => verarbeiteStreams(halle)).not.toThrow();
+    expect(verarbeiteStreams(halle)).toBeNull();
+  });
+
+  it("hatKoordinaten trennt Strecke von Halle", () => {
+    expect(hatKoordinaten(halle)).toBe(false);
+    expect(hatKoordinaten(null)).toBe(false);
+    expect(hatKoordinaten({ zeitS: [0, 1], lat: [null, null], lng: [null, null] })).toBe(
+      false
+    );
+    expect(hatKoordinaten(syntheticTrack([[60, 3]]))).toBe(true);
+  });
+
+  it("kommt auch ohne Höhe und Herzfrequenz klar", () => {
+    const s = syntheticTrack([[120, 3]]);
+    const tr = verarbeiteStreams({ zeitS: s.zeitS, lat: s.lat, lng: s.lng })!;
+    expect(tr).not.toBeNull();
+    expect(tr.punkte.every((p) => p.hr === null)).toBe(true);
+    expect(tr.totalDistance).toBeGreaterThan(300);
+  });
+});
+
+describe("flyoverProfil", () => {
+  it("gibt Wanderungen mehr Zeit und holt die Kamera näher heran", () => {
+    const lauf = flyoverProfil("running");
+    const wanderung = flyoverProfil("hiking");
+    expect(lauf.dauerS).toBe(30);
+    expect(wanderung.dauerS).toBe(40);
+    expect(wanderung.zoomBonus).toBeGreaterThan(lauf.zoomBonus);
+    // mehr Detail: feinere Glättung, mehr Stützpunkte
+    expect(wanderung.glaettungS).toBeLessThan(lauf.glaettungS);
+    expect(wanderung.maxPunkte).toBeGreaterThan(lauf.maxPunkte);
+  });
+
+  it("lässt beim Rad höhere Geschwindigkeiten zu", () => {
+    expect(flyoverProfil("cycling").vMax).toBeGreaterThan(
+      flyoverProfil("running").vMax
+    );
+    // Wandern: alles über ~20 km/h ist ein GPS-Ausreisser
+    expect(flyoverProfil("walking").vMax).toBeLessThan(
+      flyoverProfil("running").vMax
+    );
+  });
+
+  it("behandelt unbekannte Typen wie einen Lauf", () => {
+    expect(flyoverProfil("unknown")).toEqual(flyoverProfil("running"));
+    expect(flyoverProfil(null).dauerS).toBe(FLYOVER_DAUER_S);
+  });
+});
+
+describe("berechneK mit Profildauer", () => {
+  it("streckt die Zeitraffung auf die längere Wanderdauer", () => {
+    const tr = verarbeiteStreams(syntheticTrack([[600, 1.4]]))!;
+    const kLauf = berechneK(tr, 30);
+    const kWanderung = berechneK(tr, 40);
+    expect(kWanderung).toBeCloseTo((kLauf * 30) / 40, 6);
+    expect(kWanderung).toBeLessThan(kLauf);
   });
 });
 

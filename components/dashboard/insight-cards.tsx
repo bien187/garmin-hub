@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Lightbulb } from "lucide-react";
 import {
+  CartesianGrid,
   ResponsiveContainer,
   Scatter,
   ScatterChart,
@@ -10,7 +11,7 @@ import {
   YAxis,
 } from "recharts";
 import { Card, CardContent } from "@/components/ui/card";
-import type { InsightKarte } from "@/lib/engine/correlations";
+import { ausgleichsgerade, type InsightKarte } from "@/lib/engine/correlations";
 
 /** Korrelations-Insights (§6.6) — was Garmin nicht zeigt */
 export function InsightCards() {
@@ -61,12 +62,21 @@ export function InsightCards() {
                 </span>
               </div>
               <p className="text-xs text-muted-foreground">{k.text}</p>
-              <div className="h-20">
+              <div className="h-28">
                 <ResponsiveContainer width="100%" height="100%">
-                  <ScatterChart margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                  <ScatterChart margin={{ top: 6, right: 6, bottom: 0, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                     <XAxis dataKey="x" type="number" hide domain={["dataMin", "dataMax"]} />
                     <YAxis dataKey="y" type="number" hide domain={["dataMin", "dataMax"]} />
-                    <Scatter data={k.punkte} fill="var(--primary)" opacity={0.65} />
+                    <Scatter data={k.punkte} fill="var(--muted-foreground)" opacity={0.5} />
+                    {/* Trend: Linie ohne eigene Punktsymbole */}
+                    <Scatter
+                      data={ausgleichsgerade(k.punkte)}
+                      line={{ stroke: "var(--primary)", strokeWidth: 2 }}
+                      shape={() => <g />}
+                      legendType="none"
+                      isAnimationActive={false}
+                    />
                   </ScatterChart>
                 </ResponsiveContainer>
               </div>

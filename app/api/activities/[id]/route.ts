@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq, isNull } from "drizzle-orm";
 import { getDb, tables } from "@/lib/db";
-import { ladeProfil, hrZonen } from "@/lib/profile";
+import { ladeZonen } from "@/lib/server/zonen-service";
 import { gapAusStreams } from "@/lib/engine/gap";
 import {
   aerobeEntkopplung,
@@ -44,8 +44,9 @@ export async function GET(
     .from(tables.strengthSets)
     .where(eq(tables.strengthSets.activityId, activityId));
 
-  const profil = await ladeProfil();
-  const zonen = hrZonen(profil);
+  // Zonen sportspezifisch wie auf der Uhr — sonst weicht die hier
+  // angezeigte Zonenverteilung von der in Garmin Connect ab.
+  const zonen = await ladeZonen(aktivitaet.typ);
 
   let gap = null;
   let entkopplung: number | null = null;

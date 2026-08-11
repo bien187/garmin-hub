@@ -22,17 +22,20 @@ export function ElevationChart({ streams, onHover }: ElevationChartProps) {
   const daten = useMemo(() => {
     const out: { distKm: number; ele: number; hr: number | null; pace: number | null }[] = [];
     let letzteEle = 0;
-    const n = streams.zeitS.length;
+    // Einzelne Reihen können fehlen (Indoor ohne GPS/Höhe) — dann steht in
+    // der Spalte JSON-null statt eines Arrays
+    const n = streams.zeitS?.length ?? 0;
+    if (!n || !streams.distanzM) return out;
     const schritt = Math.max(1, Math.floor(n / 400));
     for (let i = 0; i < n; i += schritt) {
       const d = streams.distanzM[i];
       if (d == null) continue;
-      letzteEle = streams.ele[i] ?? letzteEle;
+      letzteEle = streams.ele?.[i] ?? letzteEle;
       out.push({
         distKm: d / 1000,
         ele: Math.round(letzteEle),
-        hr: streams.hr[i],
-        pace: streams.paceSKm[i],
+        hr: streams.hr?.[i] ?? null,
+        pace: streams.paceSKm?.[i] ?? null,
       });
     }
     return out;

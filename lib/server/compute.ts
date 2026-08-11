@@ -1,6 +1,13 @@
 import { and, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { getDb, tables } from "@/lib/db";
 import { ladeProfil, speichereProfil } from "@/lib/profile";
+import { aktiveZonen, zonenAusGarmin, zonenMitte } from "@/lib/hr-zonen";
+import { ladeGarminZonen } from "./zonen-service";
+import {
+  fasseZusammen,
+  medianPaceBeiHr,
+  type PaceBeiHrErgebnis,
+} from "@/lib/engine/pace-bei-hr";
 import { trimpFuerEinheit } from "@/lib/engine/trimp";
 import { berechneFitnessSerie } from "@/lib/engine/fitness";
 import { effizienzIndex } from "@/lib/engine/efficiency";
@@ -81,6 +88,17 @@ export async function recomputeAll(): Promise<void> {
     }
   }
 
+  /* ---- HFmax aus den Garmin-Zonen übernehmen ----
+     Garmin rechnet Zonen und Trainingswirkung gegen die HFmax, die im
+     Konto hinterlegt ist. Übernimmt die App sie, stimmen TRIMP und
+     Karvonen-Fallback mit dem überein, was die Uhr anzeigt. */
+  const garminZonen = await ladeGarminZonen();
+  const garminHfMax = zonenAusGarmin(garminZonen)?.hfMax;
+  if (garminHfMax && garminHfMax > 140 && Math.abs(garminHfMax - profil.hfMax) >= 1) {
+    await speichereProfil({ hfMax: garminHfMax });
+    profil.hfMax = garminHfMax;
+  }
+
   /* ---- Kraft-Volumen pro Aktivität ---- */
   const kraftIds = alleAktivitaeten.filter((a) => istKraft(a.typ)).map((a) => a.id);
   const saetze = kraftIds.length
@@ -143,6 +161,20 @@ export async function recomputeAll(): Promise<void> {
     proTag.set(datum, agg);
   }
 
+  /* ---- Pace bei Referenzpuls (Fortschrittskurve) ----
+     Referenz ist die Mitte von Zone 2 — der Bereich, in dem die aerobe
+     Grundlage tatsächlich gebaut wird. Ändert sich die Referenz (z.B.
+     weil erstmals Garmin-Zonen da sind), wird die Historie einmalig neu
+     gerechnet, sonst nur das laufende Fenster. */
+  const refHr = zonenMitte(aktiveZonen(profil, garminZonen, "running").z2);
+  const refHrAlt = await ladeRefHr();
+  const paceProTag = await berechnePaceBeiRefHr(
+    alleAktivitaeten,
+    refHr,
+    refHrAlt === refHr ? 120 : 400
+  );
+  await speichereRefHr(refHr);
+
   /* ---- Lückenlose Tagesserie + Fitness ---- */
   const daten = [...proTag.keys()].sort();
   const start = daten[0];
@@ -155,6 +187,7 @@ export async function recomputeAll(): Promise<void> {
   const computedRows = fitness.map((f) => {
     const agg = proTag.get(f.datum);
     const efWerte = agg?.efWerte ?? [];
+    const pace = paceProTag.get(f.datum);
     return {
       datum: f.datum,
       trimpGesamt: f.trimp,
@@ -167,6 +200,8 @@ export async function recomputeAll(): Promise<void> {
       effizienzIndex: efWerte.length
         ? efWerte.reduce((a, b) => a + b, 0) / efWerte.length
         : null,
+      paceRefHrSKm: pace?.paceSKm ?? null,
+      paceRefHrSekunden: pace?.sekunden ?? null,
     };
   });
 
@@ -187,6 +222,10 @@ export async function recomputeAll(): Promise<void> {
           laufKm: sql`excluded.lauf_km`,
           hm: sql`excluded.hm`,
           effizienzIndex: sql`excluded.effizienz_index`,
+          // COALESCE: ausserhalb des Analysefensters liefert der Lauf
+          // NULL — bereits berechnete Tage sollen davon nicht verlieren.
+          paceRefHrSKm: sql`coalesce(excluded.pace_ref_hr_s_km, ${tables.computedDaily.paceRefHrSKm})`,
+          paceRefHrSekunden: sql`coalesce(excluded.pace_ref_hr_sekunden, ${tables.computedDaily.paceRefHrSekunden})`,
         },
       });
   }
@@ -271,6 +310,89 @@ export async function recomputeAll(): Promise<void> {
 
   /* ---- Geplante Einheiten mit Aktivitäten matchen ---- */
   await matcheGeplanteEinheiten();
+}
+
+const REF_HR_KEY = "pace_ref_hr";
+
+async function ladeRefHr(): Promise<number | null> {
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(tables.appSettings)
+    .where(eq(tables.appSettings.key, REF_HR_KEY));
+  const wert = rows[0]?.value as { refHr?: number } | undefined;
+  return typeof wert?.refHr === "number" ? wert.refHr : null;
+}
+
+async function speichereRefHr(refHr: number): Promise<void> {
+  const db = getDb();
+  await db
+    .insert(tables.appSettings)
+    .values({ key: REF_HR_KEY, value: { refHr } })
+    .onConflictDoUpdate({
+      target: tables.appSettings.key,
+      set: { value: { refHr } },
+    });
+}
+
+/**
+ * Höhenkorrigierte Pace bei Referenzpuls je Tag. Streams werden in
+ * Häppchen geladen — sie sind das mit Abstand grösste Datum in der DB und
+ * `recomputeAll` läuft auch mal nach einem einzelnen Klick.
+ */
+async function berechnePaceBeiRefHr(
+  alleAktivitaeten: {
+    id: number;
+    typ: string;
+    startZeit: Date;
+    distanzM: number | null;
+  }[],
+  refHr: number,
+  fensterTage: number
+): Promise<Map<string, PaceBeiHrErgebnis>> {
+  const db = getDb();
+  const grenze = addTage(heuteIso(), -fensterTage);
+  const laeufe = alleAktivitaeten.filter(
+    (a) =>
+      istLauf(a.typ) &&
+      (a.distanzM ?? 0) >= 1500 &&
+      isoDatum(new Date(a.startZeit)) >= grenze
+  );
+
+  const proTag = new Map<string, PaceBeiHrErgebnis[]>();
+  for (let i = 0; i < laeufe.length; i += 12) {
+    const chunk = laeufe.slice(i, i + 12);
+    const streams = await db
+      .select()
+      .from(tables.activityStreams)
+      .where(
+        inArray(
+          tables.activityStreams.activityId,
+          chunk.map((c) => c.id)
+        )
+      );
+    for (const s of streams) {
+      if (!s.zeitS || !s.distanzM || !s.hr) continue;
+      const akt = chunk.find((c) => c.id === s.activityId);
+      if (!akt) continue;
+      const ergebnis = medianPaceBeiHr(
+        { zeitS: s.zeitS, distanzM: s.distanzM, hr: s.hr, ele: s.ele },
+        { refHr }
+      );
+      if (!ergebnis) continue;
+      const datum = isoDatum(new Date(akt.startZeit));
+      const liste = proTag.get(datum) ?? [];
+      liste.push(ergebnis);
+      proTag.set(datum, liste);
+    }
+  }
+
+  const out = new Map<string, PaceBeiHrErgebnis>();
+  for (const [datum, liste] of proTag) {
+    const zusammen = fasseZusammen(liste);
+    if (zusammen) out.set(datum, zusammen);
+  }
+  return out;
 }
 
 async function berechneLaufModell(

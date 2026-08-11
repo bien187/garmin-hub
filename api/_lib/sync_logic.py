@@ -388,6 +388,119 @@ def sync_health(con, garmin) -> dict:
     return {"verarbeitet": verarbeitet, "hasMore": has_more, "state": state}
 
 
+# ---------------------------------------------------------------- HF-Zonen
+
+# Connect liefert die Zonen je nach Konto/Version unter verschiedenen Pfaden.
+# Der erste Pfad, der verwertbare Zonen liefert, gewinnt.
+ZONEN_ENDPOINTS = (
+    "/biometric-service/heartRateZones",
+    "/biometric-service/heartRateZones/all",
+    "/userprofile-service/userprofile/heart-rate-zones",
+)
+
+
+def _zahl(v):
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return f if f > 0 else None
+
+
+def _sammle_zonen(payload):
+    """Zonen-Objekte aus beliebig verschachtelter Antwort einsammeln.
+
+    Robust gegen Formatwechsel der inoffiziellen API: gesucht wird nach
+    Objekten, die `zoneNFloor`-Schlüssel tragen — egal wie tief sie liegen.
+    """
+    treffer = []
+
+    def besuche(o):
+        if isinstance(o, dict):
+            if any(k in o for k in ("zone1Floor", "zone2Floor")):
+                treffer.append(o)
+                return
+            for v in o.values():
+                besuche(v)
+        elif isinstance(o, list):
+            for v in o:
+                besuche(v)
+
+    besuche(payload)
+
+    out = []
+    for z in treffer:
+        floors = {f"zone{i}Floor": _zahl(z.get(f"zone{i}Floor")) for i in range(1, 6)}
+        if any(v is None for v in floors.values()):
+            continue
+        sport = z.get("sport") or z.get("sportType") or z.get("sportTypeKey") or "DEFAULT"
+        out.append(
+            {
+                "sport": str(sport).upper(),
+                **floors,
+                "maxHeartRateUsed": _zahl(
+                    z.get("maxHeartRateUsed") or z.get("maxHeartRate")
+                ),
+                "restingHrUsed": _zahl(
+                    z.get("restingHrUsed") or z.get("restingHeartRate")
+                ),
+                "lactateThresholdHeartRate": _zahl(
+                    z.get("lactateThresholdHeartRate")
+                    or z.get("lactateThresholdHeartRateInBpm")
+                ),
+            }
+        )
+    return out
+
+
+def sync_hr_zonen(con, garmin) -> dict:
+    """Die auf der Uhr gültigen HF-Zonen holen und in app_settings ablegen.
+
+    Damit rechnet die App mit denselben Grenzen wie Garmin — sonst meint
+    „Zone 2" im Plan einen anderen Bereich als „Zone 2" in der Aktivität.
+    Ein einziger Request; hasMore ist immer False.
+    """
+    zonen = []
+    fehler = None
+
+    holen = getattr(garmin, "get_heart_rate_zones", None)
+    if callable(holen):
+        try:
+            zonen = _sammle_zonen(holen())
+        except Exception as e:  # noqa: BLE001
+            fehler = str(e)
+
+    if not zonen:
+        for pfad in ZONEN_ENDPOINTS:
+            try:
+                zonen = _sammle_zonen(garmin.garth.connectapi(pfad))
+            except Exception as e:  # noqa: BLE001
+                fehler = str(e)
+                zonen = []
+            _pause()
+            if zonen:
+                fehler = None
+                break
+
+    if not zonen:
+        return {
+            "verarbeitet": 0,
+            "hasMore": False,
+            "state": {"ok": False, "fehler": fehler or "keine Zonen gefunden"},
+        }
+
+    daten = {
+        "aktualisiert": dt.datetime.utcnow().isoformat() + "Z",
+        "sportarten": zonen,
+    }
+    dbmod.set_app_setting(con, "garmin_hr_zonen", daten)
+    return {
+        "verarbeitet": len(zonen),
+        "hasMore": False,
+        "state": {"ok": True, "sportarten": [z["sport"] for z in zonen]},
+    }
+
+
 def resync_activity(con, garmin, activity_id) -> dict:
     """Einzelne Aktivität frisch von Garmin holen und lokal aktualisieren.
 

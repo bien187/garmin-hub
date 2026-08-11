@@ -3,16 +3,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { Loader2, Pause, Play, RotateCcw } from "lucide-react";
+import { Loader2, Maximize2, Minimize2, Pause, Play, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { aktiviere3D, BASEMAP_STYLE } from "@/lib/geo/map-style";
+import {
+  aktiviere3D,
+  BASEMAP_STYLE,
+  fuegeRasterBasemapsHinzu,
+  KARTEN_TYPEN,
+  rasterTemplate,
+  setzeKartenTyp,
+  type KartenTyp,
+} from "@/lib/geo/map-style";
 import { prefetchFlyoverTiles } from "@/lib/geo/tile-prefetch";
 import {
   baueGraphDaten,
   bearingGrad,
   berechneK,
-  FLYOVER_DAUER_S,
+  flyoverProfil,
   haversineM,
   sampleAt,
   SampleCursor,
@@ -31,20 +39,25 @@ export interface FlyoverApi {
   graphDaten: GraphDaten;
   tVideoRef: React.MutableRefObject<number>;
   seek: (tVideo: number) => void;
+  /** Spielzeit dieses Flyovers — je nach Aktivitätsart verschieden */
+  videoDauerS: number;
 }
 
+/** Spalten können ganz fehlen (Halleneinheit ohne GPS) — siehe Engine */
 export interface FlyoverStreams {
-  zeitS: number[];
-  lat: (number | null)[];
-  lng: (number | null)[];
-  ele: (number | null)[];
-  hr: (number | null)[];
-  paceSKm: (number | null)[];
-  distanzM: (number | null)[];
+  zeitS: number[] | null;
+  lat?: (number | null)[] | null;
+  lng?: (number | null)[] | null;
+  ele?: (number | null)[] | null;
+  hr?: (number | null)[] | null;
+  paceSKm?: (number | null)[] | null;
+  distanzM?: (number | null)[] | null;
 }
 
 interface FlyoverMapProps {
   streams: FlyoverStreams;
+  /** Garmin-Aktivitätstyp — steuert Spielzeit, Zoom und Track-Auflösung */
+  typ?: string;
   className?: string;
   /** Wird gerufen, sobald Track + Graphdaten stehen (für den externen Graph) */
   onBereit?: (api: FlyoverApi) => void;
@@ -131,7 +144,7 @@ function clamp(v: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, v));
 }
 
-export function FlyoverMap({ streams, className, onBereit }: FlyoverMapProps) {
+export function FlyoverMap({ streams, typ, className, onBereit }: FlyoverMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const rafRef = useRef(0);
@@ -157,12 +170,18 @@ export function FlyoverMap({ streams, className, onBereit }: FlyoverMapProps) {
   const letzterFrameMsRef = useRef(0);
   const hudDrosselRef = useRef(0);
   const gradDrosselRef = useRef(0);
+  /** true während der Schlussfahrt — deren Zoom stammt nicht vom Nutzer */
+  const outroRef = useRef(false);
 
   const [bereit, setBereit] = useState(false);
   const [ladeProzent, setLadeProzent] = useState(0);
   const [vorgeladen, setVorgeladen] = useState(false);
   const [spielt, setSpielt] = useState(false);
   const [modus, setModus] = useState<"hr" | "pace">("pace");
+  const [kartenTyp, setKartenTyp] = useState<KartenTyp>("karte");
+  const kartenTypRef = useRef<KartenTyp>("karte");
+  kartenTypRef.current = kartenTyp;
+  const [vollbild, setVollbild] = useState(false);
   const [hud, setHud] = useState<{
     zeit: string;
     km: string;
@@ -172,9 +191,18 @@ export function FlyoverMap({ streams, className, onBereit }: FlyoverMapProps) {
   } | null>(null);
 
   /* ---- Preprocessing (pure Engine) ---- */
-  const track = useMemo(() => verarbeiteStreams(streams), [streams]);
+  const profil = useMemo(() => flyoverProfil(typ), [typ]);
+  const track = useMemo(
+    () =>
+      verarbeiteStreams(streams, {
+        vMax: profil.vMax,
+        glaettungS: profil.glaettungS,
+        maxPunkte: profil.maxPunkte,
+      }),
+    [streams, profil]
+  );
   const graphDaten = useMemo(() => (track ? baueGraphDaten(track) : null), [track]);
-  const k = useMemo(() => (track ? berechneK(track) : 1), [track]);
+  const k = useMemo(() => (track ? berechneK(track, profil.dauerS) : 1), [track, profil]);
   const farbStops = useMemo(
     () => (track ? baueFarbStops(track, modus) : []),
     [track, modus]
@@ -185,17 +213,25 @@ export function FlyoverMap({ streams, className, onBereit }: FlyoverMapProps) {
   /* Kamera-Basiswerte: Zoom an mittlere VIDEO-Geschwindigkeit gekoppelt
      (Tile-Nachschub!), bergig = flacher + weiter weg (Terrain-Clipping) */
   const kamera = useMemo(() => {
-    if (!track) return { zoomBase: 14.5, pitchBase: 62 };
-    const vVideo = track.totalDistance / FLYOVER_DAUER_S; // m/s im Video
+    if (!track) return { zoomBase: 15.5, pitchBase: 62 };
+    const vVideo = track.totalDistance / profil.dauerS; // m/s im Video
+    // Grundsätzlich näher dran als eine reine Übersichtsflughöhe: man soll
+    // Wege, Waldränder und Gebäude erkennen. Die Staffelung nach Video-
+    // geschwindigkeit bleibt, damit bei schnellem Vorankommen nicht alles
+    // vorbeirauscht — nur eine Zoomstufe tiefer als zuvor.
     let zoomBase: number;
-    if (vVideo < 20) zoomBase = 15.0;
-    else if (vVideo < 40) zoomBase = 14.4;
-    else if (vVideo < 80) zoomBase = 13.8;
-    else if (vVideo < 150) zoomBase = 13.2;
-    else zoomBase = 12.6;
+    if (vVideo < 20) zoomBase = 16.0;
+    else if (vVideo < 40) zoomBase = 15.4;
+    else if (vVideo < 80) zoomBase = 14.8;
+    else if (vVideo < 150) zoomBase = 14.2;
+    else if (vVideo < 250) zoomBase = 13.8;
+    else zoomBase = 13.4;
     if (track.istBergig) zoomBase -= 0.5;
-    return { zoomBase, pitchBase: track.istBergig ? 48 : 60 };
-  }, [track]);
+    return {
+      zoomBase: zoomBase + profil.zoomBonus,
+      pitchBase: (track.istBergig ? 48 : 60) + profil.pitchBonus,
+    };
+  }, [track, profil]);
 
   const koords = useMemo(
     () => track?.punkte.map((p) => [p.lng, p.lat] as [number, number]) ?? [],
@@ -211,6 +247,7 @@ export function FlyoverMap({ streams, className, onBereit }: FlyoverMapProps) {
         graphDaten,
         tVideoRef,
         seek: (t: number) => seekRef.current(t),
+        videoDauerS: profil.dauerS,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -237,7 +274,7 @@ export function FlyoverMap({ streams, className, onBereit }: FlyoverMapProps) {
     // deren Differenz zum automatischen Zoom merken wir uns als
     // persistenten Offset, der ab dann in jeden Frame einfliesst.
     map.on("zoom", (e: maplibregl.MapLibreEvent & { ghqAuto?: boolean }) => {
-      if (e.ghqAuto) return;
+      if (e.ghqAuto || outroRef.current) return;
       const aktuell = map.getZoom();
       zoomOffsetRef.current = clamp(aktuell - (autoZoomRef.current ?? aktuell), -6, 6);
     });
@@ -249,6 +286,8 @@ export function FlyoverMap({ streams, className, onBereit }: FlyoverMapProps) {
 
     map.on("load", () => {
       aktiviere3D(map);
+      fuegeRasterBasemapsHinzu(map);
+      setzeKartenTyp(map, kartenTypRef.current);
       map.addSource("route", {
         type: "geojson",
         lineMetrics: true,
@@ -302,9 +341,18 @@ export function FlyoverMap({ streams, className, onBereit }: FlyoverMapProps) {
     /* Tile-Vorladen + erstes Idle → erst dann Play freigeben */
     let abgebrochen = false;
     const punkteFuerPrefetch = track.punkte.map((p) => ({ lng: p.lng, lat: p.lat }));
-    const prefetch = prefetchFlyoverTiles(punkteFuerPrefetch, (p) => {
-      if (!abgebrochen) setLadeProzent(Math.min(97, p));
-    });
+    const prefetch = prefetchFlyoverTiles(
+      punkteFuerPrefetch,
+      (p) => {
+        if (!abgebrochen) setLadeProzent(Math.min(97, p));
+      },
+      {
+        // +1: die Zoom-Tabelle oben liegt eine Stufe näher als die
+        // ursprünglichen Prefetch-Zooms — sonst lädt man die falschen Kacheln
+        zoomBonus: profil.zoomBonus + 1,
+        rasterTemplate: rasterTemplate(kartenTypRef.current),
+      }
+    );
     const erstesIdle = new Promise<void>((resolve) => map.once("idle", () => resolve()));
     Promise.all([prefetch, erstesIdle]).then(() => {
       if (!abgebrochen) {
@@ -325,6 +373,70 @@ export function FlyoverMap({ streams, className, onBereit }: FlyoverMapProps) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [track, koords]);
+
+  /* Vollbild: MapLibre misst seinen Canvas nur bei resize() neu — ohne das
+     bleibt die Karte nach dem Umschalten in der alten Grösse stehen.
+     Bewusst als CSS-Overlay statt Fullscreen-API: die gibt es auf dem
+     iPhone für einzelne Elemente nicht, und die App läuft als PWA. */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const id = requestAnimationFrame(() => map.resize());
+    return () => cancelAnimationFrame(id);
+  }, [vollbild]);
+
+  /* Kartentyp umschalten (Sichtbarkeit, kein setStyle — sonst wären
+     Terrain, Route und Läuferpunkt weg) */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !bereit) return;
+    setzeKartenTyp(map, kartenTyp);
+  }, [kartenTyp, bereit]);
+
+  /** Gesamtbounds der Strecke — für Reset und Schlussfahrt */
+  const streckenBounds = useCallback(() => {
+    if (koords.length < 2) return null;
+    return koords.reduce(
+      (b, c) => b.extend(c),
+      new maplibregl.LngLatBounds(koords[0], koords[0])
+    );
+  }, [koords]);
+
+  /**
+   * Schlussfahrt: Nach dem letzten Frame aus der Verfolgerperspektive
+   * herausziehen, bis die komplette Strecke im Bild ist. Der Trail bleibt
+   * dabei vollständig eingefärbt stehen — man sieht am Ende, wo man war.
+   */
+  const zeigeGesamtstrecke = useCallback(
+    (animiert = true) => {
+      const map = mapRef.current;
+      const bounds = streckenBounds();
+      if (!map || !bounds) return;
+      outroRef.current = true;
+      map.fitBounds(
+        bounds,
+        {
+          padding: { top: 56, bottom: 56, left: 36, right: 36 },
+          pitch: 30,
+          bearing: 0,
+          duration: animiert ? 2600 : 0,
+          essential: true,
+        },
+        { ghqAuto: true }
+      );
+      map.once("moveend", () => {
+        outroRef.current = false;
+        // Kamera-Glättung verwerfen: der nächste Start soll wieder am
+        // Streckenanfang verankern statt vom Übersichtsbild loszuziehen
+        kamLngRef.current = null;
+        kamLatRef.current = null;
+        kamPosVorRef.current = null;
+        autoZoomRef.current = null;
+        kamPitchRef.current = null;
+      });
+    },
+    [streckenBounds]
+  );
 
   /* Farbmodus umschalten */
   useEffect(() => {
@@ -462,25 +574,26 @@ export function FlyoverMap({ streams, className, onBereit }: FlyoverMapProps) {
 
       const tVideo = Math.min(
         (nowMs - startMsRef.current) / 1000 - pausedAccumRef.current,
-        FLYOVER_DAUER_S
+        profil.dauerS
       );
       tVideoRef.current = tVideo;
       const st = sampleAt(track, tVideo * k, cursorRef.current);
       renderZustand(st, dtS);
 
-      if (tVideo >= FLYOVER_DAUER_S) {
+      if (tVideo >= profil.dauerS) {
         spieltRef.current = false;
         setSpielt(false);
+        zeigeGesamtstrecke();
         return;
       }
       rafRef.current = requestAnimationFrame(frame);
     },
-    [track, k, renderZustand]
+    [track, k, renderZustand, profil, zeigeGesamtstrecke]
   );
 
   const play = useCallback(() => {
     if (!track) return;
-    if (tVideoRef.current >= FLYOVER_DAUER_S) {
+    if (tVideoRef.current >= profil.dauerS) {
       // Replay: Kamera-Glättung neu verankern, sonst zieht sie vom
       // Streckenende quer über die Karte zurück zum Start
       startMsRef.current = null;
@@ -498,15 +611,17 @@ export function FlyoverMap({ streams, className, onBereit }: FlyoverMapProps) {
     }
     const reduziert = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduziert) {
-      tVideoRef.current = FLYOVER_DAUER_S;
+      // Ohne Animation: direkt das Endbild — Trail komplett, Strecke ganz im Bild
+      tVideoRef.current = profil.dauerS;
       renderZustand(sampleAt(track, track.totalDuration), 1, true);
+      zeigeGesamtstrecke(false);
       return;
     }
     spieltRef.current = true;
     setSpielt(true);
     letzterFrameMsRef.current = performance.now();
     rafRef.current = requestAnimationFrame(frame);
-  }, [track, frame, renderZustand]);
+  }, [track, frame, renderZustand, profil, zeigeGesamtstrecke]);
 
   const pause = useCallback(() => {
     spieltRef.current = false;
@@ -518,7 +633,7 @@ export function FlyoverMap({ streams, className, onBereit }: FlyoverMapProps) {
   const seek = useCallback(
     (tVideo: number) => {
       if (!track) return;
-      const t = Math.min(FLYOVER_DAUER_S, Math.max(0, tVideo));
+      const t = Math.min(profil.dauerS, Math.max(0, tVideo));
       tVideoRef.current = t;
       cursorRef.current.idx = 0;
       // Wanduhr neu verankern, damit Play nahtlos weiterläuft
@@ -527,7 +642,7 @@ export function FlyoverMap({ streams, className, onBereit }: FlyoverMapProps) {
       pauseBeginnRef.current = spieltRef.current ? null : performance.now();
       renderZustand(sampleAt(track, t * k, cursorRef.current), 0.016, true);
     },
-    [track, k, renderZustand]
+    [track, k, renderZustand, profil]
   );
   seekRef.current = seek;
 
@@ -545,13 +660,11 @@ export function FlyoverMap({ streams, className, onBereit }: FlyoverMapProps) {
     autoZoomRef.current = null;
     kamPitchRef.current = null;
     zoomOffsetRef.current = 0;
+    outroRef.current = false;
     const map = mapRef.current;
-    if (map && koords.length >= 2) {
-      const bounds = koords.reduce(
-        (b, c) => b.extend(c),
-        new maplibregl.LngLatBounds(koords[0], koords[0])
-      );
-      map.fitBounds(bounds, { padding: 48, pitch: 0, bearing: 0 });
+    const bounds = streckenBounds();
+    if (map && bounds) {
+      map.fitBounds(bounds, { padding: 48, pitch: 0, bearing: 0 }, { ghqAuto: true });
       map.setPaintProperty(
         "progress-linie",
         "line-gradient",
@@ -564,13 +677,15 @@ export function FlyoverMap({ streams, className, onBereit }: FlyoverMapProps) {
       });
     }
     setHud(null);
-  }, [pause, koords]);
+  }, [pause, koords, streckenBounds]);
 
   /* Tastatur: Space = Play/Pause, Pfeile = ±1 s Videozeit */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.tagName === "INPUT") return;
-      if (e.code === "Space") {
+      if (e.code === "Escape") {
+        setVollbild(false);
+      } else if (e.code === "Space") {
         e.preventDefault();
         if (spieltRef.current) pause();
         else if (vorgeladen) play();
@@ -593,8 +708,23 @@ export function FlyoverMap({ streams, className, onBereit }: FlyoverMapProps) {
   }
 
   return (
-    <div className={cn("space-y-2", className)}>
-      <div className="relative h-80 overflow-hidden rounded-xl border border-border md:h-105">
+    <div
+      className={cn(
+        vollbild
+          ? "fixed inset-x-0 top-0 z-50 flex flex-col gap-2 bg-background p-2 pb-safe pt-safe"
+          : "space-y-2",
+        className
+      )}
+      // Höhe wie der App-Rahmen über --app-h statt inset-0/dvh: iOS
+      // unterschätzt im PWA-Standalone die echte Viewport-Höhe
+      style={vollbild ? { height: "var(--app-h, 100dvh)" } : undefined}
+    >
+      <div
+        className={cn(
+          "relative overflow-hidden border border-border",
+          vollbild ? "min-h-0 flex-1 rounded-lg" : "h-80 rounded-xl md:h-105"
+        )}
+      >
         {/* Inline-Style: maplibre-gl.css setzt .maplibregl-map auf
             position:relative — Grösse deshalb hart vorgeben */}
         <div
@@ -615,6 +745,32 @@ export function FlyoverMap({ streams, className, onBereit }: FlyoverMapProps) {
             </span>
           </div>
         )}
+
+        {/* Vollbild — unter der Navigation rechts, gleiche Optik wie diese */}
+        <button
+          onClick={() => setVollbild((v) => !v)}
+          aria-label={vollbild ? "Vollbild verlassen" : "Karte im Vollbild"}
+          className="absolute right-2 top-23 flex size-9 items-center justify-center rounded-lg bg-background/85 backdrop-blur"
+        >
+          {vollbild ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+        </button>
+
+        {/* Kartentyp — unten links, damit HUD und Navigation frei bleiben */}
+        <div className="absolute bottom-2 left-2 flex rounded-lg bg-background/85 p-0.5 backdrop-blur">
+          {KARTEN_TYPEN.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setKartenTyp(t.id)}
+              aria-pressed={kartenTyp === t.id}
+              className={cn(
+                "min-h-8 rounded-md px-2.5 text-[11px]",
+                kartenTyp === t.id ? "bg-muted font-semibold" : "text-muted-foreground"
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
 
         {/* Lade-Overlay: erst zeigen, wenn Route-Tiles vorgeladen sind */}
         {!vorgeladen && (
@@ -663,7 +819,10 @@ export function FlyoverMap({ streams, className, onBereit }: FlyoverMapProps) {
           ))}
         </div>
         <span className="text-[10px] text-muted-foreground">
-          30-s-Flyover · Tempoverhältnisse originalgetreu · Zoom mit Pinch/+−
+          {profil.dauerS}-s-Flyover
+          {profil.label !== "Lauf" ? ` · ${profil.label}` : ""} ·
+          Tempoverhältnisse originalgetreu · zum Schluss Blick auf die ganze
+          Strecke · Zoom mit Pinch/+−
           {track.pausenKomprimiert ? " · Pausen komprimiert" : ""}
         </span>
       </div>

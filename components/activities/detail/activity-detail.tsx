@@ -8,9 +8,9 @@ import { useToast } from "@/components/ui/toast";
 import { ConfirmSheet } from "@/components/ui/sheet-confirm";
 import { useActivityDelete } from "../use-activity-delete";
 import { FlyoverApi, FlyoverMap, FlyoverStreams } from "./flyover-map";
+import { hatKoordinaten } from "@/lib/engine/flyover";
 import { FlyoverGraph } from "./flyover-graph";
 import { ElevationChart } from "./elevation-chart";
-import { FLYOVER_DAUER_S } from "@/lib/engine/flyover";
 import { BodyMap } from "@/components/body/body-map";
 import {
   lastenAusKraft,
@@ -19,6 +19,7 @@ import {
   MUSKEL_TEMPLATES,
   MuskelId,
 } from "@/lib/engine/muscle";
+import type { ZonenSatz } from "@/lib/hr-zonen";
 import {
   formatDauer,
   formatDatumLang,
@@ -63,6 +64,7 @@ interface DetailDaten {
     entkopplung: number | null;
     effizienzIndex: number | null;
     zonenZeit: { zone: string; sekunden: number }[] | null;
+    zonen: ZonenSatz | null;
     splits: { km: number; zeitS: number; paceSKm: number; hmAuf: number }[];
   };
 }
@@ -156,6 +158,7 @@ export function ActivityDetail({ id }: { id: string }) {
   const m = daten.metriken;
   const istKraftTyp = a.typ.includes("strength") || a.typ.includes("fitness");
   const zonenGesamt = m.zonenZeit?.reduce((s, z) => s + z.sekunden, 0) ?? 0;
+  const hatStrecke = hatKoordinaten(daten.streams);
 
   /* Muskel-Lasten dieser Kraft-Einheit für die Mini-Body-Map.
      Manuelles Template hat Vorrang vor der Ableitung aus den Sätzen. */
@@ -258,16 +261,17 @@ export function ActivityDetail({ id }: { id: string }) {
         {a.vo2maxWert != null && <Stat label="VO₂max" wert={formatNote(a.vo2maxWert)} />}
       </div>
 
-      {/* 3D-Flyover */}
-      {daten.streams && (
-        <FlyoverMap streams={daten.streams} onBereit={setFlyover} />
+      {/* 3D-Flyover — nur wenn die Aktivität überhaupt eine Strecke hat.
+          Halleneinheiten liefern für lat/lng JSON-null statt eines Arrays. */}
+      {hatStrecke && (
+        <FlyoverMap streams={daten.streams!} typ={a.typ} onBereit={setFlyover} />
       )}
 
       {/* Verlaufsgraph (Höhe + Herzfrequenz + Pace) unter der Karte.
           Läuft der Flyover, wandert der Indikator synchron mit; scrubben
           steuert die Kamera. Fallback auf das statische Höhenprofil, wenn
           die Flyover-Engine (noch) keinen Track liefert. */}
-      {daten.streams && !istKraftTyp && (
+      {hatStrecke && !istKraftTyp && (
         <Card>
           <CardHeader className="pb-1">
             <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
@@ -280,12 +284,12 @@ export function ActivityDetail({ id }: { id: string }) {
                 track={flyover.track}
                 daten={flyover.graphDaten}
                 tVideoRef={flyover.tVideoRef}
-                videoDauerS={FLYOVER_DAUER_S}
+                videoDauerS={flyover.videoDauerS}
                 onScrub={flyover.seek}
                 heightPx={132}
               />
             ) : (
-              <ElevationChart streams={daten.streams} />
+              <ElevationChart streams={daten.streams!} />
             )}
           </CardContent>
         </Card>
@@ -300,23 +304,36 @@ export function ActivityDetail({ id }: { id: string }) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-1.5">
-            {m.zonenZeit.map((z) => (
-              <div key={z.zone} className="flex items-center gap-2 text-xs">
-                <span className="w-6 font-medium">{z.zone}</span>
-                <div className="h-4 flex-1 overflow-hidden rounded bg-muted">
-                  <div
-                    className="h-full rounded"
-                    style={{
-                      width: `${(z.sekunden / zonenGesamt) * 100}%`,
-                      background: ZONEN_FARBEN[z.zone],
-                    }}
-                  />
+            {m.zonenZeit.map((z) => {
+              const grenze = m.zonen?.[z.zone.toLowerCase() as "z1"];
+              return (
+                <div key={z.zone} className="flex items-center gap-2 text-xs">
+                  <span className="w-6 font-medium">{z.zone}</span>
+                  {grenze && (
+                    <span className="stat-mono w-16 text-[10px] text-dim-foreground">
+                      {grenze.von}–{grenze.bis}
+                    </span>
+                  )}
+                  <div className="h-4 flex-1 overflow-hidden rounded bg-muted">
+                    <div
+                      className="h-full rounded"
+                      style={{
+                        width: `${(z.sekunden / zonenGesamt) * 100}%`,
+                        background: ZONEN_FARBEN[z.zone],
+                      }}
+                    />
+                  </div>
+                  <span className="stat-mono w-14 text-right text-muted-foreground">
+                    {formatDauer(z.sekunden)}
+                  </span>
                 </div>
-                <span className="stat-mono w-14 text-right text-muted-foreground">
-                  {formatDauer(z.sekunden)}
-                </span>
-              </div>
-            ))}
+              );
+            })}
+            <p className="pt-0.5 text-[10px] text-muted-foreground">
+              {m.zonen?.quelle === "garmin"
+                ? `Zonengrenzen aus Garmin (${m.zonen.sport}) — identisch mit der Uhr.`
+                : "Karvonen-Schätzung — für identische Grenzen wie auf der Uhr die Zonen unter Einstellungen von Garmin holen."}
+            </p>
           </CardContent>
         </Card>
       )}

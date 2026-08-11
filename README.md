@@ -20,17 +20,24 @@ der Schweizer Armee-Grenadiere** (Mitte November 2026) vor.
   Handlungssatz, CTL/ATL/TSB-Fitness-Kurve (90 Tage), ACWR-Warnung,
   EP-Notenprognose-Widget, Mini-Body-Map, Wochenvergleich, Korrelations-
   Insights (z. B. Schlaf → Laufökonomie) — nur |r| ≥ 0.3, n ≥ 15, klar als
-  Korrelation gelabelt.
+  Korrelation gelabelt; **Fortschrittskurve „Pace bei gleichem Puls"**
+  (höhenkorrigierte Median-Pace bei Zone-2-Mitte, je Woche — steigende
+  Linie = wachsende Grundlage) und **All-Time-Summen** (km, Hm, Stunden,
+  Aktivitäten, längster Lauf).
 - **Aktivitäten**: Liste mit Filter + Infinite Scroll + Polyline-Minikarten;
   Detailseite mit **3D-Flyover** (MapLibre + Terrarium-Terrain, Kamera folgt
-  der Strecke, 1×/4×/10×, Scrubber, Live-km/Pace/HR/Höhe), Route eingefärbt
-  nach HR oder Pace, Höhenprofil mit Karten-Hover-Sync, Splits, HR-Zonen,
-  GAP (Minetti), EF, aerobe Entkopplung; bei Krafttrainings Satz-Tabelle +
-  belastete Muskeln.
+  der Strecke, 1×/4×/10×, Scrubber, Live-km/Pace/HR/Höhe), **Schlussfahrt
+  auf die Gesamtstrecke**, **Aufnahmeprofil je Sportart** (Wanderung 40 s,
+  enger Zoom und feinere Auflösung; Lauf 30 s; Rad mit höherem Tempolimit),
+  **umschaltbarer Kartentyp** (Vektorkarte · Satellit · Topo CH), Route
+  eingefärbt nach HR oder Pace, Höhenprofil mit Karten-Hover-Sync, Splits,
+  HR-Zonen, GAP (Minetti), EF, aerobe Entkopplung; bei Krafttrainings
+  Satz-Tabelle + belastete Muskeln.
 - **Karte**: Strava-artiger **Routen-Builder** (BRouter-Routing per Klick,
   Undo/Redo, Wegpunkte verschieben, Rückweg, Rundkurs, Luftlinien-Fallback),
   Live-Distanz/Hm/**Dauer auf Basis der eigenen GAP-Pace**, Höhenprofil,
-  2D/3D-Toggle, Heatmap aller Aktivitäten, Speichern + **Push auf die Uhr**
+  2D/3D-Toggle, **Kartentyp-Umschalter** (Vektorkarte · Satellit · Topo CH),
+  Heatmap aller Aktivitäten, Speichern + **Push auf die Uhr**
   (`course-service`) + GPX-Export als Fallback.
 - **Plan**: adaptiver Wochenplan (regelbasierter Generator), **Workout-Push
   auf die FR 265** über `workout-service/workout` + `schedule` (landet beim
@@ -51,6 +58,14 @@ der Schweizer Armee-Grenadiere** (Mitte November 2026) vor.
   explizitem `syncToGarmin`-Flag pro Einheit (kein Namens-Matching; Gym
   ausgeschlossen, per Switch umschaltbar), idempotent (keine Duplikate) und
   **rückgängig machbar** (entfernt Workout + Kalendereintrag bei Garmin).
+- **HF-Zonen aus Garmin**: Der Sync holt die im Konto hinterlegten Zonen
+  (`biometric-service/heartRateZones`, sportspezifisch) und legt sie in
+  `app_settings` ab. Plan, Workout-Ziele, Zonenverteilung der Aktivitäten
+  und die HFmax für TRIMP rechnen danach mit **denselben Grenzen wie die
+  Uhr** — ein „Zone-2-Lauf" aus dem Plan trifft damit auch die Zone 2, die
+  Garmin in der Aktivität ausweist. Karvonen bleibt nur Fallback, solange
+  noch keine Zonen synchronisiert wurden (Status + Knopf „Von Garmin holen"
+  unter Einstellungen).
 - **Muskel-Template**: Gym-Einheiten ohne verwertbare Übungsdetails kann man
   manuell ein Template zuweisen (Push/Pull/Beine/Ganzkörper/Core); die
   Zuweisung überschreibt die Ableitung und übersteht den Resync.
@@ -72,10 +87,10 @@ Next.js 15 (App Router, TypeScript) · Tailwind v4 + shadcn/ui + lucide ·
 Recharts · MapLibre GL (OpenFreeMap Liberty + AWS Terrarium Terrain, kein
 API-Key) · BRouter Web-API · Supabase Postgres + Drizzle ORM ·
 Python-Serverless-Functions (garminconnect/garth, pg8000) · jose-Cookie-Auth ·
-Vitest (79 Tests für Engine/EP).
+Vitest (129 Tests für Engine/EP/Zonen).
 
 **Alles Free Tier:** Vercel Hobby, Supabase Free, OpenFreeMap, AWS Terrain
-Tiles, BRouter — keinerlei bezahlte Keys.
+Tiles, Esri World Imagery, swisstopo WMTS, BRouter — keinerlei bezahlte Keys.
 
 ## Architektur
 
@@ -111,9 +126,16 @@ Fortschritt pro Datentyp; ein Aufruf verarbeitet ≤ 12 Aktivitäten bzw.
 ≤ 7 Gesundheits-Tage (je 300–500 ms Pause zwischen Garmin-Requests,
 40-s-Zeitbudget) und liefert `hasMore`. Frontend/Cron loopen, bis alles da
 ist — so überlebt auch der Erst-Import der kompletten Historie die
-Vercel-Timeouts. Nach dem Sync materialisiert `recomputeAll()` alle
-abgeleiteten Werte (`computed_daily`, `muscle_state`, Lauf-Modell,
-Workout-Matching).
+Vercel-Timeouts. Vorab läuft der Typ `zonen` (ein einzelner Request für die
+HF-Zonen). Nach dem Sync materialisiert `recomputeAll()` alle abgeleiteten
+Werte (`computed_daily` inkl. Pace bei Referenzpuls, `muscle_state`,
+Lauf-Modell, Workout-Matching).
+
+Die Pace-bei-Referenzpuls-Kurve wird über ein gleitendes 120-Tage-Fenster
+gerechnet und per `COALESCE` upgeserted — ältere Wochen behalten damit
+ihren Wert, statt bei jedem Lauf neu (und teuer) aus den Streams zu
+entstehen. Ändert sich der Referenzpuls, rechnet der nächste Lauf einmalig
+400 Tage nach.
 
 ## Setup
 

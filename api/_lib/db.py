@@ -56,6 +56,18 @@ def set_sync_state(con, key: str, value: dict):
     )
 
 
+def set_app_setting(con, key: str, value):
+    con.run(
+        """
+        INSERT INTO app_settings (key, value)
+        VALUES (:k, :v)
+        ON CONFLICT (key) DO UPDATE SET value = :v
+        """,
+        k=key,
+        v=json.dumps(value),
+    )
+
+
 def append_sync_log(con, eintrag: dict):
     log = get_sync_state(con, "log") or {"eintraege": []}
     log["eintraege"] = (log.get("eintraege", []) + [eintrag])[-30:]

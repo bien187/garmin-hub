@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { desc, gte } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { getDb, tables } from "@/lib/db";
-import { hrZonen, ladeProfil } from "@/lib/profile";
+import { ladeProfil } from "@/lib/profile";
+import { ladeZonen } from "@/lib/server/zonen-service";
 import { ladeLaufModell } from "@/lib/server/ep-service";
 import { trainingsPaces } from "@/lib/engine/paces";
 import { banisterTrimp } from "@/lib/engine/trimp";
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
 
   const db = getDb();
   const profil = await ladeProfil();
-  const zonen = hrZonen(profil);
+  const zonen = await ladeZonen("running");
   const modell = await ladeLaufModell();
   const paces = modell?.fuenfKmS ? trainingsPaces(modell.fuenfKmS) : null;
 

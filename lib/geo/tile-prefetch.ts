@@ -99,31 +99,54 @@ async function vectorTileTemplate(): Promise<string | null> {
   return null;
 }
 
+export interface PrefetchOptionen {
+  /** Zoom-Zuschlag des Kameraprofils (Wanderungen fliegen näher dran) */
+  zoomBonus?: number;
+  /** Kachel-Template des aktiven Raster-Kartentyps (Satellit/Topo) */
+  rasterTemplate?: string | null;
+}
+
+function fuelleTemplate(template: string, t: TileCoord): string {
+  return template
+    .replace("{z}", String(t.z))
+    .replace("{x}", String(t.x))
+    .replace("{y}", String(t.y));
+}
+
 /**
  * Lädt alle Route-Tiles in den HTTP-Cache. Liefert laufend Fortschritt
  * (0–100). Einzelne Fehlschläge werden ignoriert.
  */
 export async function prefetchFlyoverTiles(
   route: { lng: number; lat: number }[],
-  onProgress: (prozent: number) => void
+  onProgress: (prozent: number) => void,
+  opt: PrefetchOptionen = {}
 ): Promise<void> {
   const punkte = verduennen(route, 150);
-  const template = await vectorTileTemplate();
+  const bonus = Math.round(opt.zoomBonus ?? 0);
+  const raster = opt.rasterTemplate ?? null;
 
   const urls: string[] = [];
-  // Vektor-Basemap (512-px-Tiles): Flyover-Zooms 13.7–15.2 → z12–z14
-  if (template) {
-    for (const t of routenTiles(punkte, [12, 13, 14], 1)) {
-      urls.push(
-        template.replace("{z}", String(t.z)).replace("{x}", String(t.x)).replace("{y}", String(t.y))
-      );
+
+  if (raster) {
+    // Raster-Basemap (256-px-Tiles) liegt eine Stufe über den Vektorzooms.
+    // Sie deckt das Bild, deshalb hat sie beim Budget Vorrang.
+    for (const t of routenTiles(punkte, [13, 14, 15].map((z) => z + bonus), 1)) {
+      urls.push(fuelleTemplate(raster, t));
+    }
+  } else {
+    // Vektor-Basemap (512-px-Tiles): Flyover-Zooms 13.7–15.2 → z12–z14
+    const template = await vectorTileTemplate();
+    if (template) {
+      for (const t of routenTiles(punkte, [12, 13, 14].map((z) => z + bonus), 1)) {
+        urls.push(fuelleTemplate(template, t));
+      }
     }
   }
-  // Terrain-DEM (256-px-Tiles): z13–z15
-  for (const t of routenTiles(punkte, [13, 14, 15], 1)) {
-    urls.push(
-      TERRARIUM_TILES.replace("{z}", String(t.z)).replace("{x}", String(t.x)).replace("{y}", String(t.y))
-    );
+
+  // Terrain-DEM (256-px-Tiles): z13–z15, die Quelle endet bei z15
+  for (const t of routenTiles(punkte, [13, 14, 15].map((z) => Math.min(15, z + bonus)), 1)) {
+    urls.push(fuelleTemplate(TERRARIUM_TILES, t));
   }
 
   // Sicherheitsdeckel gegen Riesen-Routen (niedrige Zooms zuerst behalten)

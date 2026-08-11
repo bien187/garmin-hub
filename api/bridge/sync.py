@@ -1,6 +1,6 @@
-"""POST /api/bridge/sync — ein Sync-Chunk (Aktivitäten oder Health).
+"""POST /api/bridge/sync — ein Sync-Chunk (Aktivitäten, Health oder HF-Zonen).
 
-Body: {"typ": "activities" | "health"}
+Body: {"typ": "activities" | "health" | "zonen"}
 Antwort: {"ok": true, "typ": ..., "verarbeitet": n, "hasMore": bool}
 """
 import datetime as dt
@@ -25,6 +25,8 @@ class handler(BridgeHandler):
                 garmin = get_client(con)
                 if typ == "health":
                     result = sync_logic.sync_health(con, garmin)
+                elif typ == "zonen":
+                    result = sync_logic.sync_hr_zonen(con, garmin)
                 else:
                     result = sync_logic.sync_activities(con, garmin)
                 dbmod.append_sync_log(

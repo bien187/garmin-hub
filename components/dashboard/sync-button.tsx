@@ -6,7 +6,7 @@ import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-type SyncPhase = "idle" | "activities" | "health" | "finalize" | "fehler";
+type SyncPhase = "idle" | "zonen" | "activities" | "health" | "finalize" | "fehler";
 
 /**
  * „Jetzt synchronisieren": ruft die Chunk-API in einer Schleife auf,
@@ -27,7 +27,7 @@ export function SyncButton({ kompakt = false }: { kompakt?: boolean }) {
     setFehler(null);
     setChunks(0);
     try {
-      for (const typ of ["activities", "health"] as const) {
+      for (const typ of ["zonen", "activities", "health"] as const) {
         setPhase(typ);
         let hasMore = true;
         let schutz = 0;
@@ -100,13 +100,15 @@ export function SyncButton({ kompakt = false }: { kompakt?: boolean }) {
 
   // Ehrlicher Chunk-Zähler (KEINE erfundene Prozent-Progressbar)
   const zaehler =
-    phase === "activities"
-      ? `Läufe ${chunks}`
-      : phase === "health"
-        ? `Gesundheit ${chunks}`
-        : phase === "finalize"
-          ? "Berechne"
-          : null;
+    phase === "zonen"
+      ? "HF-Zonen"
+      : phase === "activities"
+        ? `Läufe ${chunks}`
+        : phase === "health"
+          ? `Gesundheit ${chunks}`
+          : phase === "finalize"
+            ? "Berechne"
+            : null;
 
   if (kompakt) {
     // Dashboard: reiner Icon-Button (44×44), Zähler nur während des Syncs

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { korrelationsInsights, pearson } from "../correlations";
+import { ausgleichsgerade, korrelationsInsights, pearson } from "../correlations";
 
 describe("pearson", () => {
   it("perfekte positive Korrelation", () => {
@@ -82,5 +82,43 @@ describe("korrelationsInsights", () => {
       ],
     });
     expect(karten).toHaveLength(0);
+  });
+});
+
+describe("ausgleichsgerade", () => {
+  it("trifft eine exakte Gerade", () => {
+    // y = 2x + 1
+    const linie = ausgleichsgerade([
+      { x: 0, y: 1 },
+      { x: 1, y: 3 },
+      { x: 2, y: 5 },
+      { x: 3, y: 7 },
+    ]);
+    expect(linie).toHaveLength(2);
+    expect(linie[0]).toEqual({ x: 0, y: 1 });
+    expect(linie[1].x).toBe(3);
+    expect(linie[1].y).toBeCloseTo(7, 6);
+  });
+
+  it("kippt bei negativer Korrelation nach unten", () => {
+    const linie = ausgleichsgerade([
+      { x: 1, y: 10 },
+      { x: 2, y: 8 },
+      { x: 3, y: 7 },
+      { x: 4, y: 4 },
+    ]);
+    expect(linie[1].y).toBeLessThan(linie[0].y);
+  });
+
+  it("liefert nichts Zeichenbares bei zu wenig oder entarteten Daten", () => {
+    expect(ausgleichsgerade([{ x: 1, y: 2 }])).toEqual([]);
+    // alle x gleich → keine Gerade über x definierbar
+    expect(
+      ausgleichsgerade([
+        { x: 5, y: 1 },
+        { x: 5, y: 2 },
+        { x: 5, y: 3 },
+      ])
+    ).toEqual([]);
   });
 });

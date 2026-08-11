@@ -8,12 +8,12 @@ import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 export const maxDuration = 60;
 
 const SyncSchema = z.object({
-  typ: z.enum(["activities", "health", "finalize"]),
+  typ: z.enum(["activities", "health", "zonen", "finalize"]),
 });
 
 /**
  * POST /api/sync — führt einen Sync-Chunk aus (Proxy auf die Python-Bridge).
- * Body: { typ: "activities" | "health" | "finalize" }
+ * Body: { typ: "activities" | "health" | "zonen" | "finalize" }
  * "finalize" stösst die Neuberechnung aller abgeleiteten Daten an.
  */
 export async function POST(req: Request) {

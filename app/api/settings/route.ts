@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ladeProfil, speichereProfil, Profil } from "@/lib/profile";
+import { ladeGarminZonen } from "@/lib/server/zonen-service";
+import { aktiveZonen } from "@/lib/hr-zonen";
 
 export async function GET() {
   const profil = await ladeProfil();
-  return NextResponse.json({ profil });
+  const garmin = await ladeGarminZonen();
+  return NextResponse.json({
+    profil,
+    zonen: aktiveZonen(profil, garmin, "running"),
+    zonenAktualisiert: garmin?.aktualisiert ?? null,
+    zonenSportarten: garmin?.sportarten?.map((s) => s.sport) ?? [],
+  });
 }
 
 export async function POST(req: NextRequest) {

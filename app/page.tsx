@@ -7,6 +7,7 @@ import { FitnessChart } from "@/components/dashboard/fitness-chart";
 import { EpWidget } from "@/components/dashboard/ep-widget";
 import { SyncButton } from "@/components/dashboard/sync-button";
 import { InsightCards } from "@/components/dashboard/insight-cards";
+import { PaceHrChart } from "@/components/dashboard/pace-hr-chart";
 import { BodyMap } from "@/components/body/body-map";
 import { ladeDashboard } from "@/lib/server/dashboard-service";
 import { aktuellePhase, epCountdown } from "@/lib/ep/phasen";
@@ -112,6 +113,29 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
+        {/* Fortschritt: Pace bei gleichem Puls */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+              Fortschritt · Pace bei gleichem Puls
+            </CardTitle>
+            <p className="text-[10px] text-dim-foreground">
+              Median-Pace bei {d.paceFortschritt.refHr ?? "–"} bpm · je Woche ·
+              höhenkorrigiert
+            </p>
+          </CardHeader>
+          <CardContent>
+            <PaceHrChart
+              wochen={d.paceFortschritt.wochen}
+              refHr={d.paceFortschritt.refHr}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Linie steigt = bei gleichem Puls schneller unterwegs. Das ist der
+              verlässlichste Beleg dafür, dass die Grundlage wächst.
+            </p>
+          </CardContent>
+        </Card>
+
         {/* Mini-Body-Map */}
         <Card>
           <CardHeader className="pb-2">
@@ -205,6 +229,34 @@ export default async function DashboardPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* All-Time-Stats */}
+        <Card className="lg:col-span-3">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+              All Time
+            </CardTitle>
+            {d.allTime.seit && (
+              <p className="text-[10px] text-dim-foreground">
+                seit {formatDatumLang(d.allTime.seit)}
+              </p>
+            )}
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+              <AllTimeWert label="Distanz" wert={d.allTime.distanzKm} einheit="km" />
+              <AllTimeWert label="davon Laufen" wert={d.allTime.laufKm} einheit="km" />
+              <AllTimeWert label="Höhenmeter" wert={d.allTime.hm} einheit="Hm" />
+              <AllTimeWert label="Trainingszeit" wert={d.allTime.stunden} einheit="h" />
+              <AllTimeWert label="Aktivitäten" wert={d.allTime.aktivitaeten} einheit="" />
+              <AllTimeWert
+                label="Längster Lauf"
+                wert={d.allTime.laengsterLaufKm}
+                einheit="km"
+              />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Insights */}
@@ -218,6 +270,28 @@ export default async function DashboardPage() {
           <InsightCards />
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function AllTimeWert({
+  label,
+  wert,
+  einheit,
+}: {
+  label: string;
+  wert: number;
+  einheit: string;
+}) {
+  return (
+    <div className="rounded-md bg-muted p-2.5">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+        {label}
+      </div>
+      <div className="stat-display text-[19px] leading-tight">
+        {wert.toLocaleString("de-CH")}
+        {einheit && <span className="ml-1 text-xs text-muted-foreground">{einheit}</span>}
+      </div>
     </div>
   );
 }
