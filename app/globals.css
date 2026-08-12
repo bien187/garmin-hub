@@ -185,7 +185,14 @@
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
-  --nav-h: 60px;
+  /* Inhaltshöhe der Tab-Bar (ohne Freihaltung unten) */
+  --nav-h: 48px;
+  /* Freihaltung unter der Tab-Bar. iOS meldet 34 px für den Home-Indikator;
+     der braucht Luft, aber nicht die vollen 34 — mit ihnen wirkte die
+     Leiste massiv, weil unter den Labels ein breites totes Band stand.
+     Getroffen wird der Indikator ohnehin nicht: dort steht nur Text, die
+     Tap-Flächen liegen darüber. */
+  --nav-sab: min(var(--sab), 20px);
 }
 
 html {
@@ -231,14 +238,23 @@ select {
   padding-right: var(--sar);
 }
 
+/* Tab-Bar: exakte Höhe aus denselben Variablen, mit denen der
+   Scroll-Container seine Freihaltung rechnet — eine Quelle der Wahrheit.
+   Die Leiste ist `position: fixed` am Viewport-Unterrand verankert, ihre
+   Lage hängt also an keiner gemessenen Rahmenhöhe mehr. */
+.nav-bar {
+  height: calc(var(--nav-h) + var(--nav-sab));
+  padding-bottom: var(--nav-sab);
+}
+
 /* Haupt-Scroll-Container: oben Island-Freihaltung, unten Navbar-Freihaltung */
 .app-scroll-pad {
   padding-top: var(--sat);
-  padding-bottom: calc(var(--nav-h) + var(--sab) + 16px);
+  padding-bottom: calc(var(--nav-h) + var(--nav-sab) + 16px);
 }
 /* Vollbild-Karte: nur unten Navbar-Freihaltung (oben clearen die Controls) */
 .map-bleed-pad {
-  padding-bottom: calc(var(--nav-h) + var(--sab));
+  padding-bottom: calc(var(--nav-h) + var(--nav-sab));
 }
 @media (min-width: 768px) {
   .app-scroll-pad {

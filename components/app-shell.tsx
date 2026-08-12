@@ -94,11 +94,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const fullBleed = pathname === "/map";
   const aktiverIndex = TABS.findIndex((t) => isActive(pathname, t.href));
 
-  // Fester App-Rahmen als `fixed inset-0` statt `h-dvh`: 100dvh unter-
-  // meldet im iOS-PWA-Standalone auf manchen Geräten die echte Bildschirm-
-  // höhe (Navbar schwebte dadurch weit über der Unterkante). `fixed inset-0`
-  // entspricht exakt dem sichtbaren Viewport — die Navbar als letztes
-  // Flex-Kind hugt damit garantiert die physische Unterkante.
+  // Fester App-Rahmen mit gemessener Höhe (`--app-h`), weil 100dvh im
+  // iOS-Standalone die Bildschirmhöhe unterschätzt.
+  //
+  // Die Tab-Bar hängt NICHT mehr an dieser Höhe: sie ist `position: fixed`
+  // am Viewport-Unterrand verankert. Vorher war sie das letzte Flex-Kind
+  // des Rahmens und erbte damit jeden Messfehler — lag `--app-h` daneben,
+  // stand unter ihr ein dunkles Band, das wie zusätzliche Leistenhöhe
+  // aussah. Genau daran sind die beiden früheren Anläufe gescheitert.
   return (
     <ToastProvider>
     <div
@@ -161,10 +164,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        {/* Bottom-Tab-Bar (Mobile) — bei offener Tastatur ausblenden */}
+        {/* Bottom-Tab-Bar (Mobile) — bei offener Tastatur ausblenden.
+            `fixed bottom-0` statt letztes Flex-Kind: die Position kommt
+            damit vom Browser und nicht aus einer gemessenen Rahmenhöhe.
+            Lag `--app-h` auch nur ein paar Pixel daneben, blieb darunter
+            eine Lücke — im Dunkelmodus nicht als Lücke erkennbar, sondern
+            als zu hohe Navigationsleiste. */}
         {!tastaturOffen && (
-          <nav className="shrink-0 border-t border-border bg-sidebar/95 backdrop-blur pb-safe md:hidden">
-            <div className="relative grid grid-cols-5">
+          <nav className="nav-bar fixed inset-x-0 bottom-0 z-40 border-t border-border bg-sidebar/95 backdrop-blur md:hidden">
+            <div className="relative grid h-full grid-cols-5">
               {/* Aktiv-Indikator: fährt per translateX zur aktiven Zelle (§6 Nr.1) */}
               {aktiverIndex >= 0 && (
                 <div
@@ -184,11 +192,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     key={href}
                     href={href}
                     className={cn(
-                      "flex min-h-9 flex-col items-center justify-center gap-0.5 py-1 text-[10px] font-medium",
+                      "flex h-full flex-col items-center justify-center gap-0.5 text-[9px] font-medium leading-none",
                       active ? "text-primary" : "text-muted-foreground"
                     )}
                   >
-                    <Icon className="size-4.75" strokeWidth={active ? 2.5 : 2} />
+                    <Icon className="size-4.5" strokeWidth={active ? 2.5 : 2} />
                     {label}
                   </Link>
                 );
