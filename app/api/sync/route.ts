@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { bridgeFetch, BridgeError } from "@/lib/garmin/bridge";
 import { recomputeAll } from "@/lib/server/compute";
+import { passePlanAn } from "@/lib/server/plan-service";
 import { parseBody, requireSession } from "@/lib/api";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
@@ -30,7 +31,14 @@ export async function POST(req: Request) {
 
   if (typ === "finalize") {
     await recomputeAll();
-    return NextResponse.json({ ok: true, typ: "finalize" });
+    // Neue Daten können den Wochenplan überholt haben (spontane Einheit,
+    // Ermüdungssprung) — direkt nach der Neuberechnung nachziehen.
+    const anpassungen = await passePlanAn().catch(() => []);
+    return NextResponse.json({
+      ok: true,
+      typ: "finalize",
+      anpassungen: anpassungen.length,
+    });
   }
 
   try {

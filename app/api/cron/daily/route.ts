@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { bridgeFetch } from "@/lib/garmin/bridge";
 import { recomputeAll } from "@/lib/server/compute";
-import { generiereUndSpeichereWoche } from "@/lib/server/plan-service";
+import { generiereUndSpeichereWoche, passePlanAn } from "@/lib/server/plan-service";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -40,6 +40,9 @@ export async function GET(req: NextRequest) {
   await recomputeAll().catch((e) => {
     stats.fehler = stats.fehler ?? (e instanceof Error ? e.message : String(e));
   });
+
+  // Plan an die tatsächliche Belastung anpassen (spontane Einheiten etc.)
+  await passePlanAn().catch(() => {});
 
   // Sonntagabend (Cron läuft Mo 05:00 UTC → plant die angebrochene Woche);
   // zusätzlich: sonntags generiert der Cron die Folgewoche.

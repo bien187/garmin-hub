@@ -36,7 +36,11 @@ export interface DashboardDaten {
   vorwoche: { km: number; hm: number };
   allTime: AllTimeStats;
   paceFortschritt: { refHr: number | null; wochen: PaceWoche[] };
+  /** Gespeicherte Kachel-Reihenfolge des Dashboards (leer = Standard) */
+  layout: string[];
 }
+
+export const DASHBOARD_LAYOUT_KEY = "dashboard_layout";
 
 /** Summenwerte über die gesamte Historie */
 export interface AllTimeStats {
@@ -89,6 +93,7 @@ const LEER: DashboardDaten = {
   vorwoche: { km: 0, hm: 0 },
   allTime: ALL_TIME_LEER,
   paceFortschritt: { refHr: null, wochen: [] },
+  layout: [],
 };
 
 export async function ladeDashboard(): Promise<DashboardDaten> {
@@ -160,7 +165,9 @@ export async function ladeDashboard(): Promise<DashboardDaten> {
         db
           .select()
           .from(tables.appSettings)
-          .where(eq(tables.appSettings.key, "pace_ref_hr")),
+          .where(
+            inArray(tables.appSettings.key, ["pace_ref_hr", DASHBOARD_LAYOUT_KEY])
+          ),
       ]);
 
     const { prognose } = await ladeEpPrognose();
@@ -209,7 +216,15 @@ export async function ladeDashboard(): Promise<DashboardDaten> {
       .filter((w) => w.zusammen != null)
       .map((w) => ({ woche: w.woche, paceSKm: Math.round(w.zusammen!.paceSKm) }))
       .sort((a, b) => a.woche.localeCompare(b.woche));
-    const refHrWert = (refHrRows[0]?.value as { refHr?: number } | undefined)?.refHr;
+    const refHrWert = (
+      refHrRows.find((r) => r.key === "pace_ref_hr")?.value as
+        | { refHr?: number }
+        | undefined
+    )?.refHr;
+    const layoutWert = refHrRows.find((r) => r.key === DASHBOARD_LAYOUT_KEY)?.value;
+    const layout = Array.isArray(layoutWert)
+      ? (layoutWert as unknown[]).filter((v): v is string => typeof v === "string")
+      : [];
 
     return {
       dbBereit: true,
@@ -243,6 +258,7 @@ export async function ladeDashboard(): Promise<DashboardDaten> {
         refHr: typeof refHrWert === "number" ? refHrWert : null,
         wochen: paceWochen,
       },
+      layout,
     };
   } catch {
     return LEER;

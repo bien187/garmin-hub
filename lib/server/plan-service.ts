@@ -4,10 +4,15 @@ import { getDb, tables } from "@/lib/db";
 import { ladeProfil } from "@/lib/profile";
 import { ladeZonen } from "./zonen-service";
 import { aktuellePhase, restwochen } from "@/lib/ep/phasen";
-import { generiereWochenplan, Wochenplan } from "@/lib/engine/plan";
+import { generiereWochenplan, Wochenplan, z2Lauf } from "@/lib/engine/plan";
 import { trainingsPaces } from "@/lib/engine/paces";
 import { MuskelId } from "@/lib/engine/muscle";
-import { addTage, heuteIso, montagVon, tageDiff } from "@/lib/format";
+import { trimpFuerEinheit } from "@/lib/engine/trimp";
+import {
+  berechneAnpassungen,
+  type AnpassungsAktivitaet,
+} from "@/lib/engine/plan-anpassung";
+import { addTage, heuteIso, isoDatum, montagVon, tageDiff } from "@/lib/format";
 import { ladeLaufModell } from "./ep-service";
 
 /**
@@ -20,7 +25,7 @@ export function standardSyncToGarmin(typ: string): boolean {
     typ
   );
 }
-import { istLauf } from "./compute";
+import { istKraft, istLauf } from "./compute";
 
 /** Trainingsstart für den Wochenindex (Entlastungsrhythmus): fixer Anker */
 const TRAININGS_START_MONTAG = "2026-07-13";
@@ -168,5 +173,180 @@ export async function generiereUndSpeichereWoche(
       set: { value: plan.hinweise },
     });
 
+  /* Frisch generierte Woche: alte Anpassungs-Protokolle gelten nicht mehr,
+     ihre Einheiten-IDs existieren nicht einmal mehr. */
+  await db
+    .delete(tables.appSettings)
+    .where(eq(tables.appSettings.key, anpassungsKey(montag)));
+
   return plan;
+}
+
+/* ------------------------------------------------------------------ */
+/* Laufende Anpassung nach jedem Sync                                  */
+/* ------------------------------------------------------------------ */
+
+const anpassungsKey = (montag: string) => `plan_anpassungen_${montag}`;
+
+/** Ein protokollierter Eingriff, wie ihn die Plan-Seite anzeigt */
+export interface ProtokollEintrag {
+  einheitId: string;
+  datum: string;
+  alterTitel: string;
+  neuerTitel: string;
+  grund: string;
+  bereitsGepusht: boolean;
+  zeitpunkt: string;
+}
+
+export async function ladeAnpassungen(montag: string): Promise<ProtokollEintrag[]> {
+  try {
+    const db = getDb();
+    const rows = await db
+      .select()
+      .from(tables.appSettings)
+      .where(eq(tables.appSettings.key, anpassungsKey(montag)));
+    return (rows[0]?.value as ProtokollEintrag[] | undefined) ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Geht die laufende Woche durch und passt noch offene Einheiten an die
+ * tatsächliche Belastung an. Läuft nach jedem Sync (aus `recomputeAll`).
+ *
+ * Bereits an die Uhr gesendete Einheiten werden hier zwar lokal angepasst,
+ * aber bewusst NICHT stillschweigend bei Garmin überschrieben — sonst
+ * stimmt das, was auf der Uhr liegt, nicht mehr mit dem überein, was die
+ * App zeigt. Stattdessen wird das im Protokoll vermerkt, damit man sie
+ * bewusst neu senden kann.
+ */
+export async function passePlanAn(): Promise<ProtokollEintrag[]> {
+  const db = getDb();
+  const heute = heuteIso();
+  const montag = montagVon(heute);
+  const sonntag = addTage(montag, 6);
+
+  const einheiten = await db
+    .select()
+    .from(tables.plannedWorkouts)
+    .where(
+      and(
+        gte(tables.plannedWorkouts.datum, montag),
+        lte(tables.plannedWorkouts.datum, sonntag)
+      )
+    );
+  if (einheiten.length === 0) return [];
+
+  const profil = await ladeProfil();
+
+  /* Aktivitäten der letzten 10 Tage inkl. TRIMP und Zuordnung zum Plan */
+  const seit = new Date(addTage(heute, -10) + "T00:00:00");
+  const acts = await db
+    .select({
+      id: tables.activities.id,
+      typ: tables.activities.typ,
+      startZeit: tables.activities.startZeit,
+      dauerS: tables.activities.dauerS,
+      avgHr: tables.activities.avgHr,
+    })
+    .from(tables.activities)
+    .where(and(gte(tables.activities.startZeit, seit), isNull(tables.activities.deletedAt)));
+
+  const zugeordnet = new Set(
+    einheiten.map((e) => e.matchedActivityId).filter((id): id is number => id != null)
+  );
+
+  const aktivitaeten: AnpassungsAktivitaet[] = acts.map((a) => ({
+    id: a.id,
+    datum: isoDatum(new Date(a.startZeit)),
+    istLauf: istLauf(a.typ),
+    istKraft: istKraft(a.typ),
+    trimp: trimpFuerEinheit({
+      dauerS: a.dauerS,
+      avgHr: a.avgHr,
+      istKraft: istKraft(a.typ),
+      hrRuhe: profil.ruhepuls,
+      hrMax: profil.hfMax,
+    }),
+    eingeplant: zugeordnet.has(a.id),
+  }));
+
+  const [letzterTag] = await db
+    .select()
+    .from(tables.computedDaily)
+    .orderBy(desc(tables.computedDaily.datum))
+    .limit(1);
+
+  const muskelRows = await db
+    .select()
+    .from(tables.muscleState)
+    .where(eq(tables.muscleState.datum, heute));
+  const muskeln: Partial<Record<MuskelId, number>> = {};
+  for (const r of muskelRows) muskeln[r.muskelId as MuskelId] = r.restbelastungProzent;
+
+  const protokoll = await ladeAnpassungen(montag);
+
+  const anpassungen = berechneAnpassungen({
+    heute,
+    einheiten: einheiten.map((e) => ({
+      id: e.id,
+      datum: e.datum,
+      typ: e.typ,
+      titel: e.titel,
+      status: e.status,
+      erwarteterTrimp: e.erwarteterTrimp,
+    })),
+    aktivitaeten,
+    tsb: letzterTag?.tsb ?? null,
+    acwr: letzterTag?.acwr ?? null,
+    muskeln,
+    bereitsAngepasst: protokoll.map((p) => p.einheitId),
+  });
+
+  if (anpassungen.length === 0) return protokoll;
+
+  const zonen = await ladeZonen("running");
+  const neueEintraege: ProtokollEintrag[] = [];
+
+  for (const a of anpassungen) {
+    const minuten = parseInt(a.neuerTitel.match(/(\d{2,3})\s*Min/i)?.[1] ?? "40", 10);
+    const struktur =
+      a.neuerTyp === "lauf_z2"
+        ? z2Lauf(minuten, { z2: zonen.z2, z4: zonen.z4, z5: zonen.z5 }, a.neuerTitel)
+        : null;
+    await db
+      .update(tables.plannedWorkouts)
+      .set({
+        typ: a.neuerTyp,
+        titel: a.neuerTitel,
+        beschreibung: a.neueBeschreibung,
+        struktur,
+        erwarteterTrimp: a.neuerTyp === "ruhe" ? 0 : Math.round(minuten * 1.1),
+        syncToGarmin: a.neuerTyp !== "ruhe",
+      })
+      .where(eq(tables.plannedWorkouts.id, a.einheitId));
+
+    neueEintraege.push({
+      einheitId: a.einheitId,
+      datum: a.datum,
+      alterTitel: a.alterTitel,
+      neuerTitel: a.neuerTitel,
+      grund: a.grund,
+      bereitsGepusht: a.bereitsGepusht,
+      zeitpunkt: new Date().toISOString(),
+    });
+  }
+
+  const gesamt = [...protokoll, ...neueEintraege].slice(-6);
+  await db
+    .insert(tables.appSettings)
+    .values({ key: anpassungsKey(montag), value: gesamt })
+    .onConflictDoUpdate({
+      target: tables.appSettings.key,
+      set: { value: gesamt },
+    });
+
+  return gesamt;
 }

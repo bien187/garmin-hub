@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleDashed,
+  Flag,
   Info,
   RefreshCw,
   Send,
@@ -38,11 +39,22 @@ function istPushbar(e: PlanEinheit): boolean {
   return e.struktur != null && e.typ !== "ruhe" && e.typ !== "gtg";
 }
 
+/** Ein automatischer Eingriff der laufenden Plan-Anpassung */
+interface PlanAnpassung {
+  einheitId: string;
+  datum: string;
+  alterTitel: string;
+  neuerTitel: string;
+  grund: string;
+  bereitsGepusht: boolean;
+}
+
 interface PlanDaten {
   montag: string;
   phase: { nr: number; name: string; fokus: string[] };
   einheiten: PlanEinheit[];
   hinweise: string[];
+  anpassungen?: PlanAnpassung[];
 }
 
 const WOCHENTAGE = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
@@ -71,6 +83,7 @@ export function WeekView() {
   const [vorschau, setVorschau] = useState(false);
   const [pushProgress, setPushProgress] = useState<{ done: number; total: number } | null>(null);
   const [fehlgeschlagen, setFehlgeschlagen] = useState<string[]>([]);
+  const [anpassungenWeg, setAnpassungenWeg] = useState(false);
 
   const lade = useCallback(async () => {
     const res = await fetch(`/api/plan?woche=${woche}`);
@@ -79,8 +92,11 @@ export function WeekView() {
 
   useEffect(() => {
     setDaten(null);
+    setAnpassungenWeg(false); // beim Wochenwechsel wieder zeigen
     lade();
   }, [lade]);
+
+  const anpassungen = anpassungenWeg ? [] : (daten?.anpassungen ?? []);
 
   async function generiere() {
     setLaedt(true);
@@ -212,6 +228,42 @@ export function WeekView() {
           <ChevronRight className="size-4" />
         </Button>
       </div>
+
+      {/* Automatische Anpassungen: oranges Flag über dem Plan. Bewusst
+          prominenter als die Hinweise — hier hat sich der Plan wirklich
+          geändert, nicht nur ein Rat dazugestellt. */}
+      {anpassungen.length > 0 && (
+        <div className="rounded-lg border border-status-orange/40 bg-status-orange/10 px-3 py-2.5">
+          <div className="flex items-start gap-2">
+            <Flag className="mt-0.5 size-4 shrink-0 text-status-orange" />
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <div className="text-xs font-semibold text-status-orange">
+                Plan automatisch angepasst
+              </div>
+              {anpassungen.map((a) => (
+                <div key={a.einheitId} className="text-xs">
+                  <span className="font-medium">{formatDatum(a.datum)}:</span>{" "}
+                  «{a.alterTitel}» → «{a.neuerTitel}»
+                  <div className="text-muted-foreground">{a.grund}</div>
+                  {a.bereitsGepusht && (
+                    <div className="mt-0.5 flex items-center gap-1 text-[11px] text-status-orange">
+                      <Watch className="size-3" />
+                      Liegt noch in der alten Fassung auf der Uhr — neu senden.
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => setAnpassungenWeg(true)}
+              aria-label="Hinweis ausblenden"
+              className="-mr-1 -mt-1 flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground"
+            >
+              <X className="size-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Hinweise der Adaptionslogik (bleiben inline, §11.3) */}
       {daten && daten.hinweise.length > 0 && (

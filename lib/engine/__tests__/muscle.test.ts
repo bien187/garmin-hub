@@ -48,6 +48,68 @@ describe("lastenAusKraft", () => {
     );
     expect(lasten.oberer_ruecken_lat).toBeGreaterThan(10);
   });
+
+  it("Aufwärmsatz zählt deutlich weniger als der Arbeitssatz", () => {
+    const nurArbeit = lastenAusKraft(
+      [{ uebungKey: "BENCH_PRESS", saetze: 1, wdh: 6, gewichtKg: 75 }],
+      88
+    );
+    const mitAufwaermen = lastenAusKraft(
+      [
+        { uebungKey: "BENCH_PRESS", saetze: 1, wdh: 6, gewichtKg: 75 },
+        { uebungKey: "BENCH_PRESS", saetze: 1, wdh: 11, gewichtKg: 10 },
+      ],
+      88
+    );
+    const zuwachs =
+      (mitAufwaermen.brust as number) - (nurArbeit.brust as number);
+    expect(zuwachs).toBeGreaterThan(0);
+    expect(zuwachs).toBeLessThan((nurArbeit.brust as number) * 0.3);
+  });
+
+  it("von Garmin nicht erkannte Sätze (0 Wdh) zählen nicht", () => {
+    expect(
+      lastenAusKraft([{ uebungKey: "UNKNOWN", saetze: 1, wdh: 0, gewichtKg: null }], 88)
+    ).toEqual({});
+  });
+
+  /* Regression: Das frühere Tonnage-Modell liess Arme und Brust neben
+     schweren Kniebeugen praktisch verschwinden (Brust 18, Bizeps 10 gegen
+     Quadrizeps 67) — auf der Body-Map blieben sie dadurch grün. */
+  it("Arme und Brust verschwinden nicht neben schweren Kniebeugen", () => {
+    const einheit = [
+      ["BENCH_PRESS", 6, 75],
+      ["BENCH_PRESS", 5, 75],
+      ["BENCH_PRESS", 11, 10],
+      ["BENCH_PRESS", 8, 12.5],
+      ["FLYE", 6, 30],
+      ["FLYE", 4, 30],
+      ["CURL", 9, 18],
+      ["CURL", 8, 18],
+      ["CURL", 12, 10],
+      ["CURL", 7, 12.5],
+      ["CURL", 11, 14],
+      ["CURL", 8, 14],
+      ["SQUAT", 9, 200],
+      ["SQUAT", 9, 200],
+      ["SQUAT", 7, 200],
+    ] as [string, number, number | null][];
+    const l = lastenAusKraft(
+      einheit.map(([uebungKey, wdh, gewichtKg]) => ({
+        uebungKey,
+        saetze: 1,
+        wdh,
+        gewichtKg,
+      })),
+      88
+    );
+    // Sechs harte Brust- bzw. Bizepssätze wiegen mehr als drei Beugesätze
+    expect(l.brust as number).toBeGreaterThan(l.quadrizeps as number);
+    expect(l.bizeps as number).toBeGreaterThan(l.quadrizeps as number);
+    // und liegen klar im sichtbaren Bereich der Body-Map
+    expect(l.brust as number).toBeGreaterThan(35);
+    expect(l.bizeps as number).toBeGreaterThan(35);
+  });
 });
 
 describe("lastenAusLauf", () => {

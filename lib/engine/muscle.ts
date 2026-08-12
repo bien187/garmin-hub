@@ -155,27 +155,73 @@ export interface KraftSatz {
   gewichtKg: number | null;
 }
 
+/** Referenz: so viele harte Sätze auf einen Muskel = volle Erschöpfung */
+export const REFERENZ_HARTE_SAETZE = 10;
+
 /**
- * Last aus Krafttraining: Volumen (Sätze × Wdh × Gewicht) pro Muskelgruppe,
- * Haupt 1.0 / Neben 0.4, normiert auf Referenzvolumen (≈ meine harte
- * Einheit) → Last ~0–100 pro Muskel.
+ * Wiederholungsbereich → Ermüdungsanteil eines Satzes. Schwere Dreier
+ * ermüden metabolisch weniger als ein Satz bis in den zweistelligen
+ * Bereich; sehr hohe Wiederholungszahlen sind meist Zusatz- oder
+ * Aufwärmarbeit.
+ */
+function wiederholungsFaktor(wdh: number | null): number {
+  const w = wdh ?? 8;
+  if (w <= 0) return 0; // von Garmin nicht erkannter Satz
+  if (w <= 3) return 0.8;
+  if (w <= 15) return 1;
+  if (w <= 25) return 0.85;
+  return 0.7;
+}
+
+/**
+ * Last aus Krafttraining, gemessen in HARTEN SÄTZEN pro Muskelgruppe.
+ *
+ * Vorher wurde die reine Tonnage (Sätze × Wdh × kg) gewertet. Das
+ * verzerrt systematisch zugunsten der Beine: drei Sätze Kniebeugen mit
+ * 200 kg ergeben 5000 kg, sechs harte Sätze Curls mit 18 kg nur 780 kg —
+ * die Arme landeten dadurch bei ~3 % Erschöpfung, obwohl sie am Anschlag
+ * trainiert wurden. Kilogramm sind über Übungen hinweg schlicht nicht
+ * vergleichbar.
+ *
+ * Deshalb zählt hier, was die Sportwissenschaft als Dosis verwendet: die
+ * Zahl der harten Sätze je Muskelgruppe. Jeder Satz trägt gleich viel bei,
+ * skaliert nur mit
+ *   - Intensität: Gewicht relativ zum schwersten Satz DERSELBEN Übung in
+ *     dieser Einheit — so zählen Aufwärmsätze wenig, ohne dass man
+ *     absolute Gewichte über Übungen hinweg vergleichen müsste,
+ *   - Wiederholungsbereich (siehe oben).
+ *
+ * Haupt 1.0 / Neben 0.4 bleibt. Ergebnis: Last ~0–100 pro Muskel.
  */
 export function lastenAusKraft(
   saetze: KraftSatz[],
   koerpergewichtKg: number,
-  referenzVolumenKg = 6000
+  referenzSaetze = REFERENZ_HARTE_SAETZE
 ): Lasten {
+  /* Topgewicht je Übung — Bezugspunkt für die relative Intensität.
+     Körpergewichtsübungen bekommen einen Ersatzwert, damit sie
+     untereinander vergleichbar bleiben (alle Sätze gleich schwer). */
+  const ersatzgewicht = Math.max(1, koerpergewichtKg * 0.6);
+  const topGewicht = new Map<string, number>();
+  for (const s of saetze) {
+    const key = (s.uebungKey || "").toUpperCase();
+    const g = s.gewichtKg != null && s.gewichtKg > 0 ? s.gewichtKg : ersatzgewicht;
+    topGewicht.set(key, Math.max(topGewicht.get(key) ?? 0, g));
+  }
+
+  const proSatz = 100 / Math.max(1, referenzSaetze);
   const lasten: Lasten = {};
   for (const s of saetze) {
+    const key = (s.uebungKey || "").toUpperCase();
     const mapping = mappeUebung(s.uebungKey);
-    const wdh = s.wdh ?? 8;
-    // Körpergewichtsübungen (Klimmzüge, Liegestütze, Planks): effektive Last schätzen
-    const gewicht =
-      s.gewichtKg != null && s.gewichtKg > 0
-        ? s.gewichtKg
-        : koerpergewichtKg * 0.55;
-    const volumen = s.saetze * wdh * gewicht;
-    const beitrag = (volumen / referenzVolumenKg) * 80;
+    const g = s.gewichtKg != null && s.gewichtKg > 0 ? s.gewichtKg : ersatzgewicht;
+    const spitze = topGewicht.get(key) ?? g;
+    const relativ = spitze > 0 ? g / spitze : 1;
+    // < 40 % des Topgewichts = Aufwärmen (zählt kaum), ab 90 % voll
+    const intensitaet = Math.min(1, Math.max(0.15, (relativ - 0.4) / 0.5));
+    const beitrag =
+      (s.saetze || 1) * proSatz * intensitaet * wiederholungsFaktor(s.wdh);
+    if (beitrag <= 0) continue;
     for (const m of mapping.haupt) {
       lasten[m] = (lasten[m] ?? 0) + beitrag;
     }

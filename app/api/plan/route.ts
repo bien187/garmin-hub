@@ -4,6 +4,7 @@ import { getDb, tables } from "@/lib/db";
 import { addTage, heuteIso, montagVon } from "@/lib/format";
 import { ladeProfil } from "@/lib/profile";
 import { aktuellePhase } from "@/lib/ep/phasen";
+import { ladeAnpassungen } from "@/lib/server/plan-service";
 
 /** GET /api/plan?woche=2026-07-20 — Einheiten + Hinweise der Woche */
 export async function GET(req: NextRequest) {
@@ -36,5 +37,6 @@ export async function GET(req: NextRequest) {
     phase,
     einheiten,
     hinweise: (hinweisRows[0]?.value as string[] | undefined) ?? [],
+    anpassungen: await ladeAnpassungen(montag),
   });
 }

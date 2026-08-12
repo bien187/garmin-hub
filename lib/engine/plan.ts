@@ -85,7 +85,8 @@ export interface Wochenplan {
 /* Struktur-Bausteine                                                  */
 /* ------------------------------------------------------------------ */
 
-function z2Lauf(min: number, zonen: HrZonenInput, name: string): WorkoutStruktur {
+/** Auch von der laufenden Plan-Anpassung genutzt (abgeschwächte Einheiten) */
+export function z2Lauf(min: number, zonen: HrZonenInput, name: string): WorkoutStruktur {
   return {
     name,
     sport: "laufen",
