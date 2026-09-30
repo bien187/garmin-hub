@@ -1,11 +1,12 @@
-import { and, asc, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
 import { getDb, tables } from "@/lib/db";
 import { ladeProfil, PROFIL_DEFAULTS, Profil } from "@/lib/profile";
 import { EpPrognose, berechneEpPrognose } from "@/lib/ep/prognose";
 import { ladeEpPrognose } from "./ep-service";
 import { addTage, heuteIso, montagVon } from "@/lib/format";
 import { MuskelId } from "@/lib/engine/muscle";
-import { fasseZusammen } from "@/lib/engine/pace-bei-hr";
+import { fortschrittBisHeute, type PaceWoche } from '@/lib/engine/fortschritt';
+import { recomputeAll } from './compute';
 
 export interface DashboardDaten {
   dbBereit: boolean;
@@ -35,7 +36,7 @@ export interface DashboardDaten {
   woche: { km: number; hm: number };
   vorwoche: { km: number; hm: number };
   allTime: AllTimeStats;
-  paceFortschritt: { refHr: number | null; wochen: PaceWoche[] };
+  paceFortschritt: { refHr: number | null; wochen: PaceWoche[]; letzteMessung: string | null };
 }
 
 /** Summenwerte über die gesamte Historie */
@@ -51,10 +52,7 @@ export interface AllTimeStats {
 }
 
 /** Ein Punkt der Fortschrittskurve (Wochenmontag → Pace bei Referenzpuls) */
-export interface PaceWoche {
-  woche: string;
-  paceSKm: number;
-}
+export type { PaceWoche } from '@/lib/engine/fortschritt';
 
 const ALL_TIME_LEER: AllTimeStats = {
   aktivitaeten: 0,
@@ -88,13 +86,17 @@ const LEER: DashboardDaten = {
   woche: { km: 0, hm: 0 },
   vorwoche: { km: 0, hm: 0 },
   allTime: ALL_TIME_LEER,
-  paceFortschritt: { refHr: null, wochen: [] },
+  paceFortschritt: { refHr: null, wochen: [], letzteMessung: null },
 };
 
 export async function ladeDashboard(): Promise<DashboardDaten> {
   try {
     const db = getDb();
     const heute = heuteIso();
+    // Auch nach einem Tageswechsel ohne neuen Sync bis heute berechnen.
+    const [stand] = await db.select({datum:tables.computedDaily.datum}).from(tables.computedDaily)
+      .where(lte(tables.computedDaily.datum, heute)).orderBy(desc(tables.computedDaily.datum)).limit(1);
+    if (!stand || stand.datum < heute) await recomputeAll();
     const profil = await ladeProfil();
 
     const [
@@ -110,7 +112,7 @@ export async function ladeDashboard(): Promise<DashboardDaten> {
         db
           .select()
           .from(tables.computedDaily)
-          .where(gte(tables.computedDaily.datum, addTage(heute, -90)))
+          .where(and(gte(tables.computedDaily.datum, addTage(heute, -90)), lte(tables.computedDaily.datum, heute)))
           .orderBy(asc(tables.computedDaily.datum)),
         db.select().from(tables.muscleState).where(eq(tables.muscleState.datum, heute)),
         db
@@ -195,20 +197,7 @@ export async function ladeDashboard(): Promise<DashboardDaten> {
       seit: s?.seit ? new Date(s.seit).toISOString().slice(0, 10) : null,
     };
 
-    /* Fortschritt: Tageswerte je Kalenderwoche zeitgewichtet zusammenfassen */
-    const proWoche = new Map<string, { paceSKm: number; sekunden: number }[]>();
-    for (const r of fitnessRows) {
-      if (r.paceRefHrSKm == null) continue;
-      const woche = montagVon(r.datum);
-      const liste = proWoche.get(woche) ?? [];
-      liste.push({ paceSKm: r.paceRefHrSKm, sekunden: r.paceRefHrSekunden ?? 60 });
-      proWoche.set(woche, liste);
-    }
-    const paceWochen: PaceWoche[] = [...proWoche.entries()]
-      .map(([woche, liste]) => ({ woche, zusammen: fasseZusammen(liste) }))
-      .filter((w) => w.zusammen != null)
-      .map((w) => ({ woche: w.woche, paceSKm: Math.round(w.zusammen!.paceSKm) }))
-      .sort((a, b) => a.woche.localeCompare(b.woche));
+    const fortschritt = fortschrittBisHeute(fitnessRows, heute, addTage(heute, -90));
     const refHrWert = (refHrRows[0]?.value as { refHr?: number } | undefined)?.refHr;
 
     return {
@@ -241,7 +230,7 @@ export async function ladeDashboard(): Promise<DashboardDaten> {
       allTime,
       paceFortschritt: {
         refHr: typeof refHrWert === "number" ? refHrWert : null,
-        wochen: paceWochen,
+        ...fortschritt,
       },
     };
   } catch {

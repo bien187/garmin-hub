@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from 'next/navigation';
+import { useToast } from '@/components/ui/toast';
 import { Trash2 } from "lucide-react";
 import { EP_DISZIPLINEN, DisziplinId, berechneNote } from "@/lib/ep/disziplinen";
 import { formatDatum, formatDauer, formatNote } from "@/lib/format";
@@ -14,22 +16,40 @@ interface Benchmark {
 }
 
 export function BenchmarkListe() {
+  const router = useRouter();
+  const toast = useToast();
+  const [loescht, setLoescht] = useState<string | null>(null);
+  const [fehler, setFehler] = useState(false);
   const [eintraege, setEintraege] = useState<Benchmark[] | null>(null);
 
   const lade = useCallback(() => {
     fetch("/api/benchmarks")
-      .then((r) => r.json())
-      .then((d) => setEintraege(d.benchmarks ?? []))
-      .catch(() => setEintraege([]));
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
+      .then((d) => { setFehler(false); setEintraege(d.benchmarks ?? []); })
+      .catch(() => setFehler(true));
   }, []);
 
-  useEffect(lade, [lade]);
+  useEffect(() => {
+    lade();
+    window.addEventListener('benchmarks-changed', lade);
+    return () => window.removeEventListener('benchmarks-changed', lade);
+  }, [lade]);
 
   async function loesche(id: string) {
-    await fetch(`/api/benchmarks?id=${id}`, { method: "DELETE" });
-    lade();
+    setLoescht(id);
+    try {
+      const res = await fetch('/api/benchmarks?id=' + encodeURIComponent(id), {method:'DELETE'});
+      if (!res.ok) throw new Error('Eintrag konnte nicht gelöscht werden.');
+      setEintraege(alt => alt?.filter(b => b.id !== id) ?? []);
+      window.dispatchEvent(new Event('benchmarks-changed'));
+      router.refresh();
+      toast({message:'Eintrag gelöscht. Prognose aktualisiert.'});
+    } catch {
+      toast({message:'Löschen fehlgeschlagen. Bitte erneut versuchen.',variant:'error'});
+    } finally { setLoescht(null); }
   }
 
+  if (fehler) return <button className="min-h-11 text-sm text-status-red" onClick={lade}>Einträge konnten nicht geladen werden. Erneut versuchen</button>;
   if (eintraege === null) {
     return <div className="h-20 animate-pulse rounded-xl bg-muted" />;
   }
@@ -84,7 +104,9 @@ export function BenchmarkListe() {
               </span>
               <button
                 onClick={() => loesche(b.id)}
-                className="text-muted-foreground hover:text-status-red"
+                disabled={loescht !== null}
+                aria-label={d.kurzname + ' vom ' + formatDatum(b.datum) + ' löschen'}
+                className="flex min-h-11 min-w-11 items-center justify-center text-muted-foreground hover:text-status-red disabled:opacity-40"
                 title="Löschen"
               >
                 <Trash2 className="size-3.5" />

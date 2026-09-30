@@ -36,7 +36,7 @@ export function isoDatum(d: Date): string {
 }
 
 export function heuteIso(): string {
-  return isoDatum(new Date());
+  return new Intl.DateTimeFormat('sv-SE', {timeZone:'Europe/Zurich',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 }
 
 export function addTage(iso: string, tage: number): string {

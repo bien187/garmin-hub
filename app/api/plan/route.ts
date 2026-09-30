@@ -38,5 +38,6 @@ export async function GET(req: NextRequest) {
     einheiten,
     hinweise: (hinweisRows[0]?.value as string[] | undefined) ?? [],
     anpassungen: await ladeAnpassungen(montag),
+    nichtVerfuegbar: (await db.select().from(tables.appSettings).where(eq(tables.appSettings.key, 'plan_verfuegbarkeit_' + montag)))[0]?.value ?? [],
   });
 }

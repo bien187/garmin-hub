@@ -11,12 +11,7 @@ import {
 } from "recharts";
 import { formatDatum } from "@/lib/format";
 
-export interface PaceWochePunkt {
-  /** Montag der Woche (ISO) */
-  woche: string;
-  /** Median-Pace bei Referenzpuls in s/km */
-  paceSKm: number;
-}
+import type { PaceWoche as PaceWochePunkt } from '@/lib/engine/fortschritt';
 
 /** Pace ohne Einheit — die steht an der Achse bzw. im Titel */
 function paceKurz(sProKm: number): string {
@@ -32,7 +27,8 @@ export function PaceHrChart({
   wochen: PaceWochePunkt[];
   refHr: number | null;
 }) {
-  if (wochen.length < 2) {
+  const messungen = wochen.filter((w): w is PaceWochePunkt & {paceSKm:number} => w.paceSKm != null);
+  if (messungen.length === 0) {
     return (
       <div className="flex h-44 items-center justify-center px-4 text-center text-sm text-muted-foreground">
         Noch zu wenig Daten. Es braucht Läufe mit mindestens fünf Minuten
@@ -42,13 +38,13 @@ export function PaceHrChart({
     );
   }
 
-  const werte = wochen.map((w) => w.paceSKm);
+  const werte = messungen.map((w) => w.paceSKm);
   const min = Math.min(...werte);
   const max = Math.max(...werte);
   const luft = Math.max(12, (max - min) * 0.3);
 
-  const ersteWoche = wochen[0];
-  const letzteWoche = wochen[wochen.length - 1];
+  const ersteWoche = messungen[0];
+  const letzteWoche = messungen[messungen.length - 1];
   // Negativ = weniger Sekunden pro Kilometer = schneller
   const diff = letzteWoche.paceSKm - ersteWoche.paceSKm;
 
@@ -72,7 +68,7 @@ export function PaceHrChart({
           <LineChart data={wochen} margin={{ top: 4, right: 8, bottom: 0, left: -6 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis
-              dataKey="woche"
+              dataKey="bis"
               tickFormatter={formatDatum}
               tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
               interval="preserveStartEnd"
@@ -94,10 +90,11 @@ export function PaceHrChart({
                 borderRadius: 8,
                 fontSize: 12,
               }}
-              labelFormatter={(l) => `Woche ab ${formatDatum(String(l))}`}
+              labelFormatter={(l) => `Woche bis ${formatDatum(String(l))}`}
               formatter={(value) => [`${paceKurz(Number(value))} /km`, "Median-Pace"]}
             />
             <Line
+              connectNulls={false}
               type="monotone"
               dataKey="paceSKm"
               stroke="var(--primary)"

@@ -40,6 +40,7 @@ export async function DELETE(req: NextRequest) {
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id fehlt" }, { status: 400 });
   const db = getDb();
-  await db.delete(tables.epBenchmarks).where(eq(tables.epBenchmarks.id, id));
+  const geloescht = await db.delete(tables.epBenchmarks).where(eq(tables.epBenchmarks.id, id)).returning({id:tables.epBenchmarks.id});
+  if (!geloescht.length) return NextResponse.json({error:'Eintrag nicht gefunden.'},{status:404});
   return NextResponse.json({ ok: true });
 }

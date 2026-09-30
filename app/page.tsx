@@ -8,6 +8,7 @@ import { EpWidget } from "@/components/dashboard/ep-widget";
 import { SyncButton } from "@/components/dashboard/sync-button";
 import { InsightCards } from "@/components/dashboard/insight-cards";
 import { PaceHrChart } from "@/components/dashboard/pace-hr-chart";
+import { DashboardAktuell } from '@/components/dashboard/dashboard-aktuell';
 import { BodyMap } from "@/components/body/body-map";
 import { ladeDashboard } from "@/lib/server/dashboard-service";
 import { aktuellePhase, epCountdown } from "@/lib/ep/phasen";
@@ -15,6 +16,7 @@ import { formatDatumLang, formatDauer, formatKm, heuteIso } from "@/lib/format";
 import { tsbZone } from "@/lib/engine/fitness";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export default async function DashboardPage() {
   const d = await ladeDashboard();
@@ -34,6 +36,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
+      <DashboardAktuell />
       {/* Kopfzeile: EP-Countdown — das Signatur-Element (Hero-Zahl) */}
       <div className="flex items-start justify-between gap-3">
         <CountdownHero
@@ -121,7 +124,7 @@ export default async function DashboardPage() {
             </CardTitle>
             <p className="text-[10px] text-dim-foreground">
               Median-Pace bei {d.paceFortschritt.refHr ?? "–"} bpm · je Woche ·
-              höhenkorrigiert
+              höhenkorrigiert · bis heute ({formatDatumLang(heute)})
             </p>
           </CardHeader>
           <CardContent>
@@ -129,6 +132,10 @@ export default async function DashboardPage() {
               wochen={d.paceFortschritt.wochen}
               refHr={d.paceFortschritt.refHr}
             />
+            <p className="mt-1 text-xs text-muted-foreground">
+              {d.paceFortschritt.letzteMessung ? 'Letzte Messung: ' + formatDatumLang(d.paceFortschritt.letzteMessung) + '. ' : ''}
+              Wochen ohne passende Messung bleiben leer. Die aktuelle Woche enthält alle bisherigen Messungen bis heute.
+            </p>
             <p className="mt-1 text-xs text-muted-foreground">
               Linie steigt = bei gleichem Puls schneller unterwegs. Das ist der
               verlässlichste Beleg dafür, dass die Grundlage wächst.

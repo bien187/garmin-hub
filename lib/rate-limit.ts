@@ -15,6 +15,8 @@ export interface RateLimitResult {
   verbleibend: number;
 }
 
+const lokaleLimits = new Map<string, { count: number; startMs: number }>();
+
 /**
  * Fixed-Window-Limiter, atomar über ein einziges UPSERT: Bei abgelaufenem
  * Fenster wird zurückgesetzt, sonst inkrementiert. Race-fest bei parallelen
@@ -24,6 +26,24 @@ export async function rateLimit(
   key: string,
   { max, windowSec }: RateLimitOptions
 ): Promise<RateLimitResult> {
+  // Lokaler Testserver ohne Datenbank: dieselben Limits im Arbeitsspeicher.
+  // Produktion und konfigurierte Datenbanken verwenden immer den DB-Limiter.
+  if (process.env.NODE_ENV === "development" && !process.env.DATABASE_URL) {
+    const jetzt = Date.now();
+    const vorhanden = lokaleLimits.get(key);
+    const fenster = vorhanden && jetzt < vorhanden.startMs + windowSec * 1000
+      ? vorhanden
+      : { count: 0, startMs: jetzt };
+    fenster.count += 1;
+    lokaleLimits.set(key, fenster);
+    const ok = fenster.count <= max;
+    return {
+      ok,
+      retryAfterS: ok ? 0 : Math.max(0, Math.ceil((fenster.startMs + windowSec * 1000 - jetzt) / 1000)),
+      verbleibend: Math.max(0, max - fenster.count),
+    };
+  }
+
   const db = getDb();
   const rows = await db
     .insert(tables.rateLimits)

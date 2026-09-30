@@ -55,6 +55,7 @@ interface PlanDaten {
   einheiten: PlanEinheit[];
   hinweise: string[];
   anpassungen?: PlanAnpassung[];
+  nichtVerfuegbar: string[];
 }
 
 const WOCHENTAGE = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
@@ -98,24 +99,36 @@ export function WeekView() {
 
   const anpassungen = anpassungenWeg ? [] : (daten?.anpassungen ?? []);
 
+  async function verfuegbarkeit(datum: string, verfuegbar: boolean) {
+    if (!daten) return;
+    setLaedt(true);
+    try {
+      const sperren = verfuegbar ? daten.nichtVerfuegbar.filter(d => d !== datum) : [...daten.nichtVerfuegbar, datum];
+      const res = await fetch('/api/plan/generate', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({wochenstart:woche, nichtVerfuegbar:sperren})});
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error ?? 'Speichern fehlgeschlagen.');
+      await lade();
+      toast({message:'Verfügbarkeit gespeichert und Plan angepasst.'});
+    } catch (e) {
+      toast({message:e instanceof Error ? e.message : 'Speichern fehlgeschlagen.', variant:'error'});
+    } finally { setLaedt(false); }
+  }
+
   async function generiere() {
     setLaedt(true);
     setGeneriert(false);
-    const res = await fetch("/api/plan/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ wochenstart: woche }),
-    });
-    setLaedt(false);
-    if (res.ok) {
-      setGeneriert(true);
-      lade();
-    } else {
-      toast({
-        message: "Generierung fehlgeschlagen — ist die Datenbank erreichbar?",
-        variant: "error",
+    try {
+      const res = await fetch('/api/plan/generate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wochenstart: woche }),
       });
-    }
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error ?? 'Generierung fehlgeschlagen.');
+      setGeneriert(true);
+      await lade();
+    } catch (e) {
+      toast({message: e instanceof Error ? e.message : 'Generierung fehlgeschlagen.', variant:'error'});
+    } finally { setLaedt(false); }
   }
 
   async function pushe(id: string) {
@@ -211,7 +224,7 @@ export function WeekView() {
     <div className="space-y-3">
       {/* Wochen-Navigation */}
       <div className="flex items-center justify-between">
-        <Button variant="ghost" size="sm" onClick={() => setWoche(addTage(woche, -7))}>
+        <Button variant="ghost" size="sm" disabled={laedt || pushProgress != null} onClick={() => setWoche(addTage(woche, -7))}>
           <ChevronLeft className="size-4" />
         </Button>
         <div className="text-center">
@@ -224,10 +237,30 @@ export function WeekView() {
             </div>
           )}
         </div>
-        <Button variant="ghost" size="sm" onClick={() => setWoche(addTage(woche, 7))}>
+        <Button variant="ghost" size="sm" disabled={laedt || pushProgress != null} onClick={() => setWoche(addTage(woche, 7))}>
           <ChevronRight className="size-4" />
         </Button>
       </div>
+
+      {daten && (
+        <div className="rounded-xl border border-border p-3 space-y-2">
+          <h2 className="text-sm font-medium">Deine Trainingstage</h2>
+          <p className="text-xs text-muted-foreground">Markiere, wann du trainieren kannst. Der Plan passt sich direkt an.</p>
+          {WOCHENTAGE.map((tag, i) => {
+            const datum = addTage(woche, i);
+            const gym = [0, 3, 6].includes(i);
+            const frei = !daten.nichtVerfuegbar.includes(datum);
+            return <div key={datum} className="flex min-h-11 items-center justify-between gap-3 text-sm">
+              <span>{tag} · {formatDatum(datum)}</span>
+              {gym ? <span className="text-xs text-muted-foreground">Gymtag · fix</span> :
+                <label className="flex min-h-11 items-center gap-2 text-xs">
+                  {frei ? 'Training möglich' : 'Keine Zeit'}
+                  <Switch aria-label={tag + ' ' + formatDatum(datum) + ': Training möglich'} checked={frei} disabled={laedt || pushProgress != null || datum < heute} onCheckedChange={v => verfuegbarkeit(datum, v)} />
+                </label>}
+            </div>;
+          })}
+        </div>
+      )}
 
       {/* Automatische Anpassungen: oranges Flag über dem Plan. Bewusst
           prominenter als die Hinweise — hier hat sich der Plan wirklich
@@ -291,7 +324,7 @@ export function WeekView() {
           <p className="mb-3 text-sm text-muted-foreground">
             Für diese Woche ist noch kein Plan generiert.
           </p>
-          <Button onClick={generiere} disabled={laedt}>
+          <Button onClick={generiere} disabled={laedt || pushProgress != null}>
             <RefreshCw className={cn("size-4", laedt && "animate-spin")} />
             Woche generieren
           </Button>
@@ -473,7 +506,7 @@ export function WeekView() {
             })}
           </div>
           <div className="flex justify-end">
-            <Button variant="ghost" size="sm" onClick={generiere} disabled={laedt}>
+            <Button variant="ghost" size="sm" onClick={generiere} disabled={laedt || pushProgress != null}>
               <RefreshCw className={cn("size-4", laedt && "animate-spin")} />
               {generiert ? "Neu generiert" : "Woche neu generieren"}
             </Button>

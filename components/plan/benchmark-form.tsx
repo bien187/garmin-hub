@@ -39,6 +39,7 @@ export function BenchmarkForm({ onGespeichert }: { onGespeichert?: () => void })
       setMinuten("");
       setSekunden("");
       setTimeout(() => setGespeichert(false), 2000);
+      window.dispatchEvent(new Event('benchmarks-changed'));
       onGespeichert?.();
     }
   }

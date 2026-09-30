@@ -51,11 +51,12 @@ export function SyncButton({ kompakt = false }: { kompakt?: boolean }) {
         }
       }
       setPhase("finalize");
-      await fetch("/api/sync", {
+      const finalisiert = await fetch("/api/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ typ: "finalize" }),
       });
+      if (!finalisiert.ok) throw new Error('Berechnung fehlgeschlagen. Bitte erneut synchronisieren.');
       setPhase("idle");
       router.refresh();
     } catch (e) {
