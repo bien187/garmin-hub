@@ -48,7 +48,9 @@ der Schweizer Armee-Grenadiere** (Mitte November 2026) vor.
   frei Schnauze" mit TSB-Vorschau, EP-Benchmark-Erfassung mit Sofort-Note,
   **Probe-EP-Modus** (geführt, alle 5 Disziplinen) und **60-bpm-Metronom**
   (Web Audio). **Taper-Plan ab 05.11.** mit Begründung pro Tag und fixen
-  **EP-Tagen** 18./19.11. (eigene Farbe/Icon, nie an die Uhr).
+  **EP-Tagen** 18./19.11. (eigene Farbe/Icon, nie an die Uhr). Tippen auf
+  einen EP-Tag öffnet die **EP-Checkliste** (Startzeit, Frühstück-Fenster,
+  abhakbar, gespeichert).
 - **Körper**: SVG-Body-Map (16 Muskelgruppen, vorne/hinten) mit
   Rest-Erschöpfung aus Kraft- **und** Laufeinheiten (exponentieller Abbau,
   muskelspezifisches τ), Bottom-Sheet mit Beiträgen + Sparkline,
@@ -367,6 +369,47 @@ zeigen Sync/Garmin-Status einen sauberen Fehlerbanner statt zu crashen.
   - Die echte DB wird durch diesen Code nicht automatisch umgeplant; die
     Wochen 02.11., 09.11. und 16.11. müssen einmal neu generiert werden (die
     Woche 16.11. räumt dabei die alten Einträge bis 13.12. mit ab).
+
+### EP-Checkliste
+
+- **Inhalt** in `lib/ep/checkliste.ts` (rein, client-sicher): je EP-Tag eine
+  eigene Liste mit den Gruppen Vorabend / Morgens / Vor Ort / Danach. Tag 2
+  hat eigene IDs (`t2-…`) und angepasste Texte (Vorabend = Abend nach Tag 1:
+  Erholung, Essen, Tasche für Tag 2). Ernährungsvorschläge stehen gesammelt in
+  `ERNAEHRUNG` und lassen sich dort anpassen. Die Punkt-IDs sind der Schlüssel
+  des Abhakzustands — Texte dürfen sich ändern, IDs nicht.
+- **Startzeit** (Standard 08:00) je Tag; daraus das Frühstück-Fenster
+  Startzeit −3 h bis −2 h (`fruehstueckFenster`, bei Startzeiten vor 03:00 mit
+  Hinweis „Vortag"). **Fortschritt** „x von y" zählt nur IDs, die in der Liste
+  existieren, jede einmal (`fortschritt`).
+- **Persistenz:** `app_settings` unter `ep_checkliste_<datum>` mit
+  `{ abgehakt: string[], startzeit: "HH:MM" }`, keine Migration.
+  `GET /api/ep-checkliste?datum=…` und `PUT /api/ep-checkliste`
+  (`{ datum, abgehakt, startzeit }`, zod-validiert, Session-Prüfung im
+  Handler). Nur 18.11. und 19.11. sind erlaubt (sonst 400); unbekannte IDs
+  und Duplikate werden beim Speichern und Lesen verworfen.
+- **UI** (`components/plan/ep-checkliste.tsx`): Tippen auf den EP-Eintrag im
+  Wochenplan öffnet ein Bottom-Sheet mit der Checkliste statt der
+  aufklappbaren Eintragsansicht (Status „Erledigt" ist dort weiterhin
+  setzbar). Ganze Zeile tippbar (≥ 44 px), Abhaken wird sofort angezeigt und
+  im Hintergrund gespeichert (immer der vollständige Stand, nacheinander;
+  Startzeit-Änderungen gesammelt nach 0.6 s). Schlägt Speichern fehl, bleibt
+  der lokale Stand erhalten (auch nach Schliessen/erneutem Öffnen des Sheets
+  in derselben Sitzung) und lässt sich per „Erneut speichern" senden. Die
+  Sende-Schlange gilt pro EP-Tag für die ganze Seite: Wird das Sheet während
+  eines laufenden Speicherns geschlossen und wieder geöffnet, übernimmt es
+  diesen Vorgang (kein Fehlerhinweis, keine parallelen PUTs).
+- **Annahmen:**
+  - Kein Rate-Limit: die übrigen reinen DB-Schreibrouten (z. B.
+    `PATCH /api/plan/[id]`, `/api/settings`) haben auch keins; Rate-Limits
+    gibt es nur für Login und Garmin-Aufrufe.
+  - Die Startzeit gilt je EP-Tag separat (Tag 2 kann anders beginnen).
+  - Inhalte sind allgemeine Vorschläge ohne medizinische Aussagen; der
+    Hinweis steht auch unter der Liste.
+  - `SheetShell` blendet sich jetzt auch aus, wenn `open` von aussen auf
+    `false` gesetzt wird (Schliessen-/Abbrechen-Knopf). Vorher blieb das
+    Sheet in diesem Fall sichtbar; das betraf auch das bestehende
+    „Abbrechen" im Sammel-Senden und im Lösch-Bestätigungs-Sheet.
 
 ## Engine-Formeln (lib/engine, vollständig unit-getestet)
 
