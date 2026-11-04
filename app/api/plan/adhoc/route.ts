@@ -157,7 +157,7 @@ export async function POST(req: NextRequest) {
   let planId: string | null = null;
   if (wunsch.speichern) {
     planId = randomUUID();
-    const profilPhase = aktuellePhase(heuteIso(), profil.epDatum);
+    const profilPhase = aktuellePhase(heuteIso());
     await db.insert(tables.plannedWorkouts).values({
       id: planId,
       datum: heuteIso(),

@@ -7,12 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { zonenAusProfil, type ZonenSatz } from "@/lib/hr-zonen";
 import { cn } from "@/lib/utils";
+import { formatDatumNumerisch } from "@/lib/format";
+import { EP_DATUM, EP_TAG_2 } from "@/lib/ep/konstanten";
 
 interface ProfilForm {
   hfMax: number;
   ruhepuls: number;
   gewichtKg: number;
-  epDatum: string;
   lastZuschlagSproKmPro10kg: number;
 }
 
@@ -113,13 +114,11 @@ export function ProfileForm() {
           />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground">EP-Datum (Tag 1)</label>
-          <Input
-            type="date"
-            value={form.epDatum}
-            onChange={(e) => setForm({ ...form, epDatum: e.target.value })}
-            className="mt-1 w-44"
-          />
+          <div className="text-xs text-muted-foreground">EP-Termin</div>
+          <div className="mt-1 text-sm">
+            EP: {formatDatumNumerisch(EP_DATUM)} (fix)
+            <span className="text-muted-foreground"> · Tag 2: {formatDatumNumerisch(EP_TAG_2)}</span>
+          </div>
         </div>
         <div className="space-y-1.5">
           <div className="flex flex-wrap items-center justify-between gap-2">

@@ -546,7 +546,8 @@ export async function matcheGeplanteEinheiten(): Promise<void> {
   const laufPlanTypen = ["lauf_z2", "intervalle", "huegel_intervalle", "langer_lauf", "lastlauf", "probe_ep"];
 
   for (const p of offene) {
-    if (p.typ === "ruhe" || p.typ === "gtg") continue;
+    // EP-Tage werden nicht automatisch abgehakt oder als verpasst markiert
+    if (p.typ === "ruhe" || p.typ === "gtg" || p.typ === "ep") continue;
     const kandidaten = aktivitaeten.filter((a) => {
       if (isoDatum(new Date(a.startZeit)) !== p.datum) return false;
       const brauchtLauf = laufPlanTypen.includes(p.typ);

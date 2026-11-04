@@ -13,6 +13,7 @@ import { DashboardAktuell } from '@/components/dashboard/dashboard-aktuell';
 import { BodyMap } from "@/components/body/body-map";
 import { ladeDashboard } from "@/lib/server/dashboard-service";
 import { aktuellePhase, epCountdown } from "@/lib/ep/phasen";
+import { EP_DATUM } from "@/lib/ep/konstanten";
 import { formatDatumLang, formatDauer, formatKm, heuteIso } from "@/lib/format";
 import { tsbZone } from "@/lib/engine/fitness";
 
@@ -22,8 +23,8 @@ export const maxDuration = 60;
 export default async function DashboardPage() {
   const d = await ladeDashboard();
   const heute = heuteIso();
-  const countdown = epCountdown(heute, d.profil.epDatum);
-  const phase = aktuellePhase(heute, d.profil.epDatum);
+  const countdown = epCountdown(heute);
+  const phase = aktuellePhase(heute);
 
   const tsbInfo =
     d.tsbHeute == null
@@ -44,9 +45,10 @@ export default async function DashboardPage() {
           wochen={countdown.wochen}
           tage={countdown.tage}
           vorbei={countdown.vorbei}
+          epTag={countdown.epTag}
           phaseNr={phase.nr}
           phaseName={phase.name}
-          epDatumLang={formatDatumLang(d.profil.epDatum)}
+          epDatumLang={formatDatumLang(EP_DATUM)}
         />
         <SyncButton kompakt />
       </div>

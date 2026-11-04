@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, asc, eq, gte, lte } from "drizzle-orm";
 import { getDb, tables } from "@/lib/db";
 import { addTage, heuteIso, montagVon } from "@/lib/format";
-import { ladeProfil } from "@/lib/profile";
 import { aktuellePhase } from "@/lib/ep/phasen";
 import { ladeAnpassungen } from "@/lib/server/plan-service";
 
@@ -29,8 +28,7 @@ export async function GET(req: NextRequest) {
     .from(tables.appSettings)
     .where(eq(tables.appSettings.key, `plan_hinweise_${montag}`));
 
-  const profil = await ladeProfil();
-  const phase = aktuellePhase(montag, profil.epDatum);
+  const phase = aktuellePhase(montag);
 
   return NextResponse.json({
     montag,

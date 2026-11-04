@@ -8,8 +8,6 @@ export interface Profil {
   ruhepuls: number;
   /** geschätzt, editierbar (Max-Puls-Test folgt) */
   hfMax: number;
-  /** ISO, Tag 1 der zweitägigen EP */
-  epDatum: string;
   /** Zusatzlast-Kalibrierung Lastlauf: s/km Zuschlag pro 10 kg (auto-kalibriert) */
   lastZuschlagSproKmPro10kg: number;
   stiefelMalusSproKm: number;
@@ -21,7 +19,6 @@ export const PROFIL_DEFAULTS: Profil = {
   groesseCm: 185,
   ruhepuls: 46,
   hfMax: 197,
-  epDatum: "2026-11-14", // Mitte November 2026 (editierbar in /settings)
   lastZuschlagSproKmPro10kg: 8.5, // ~7–10 s/km pro 10 kg, Startwert
   stiefelMalusSproKm: 10,
 };

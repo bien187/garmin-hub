@@ -75,6 +75,21 @@ export function formatDatumLang(iso: string): string {
   });
 }
 
+/** „Mi 18.11.2026" — Wochentag kurz + numerisches Datum */
+export function formatDatumNumerisch(iso: string): string {
+  const d = new Date(iso + "T12:00:00");
+  const wt = d.toLocaleDateString("de-CH", { weekday: "short" }).replace(".", "");
+  const datum = d.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return `${wt} ${datum}`;
+}
+
+/** „Sa 7.11." — Wochentag kurz ohne Punkt + Tag.Monat (für Hinweise) */
+export function formatDatumKurz(iso: string): string {
+  const d = new Date(iso + "T12:00:00");
+  const wt = d.toLocaleDateString("de-CH", { weekday: "short" }).replace(".", "");
+  return `${wt} ${d.getDate()}.${d.getMonth() + 1}.`;
+}
+
 export function formatZeit(d: Date): string {
   return d.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" });
 }

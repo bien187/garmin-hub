@@ -10,6 +10,7 @@ import {
   Info,
   RefreshCw,
   Send,
+  Trophy,
   Watch,
   X,
 } from "lucide-react";
@@ -20,6 +21,8 @@ import { useToast } from "@/components/ui/toast";
 import { Metronome } from "./metronome";
 import { addTage, formatDatum, heuteIso, montagVon } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { taperRegelFuerTag } from "@/lib/engine/taper";
+import { istEpTag, REGENERATION_BIS } from "@/lib/ep/konstanten";
 
 interface PlanEinheit {
   id: string;
@@ -36,7 +39,8 @@ interface PlanEinheit {
 
 /** Kann diese Einheit überhaupt als Garmin-Workout übertragen werden? */
 function istPushbar(e: PlanEinheit): boolean {
-  return e.struktur != null && e.typ !== "ruhe" && e.typ !== "gtg";
+  // EP-Tage gehen nie an die Uhr (serverseitig ebenfalls abgelehnt)
+  return e.struktur != null && e.typ !== "ruhe" && e.typ !== "gtg" && e.typ !== "ep";
 }
 
 /** Ein automatischer Eingriff der laufenden Plan-Anpassung */
@@ -72,6 +76,7 @@ const TYP_FARBEN: Record<string, string> = {
   rumpf: "border-l-status-yellow",
   gtg: "border-l-muted-foreground",
   ruhe: "border-l-muted",
+  ep: "border-l-ep",
 };
 
 export function WeekView() {
@@ -249,10 +254,12 @@ export function WeekView() {
           {WOCHENTAGE.map((tag, i) => {
             const datum = addTage(woche, i);
             const gym = [0, 3, 6].includes(i);
+            const ep = istEpTag(datum);
             const frei = !daten.nichtVerfuegbar.includes(datum);
             return <div key={datum} className="flex min-h-11 items-center justify-between gap-3 text-sm">
               <span>{tag} · {formatDatum(datum)}</span>
-              {gym ? <span className="text-xs text-muted-foreground">Gymtag · fix</span> :
+              {ep ? <span className="text-xs font-medium text-ep">EP · fix</span> :
+                gym ? <span className="text-xs text-muted-foreground">Gymtag · fix</span> :
                 <label className="flex min-h-11 items-center gap-2 text-xs">
                   {frei ? 'Training möglich' : 'Keine Zeit'}
                   <Switch aria-label={tag + ' ' + formatDatum(datum) + ': Training möglich'} checked={frei} disabled={laedt || pushProgress != null || datum < heute} onCheckedChange={v => verfuegbarkeit(datum, v)} />
@@ -319,6 +326,12 @@ export function WeekView() {
             <div key={i} className="h-16 animate-pulse rounded-xl bg-muted" />
           ))}
         </div>
+      ) : daten.einheiten.length === 0 && woche > REGENERATION_BIS ? (
+        <div className="rounded-xl border border-dashed border-border py-10 text-center">
+          <p className="text-sm text-muted-foreground">
+            Kein Trainingsplan nach der EP, bis neue Ziele gesetzt sind.
+          </p>
+        </div>
       ) : daten.einheiten.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border py-10 text-center">
           <p className="mb-3 text-sm text-muted-foreground">
@@ -370,29 +383,41 @@ export function WeekView() {
               const datum = addTage(woche, i);
               const einheiten = daten.einheiten.filter((e) => e.datum === datum);
               if (einheiten.length === 0) return null;
+              // Taper-Begründung pro Tag: reine Funktion, kein DB-Feld nötig
+              const regel = taperRegelFuerTag(datum);
+              const epTag = istEpTag(datum);
               return (
                 <div key={datum}>
                   <div
                     className={cn(
                       "mb-1 flex items-baseline gap-2 text-xs",
-                      datum === heute ? "text-primary" : "text-muted-foreground"
+                      epTag ? "text-ep" : datum === heute ? "text-primary" : "text-muted-foreground"
                     )}
                   >
                     <span className="stat-display text-sm">{WOCHENTAGE[i]}</span>
                     {formatDatum(datum)}
                     {datum === heute && <span className="font-medium">· heute</span>}
                   </div>
+                  {regel && (
+                    <p className="mb-1.5 text-[11px] leading-snug text-dim-foreground">
+                      <span className={cn("font-medium", epTag ? "text-ep" : "text-muted-foreground")}>
+                        {regel.label}:
+                      </span>{" "}
+                      {regel.begruendung}
+                    </p>
+                  )}
                   <div className="space-y-1.5">
                     {einheiten.map((e) => {
                       const istOffen = offen === e.id;
-                      const kannPushen =
-                        e.struktur != null && e.typ !== "ruhe" && e.typ !== "gtg";
+                      const kannPushen = istPushbar(e);
+                      const istEp = e.typ === "ep";
                       return (
                         <div
                           key={e.id}
                           className={cn(
                             "rounded-xl border border-border border-l-4 bg-card",
                             TYP_FARBEN[e.typ] ?? "border-l-muted",
+                            istEp && "bg-ep/10",
                             e.status === "absolviert" && "opacity-60"
                           )}
                         >
@@ -400,7 +425,9 @@ export function WeekView() {
                             className="flex w-full items-center gap-2.5 p-3 text-left"
                             onClick={() => setOffen(istOffen ? null : e.id)}
                           >
-                            {e.status === "absolviert" ? (
+                            {istEp ? (
+                              <Trophy className="size-4 shrink-0 text-ep" aria-label="EP-Tag" />
+                            ) : e.status === "absolviert" ? (
                               <Check className="size-4 shrink-0 text-status-green" />
                             ) : e.status === "verpasst" ? (
                               <X className="size-4 shrink-0 text-status-red" />
@@ -417,7 +444,7 @@ export function WeekView() {
                             >
                               {e.titel}
                             </span>
-                            {e.erwarteterTrimp != null && (
+                            {e.erwarteterTrimp != null && !istEp && (
                               <span className="stat-mono text-[10px] text-muted-foreground">
                                 ~{e.erwarteterTrimp} TRIMP
                               </span>
@@ -433,6 +460,11 @@ export function WeekView() {
                            <div className="min-h-0 overflow-hidden">
                             <div className="space-y-2.5 border-t border-border/60 p-3 text-sm">
                               <p className="text-muted-foreground">{e.beschreibung}</p>
+                              {istEp && (
+                                <p className="text-xs text-dim-foreground">
+                                  Fixer Termin — wird vom Generator nie überschrieben und nicht an die Uhr gesendet.
+                                </p>
+                              )}
                               {/* Garmin-Sync-Flag pro Einheit + Status */}
                               {kannPushen && (
                                 <div className="flex items-center justify-between rounded-lg bg-muted px-3 py-2">

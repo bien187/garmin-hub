@@ -121,7 +121,7 @@ export const plannedWorkouts = pgTable("planned_workouts", {
   id: text("id").primaryKey(), // uuid
   datum: date("datum").notNull(),
   phase: integer("phase").notNull(),
-  typ: text("typ").notNull(), // lauf_z2, intervalle, langer_lauf, lastlauf, huegel, kraft, klimmzuege, rumpf, liegestuetze, ruhe, probe_ep
+  typ: text("typ").notNull(), // lauf_z2, intervalle, langer_lauf, lastlauf, huegel, kraft, klimmzuege, rumpf, liegestuetze, ruhe, probe_ep, ep (fixer EP-Tag)
   titel: text("titel").notNull(),
   beschreibung: text("beschreibung"),
   struktur: jsonb("struktur"), // WorkoutStruktur (lib/garmin/workout-json.ts)
