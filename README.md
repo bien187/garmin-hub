@@ -17,13 +17,16 @@ der Schweizer Armee-Grenadiere** (Mitte November 2026) vor.
 
 - **Dashboard**: EP-Countdown + aktuelle Phase, Readiness-Ampel
   (Training Readiness, Body Battery, HRV, Schlaf, Ruhepuls) mit
-  Handlungssatz, CTL/ATL/TSB-Fitness-Kurve (90 Tage), ACWR-Warnung,
-  EP-Notenprognose-Widget, Mini-Body-Map, Wochenvergleich, Korrelations-
-  Insights (z. B. Schlaf → Laufökonomie) — nur |r| ≥ 0.3, n ≥ 15, klar als
-  Korrelation gelabelt; **Fortschrittskurve „Pace bei gleichem Puls"**
+  Handlungssatz, CTL/ATL/TSB-Fitness-Kurve **seit Trainingsstart**,
+  ACWR-Warnung, EP-Notenprognose-Widget, Mini-Body-Map, Wochenvergleich,
+  Korrelations-Insights über die gesamte Historie (z. B. Schlaf →
+  Laufökonomie) — nur |r| ≥ 0.3, n ≥ 15, klar als Korrelation gelabelt;
+  **Fortschrittskurve „Pace bei gleichem Puls"** seit Trainingsstart
   (höhenkorrigierte Median-Pace bei Zone-2-Mitte, je Woche — steigende
   Linie = wachsende Grundlage) und **All-Time-Summen** (km, Hm, Stunden,
-  Aktivitäten, längster Lauf).
+  Aktivitäten, längster Lauf). Die Verlaufs-Charts haben einen
+  Zeitraum-Umschalter (90 Tage · 6 Mon. · Alles, Standard „Alles") und ab
+  mehr als 120 Tagen Monatsticks.
 - **Aktivitäten**: Liste mit Filter + Infinite Scroll + Polyline-Minikarten;
   Detailseite mit **3D-Flyover** (MapLibre + Terrarium-Terrain, Kamera folgt
   der Strecke, 1×/4×/10×, Scrubber, Live-km/Pace/HR/Höhe), **Schlussfahrt
@@ -217,6 +220,64 @@ zeigen Sync/Garmin-Status einen sauberen Fehlerbanner statt zu crashen.
 - **Flyover-Kamera:** MapLibre besitzt keine FreeCamera-API (Mapbox-only);
   der Verfolger-Effekt ist mit `jumpTo` + geglättetem Bearing entlang eines
   `bezier-spline`-Kamerapfads umgesetzt.
+
+### Verlaufs-Graphen seit Trainingsstart
+
+- **Trainingsstart** = erster Tag in `computed_daily` (die Tagesserie in
+  `compute.ts` beginnt am Tag der ersten Aktivität), aber nie vor
+  `min(start_zeit)` der nicht gelöschten `activities`
+  (`trainingsstartAus` in `lib/engine/fortschritt.ts`): `computed_daily` wird
+  nur per Upsert geschrieben, nach dem Löschen der ersten Einheit blieben
+  davor veraltete Zeilen stehen und würden sonst dauerhaft angezeigt. Er wird
+  bei jedem Aufruf aus den Daten bestimmt, nicht gespeichert (echte DB:
+  27.06.2026). Dashboard und Insights nutzen dieselbe Regel.
+- **Dashboard** (`lib/server/dashboard-service.ts`) liefert Fitness
+  (CTL/ATL/TSB) und die Wochen der Pace-bei-Puls-Kurve vom Trainingsstart bis
+  heute. Bei ~130–400 Tagen ist die Payload unkritisch und wird nicht
+  ausgedünnt.
+- **Zeitraum-Umschalter** (`lib/engine/zeitachse.ts`, rein und getestet):
+  filtert clientseitig auf den gelieferten Punkten, ohne weitere Requests;
+  Bezug ist das letzte Datum der Reihe (= heute). Angeboten werden nur
+  Zeiträume, die sich von „Alles" unterscheiden — beginnt das Training erst
+  nach der 6-Monats-Grenze, entfällt „6 Mon." (aktuell: „90 Tage · Alles");
+  bleibt nur „Alles", verschwindet der Umschalter. Reihenfolge nach Länge
+  (90 Tage · 6 Mon. · Alles). Die Auswahl wird nicht gespeichert.
+  Kartentitel und Datumsspanne im Untertitel folgen dem gewählten Zeitraum
+  („Fitness · seit Trainingsstart" bzw. „· letzte 90 Tage"); der Zustand
+  liegt dazu in `ZeitraumBereich` um die ganze Karte.
+- **Achse:** Spannweite > 120 Tage → ein Tick je Monat (deutsche Kürzel
+  Jan … Dez, bei Jahreswechsel „Jan 27"), gesetzt auf den ersten Datenpunkt
+  eines Monats, sofern er in dessen ersten sieben Tagen liegt (ein
+  angebrochener Startmonat bekommt kein Etikett direkt neben dem nächsten).
+  Sonst Tagesticks wie bisher.
+- **Lücken** bleiben leer: Wochen ohne passende Messung sind `null`, die
+  Linie wird nicht verbunden (`connectNulls={false}`), nichts interpoliert.
+  CTL/ATL/TSB hat keine Lücken — Ruhetage haben TRIMP 0 und sind echter
+  Abbau, keine fehlenden Daten.
+- **Insights** (`app/api/insights/route.ts`): Tagesreihe ab Trainingsstart
+  statt 90 Tage. Ältere `daily_health`-Tage bleiben aussen vor, weil jedes
+  Korrelationspaar eine Trainingsmetrik braucht. Der EF-Trend-Tipp
+  vergleicht damit das erste und letzte Drittel seit Trainingsstart.
+  Schwellen unverändert (|r| ≥ 0.3, n ≥ 15). Waden-Erschöpfung stammt aus
+  `muscle_state`, das je Recompute die letzten 60 Tage materialisiert
+  (ältere Zeilen bleiben per Upsert erhalten).
+- **Bewusst bei kurzen Fenstern geblieben**, weil sie aktuelle Zustände
+  statt Verläufe zeigen:
+  - EP-Prognose (`lib/ep/prognose.ts`): Benchmarks max. 90 Tage alt — ältere
+    Leistungen sagen über den EP-Tag wenig aus.
+  - ACWR 7:28 und Wochenvergleich (diese Woche vs. Vorwoche).
+  - Körper-Tab (`app/api/body/route.ts`): Muskel-Sparklines 14 Tage
+    (Erschöpfung klingt mit τ = 30–48 h ab, ältere Werte sind 0) und
+    HRV-Trend 7 Tage.
+  - Aktivitätsliste: Filter Gesamt / 30 T / 90 T war schon „Gesamt" als
+    Standard.
+  - Rechenfenster in `compute.ts` (Pace bei Referenzpuls 120 Tage per
+    `COALESCE`-Upsert, Lauf-Modell 42 Tage, Workout-Matching 21 Tage):
+    betreffen die Berechnung, nicht die Anzeige; die Pace-Werte älterer Tage
+    bleiben gespeichert. Ändert sich der Referenzpuls, werden alle
+    gespeicherten Pace-Werte verworfen und die letzten 400 Tage neu
+    gerechnet — bei einer längeren Historie bleiben die Wochen davor leer,
+    statt still Werte mit dem alten Referenzpuls zu zeigen.
 
 ## Engine-Formeln (lib/engine, vollständig unit-getestet)
 

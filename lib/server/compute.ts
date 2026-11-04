@@ -165,15 +165,18 @@ export async function recomputeAll(): Promise<void> {
      Referenz ist die Mitte von Zone 2 — der Bereich, in dem die aerobe
      Grundlage tatsächlich gebaut wird. Ändert sich die Referenz (z.B.
      weil erstmals Garmin-Zonen da sind), wird die Historie einmalig neu
-     gerechnet, sonst nur das laufende Fenster. */
+     gerechnet, sonst nur das laufende Fenster. Bei einem Wechsel werden
+     vorher alle gespeicherten Pace-Werte verworfen — sonst hielte der
+     COALESCE-Upsert Tage vor dem 400-Tage-Fenster mit dem alten
+     Referenzpuls fest und die Kurve mischte zwei Referenzen. */
   const refHr = zonenMitte(aktiveZonen(profil, garminZonen, "running").z2);
   const refHrAlt = await ladeRefHr();
+  const refHrGewechselt = refHrAlt !== refHr;
   const paceProTag = await berechnePaceBeiRefHr(
     alleAktivitaeten,
     refHr,
-    refHrAlt === refHr ? 120 : 400
+    refHrGewechselt ? 400 : 120
   );
-  await speichereRefHr(refHr);
 
   /* ---- Lückenlose Tagesserie + Fitness ---- */
   const daten = [...proTag.keys()].sort();
@@ -205,6 +208,12 @@ export async function recomputeAll(): Promise<void> {
     };
   });
 
+  if (refHrGewechselt) {
+    await db
+      .update(tables.computedDaily)
+      .set({ paceRefHrSKm: null, paceRefHrSekunden: null });
+  }
+
   // Upsert in Batches
   for (let i = 0; i < computedRows.length; i += 500) {
     const batch = computedRows.slice(i, i + 500);
@@ -229,6 +238,9 @@ export async function recomputeAll(): Promise<void> {
         },
       });
   }
+
+  // Erst nach dem Upsert: scheitert er, wird beim nächsten Lauf erneut voll gerechnet
+  await speichereRefHr(refHr);
 
   /* ---- Muskel-Erschöpfung: Ereignisse + Materialisierung 60 Tage ---- */
   const ereignisse: LastEreignis[] = [];
