@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatKm } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { DemoDeaktiviert, useIstDemo } from "@/components/basis-pfad";
 
 interface AdhocErgebnis {
   planId: string | null;
@@ -20,6 +21,7 @@ interface AdhocErgebnis {
 
 /** „Heute frei Schnauze": Wunsch → Workout mit echten Zonen-Paces */
 export function WorkoutGenerator() {
+  const demo = useIstDemo();
   const [modus, setModus] = useState<"distanz" | "dauer">("distanz");
   const [distanzKm, setDistanzKm] = useState("8");
   const [dauerMin, setDauerMin] = useState("45");
@@ -124,10 +126,11 @@ export function WorkoutGenerator() {
         </div>
       </div>
 
-      <Button onClick={generiere} disabled={laedt} className="w-full sm:w-auto">
+      <Button onClick={generiere} disabled={demo || laedt} className="w-full sm:w-auto">
         <Sparkles className="size-4" />
         {laedt ? "Baut Workout…" : "Workout bauen"}
       </Button>
+      {demo && <DemoDeaktiviert />}
 
       {meldung && (
         <p className="cursor-pointer text-xs text-muted-foreground" onClick={() => setMeldung(null)}>

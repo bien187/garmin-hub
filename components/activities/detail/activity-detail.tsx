@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { DemoDeaktiviert, useAppPfad, useIstDemo } from "@/components/basis-pfad";
 import { RefreshCw, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
@@ -79,6 +80,8 @@ const ZONEN_FARBEN: Record<string, string> = {
 
 export function ActivityDetail({ id }: { id: string }) {
   const router = useRouter();
+  const pfad = useAppPfad();
+  const demo = useIstDemo();
   const loeschen = useActivityDelete();
   const toast = useToast();
   const [daten, setDaten] = useState<DetailDaten | null>(null);
@@ -126,7 +129,7 @@ export function ActivityDetail({ id }: { id: string }) {
           actionLabel: "Aus Hub entfernen",
           onAction: () => {
             loeschen(Number(id));
-            router.push("/activities");
+            router.push(pfad("/activities"));
           },
         });
         return;
@@ -194,6 +197,8 @@ export function ActivityDetail({ id }: { id: string }) {
               : "noch nicht einzeln aktualisiert"}
           </div>
         </div>
+        {/* Aktualisieren/Löschen gibt es in der Demo nicht */}
+        {!demo && (
         <div className="flex shrink-0 items-center gap-1">
           <button
             aria-label="Von Garmin aktualisieren"
@@ -211,6 +216,7 @@ export function ActivityDetail({ id }: { id: string }) {
             <Trash2 className="size-4.5" />
           </button>
         </div>
+        )}
       </div>
 
       <ConfirmSheet
@@ -227,9 +233,9 @@ export function ActivityDetail({ id }: { id: string }) {
         danger
         onConfirm={() => {
           loeschen(a.id, {
-            onRestore: () => router.push(`/activities/${a.id}`),
+            onRestore: () => router.push(pfad(`/activities/${a.id}`)),
           });
-          router.push("/activities");
+          router.push(pfad("/activities"));
         }}
       />
 
@@ -397,6 +403,7 @@ export function ActivityDetail({ id }: { id: string }) {
             </p>
             <div className="flex flex-wrap gap-1 rounded-lg bg-muted p-0.5">
               <button
+                disabled={demo}
                 onClick={() => setzeTemplate(null)}
                 className={cn(
                   "min-h-11 rounded-md px-3 text-[13px]",
@@ -410,6 +417,7 @@ export function ActivityDetail({ id }: { id: string }) {
               {MUSKEL_TEMPLATES.map((t) => (
                 <button
                   key={t.id}
+                  disabled={demo}
                   onClick={() => setzeTemplate(t.id)}
                   className={cn(
                     "min-h-11 rounded-md px-3 text-[13px]",
@@ -422,6 +430,7 @@ export function ActivityDetail({ id }: { id: string }) {
                 </button>
               ))}
             </div>
+            {demo && <DemoDeaktiviert className="mt-2" />}
           </CardContent>
         </Card>
       )}

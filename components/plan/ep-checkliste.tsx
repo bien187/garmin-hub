@@ -13,6 +13,7 @@ import {
   type ChecklistenZustand,
 } from "@/lib/ep/checkliste";
 import { cn } from "@/lib/utils";
+import { DemoDeaktiviert, useIstDemo } from "@/components/basis-pfad";
 
 /**
  * Speicherzustand je EP-Tag, modulweit statt pro Komponenteninstanz: Wird das
@@ -96,6 +97,7 @@ const STARTZEIT_VERZOEGERUNG_MS = 600;
  * Schlägt das fehl, bleibt der lokale Stand stehen und lässt sich erneut senden.
  */
 export function EpCheckliste({ datum }: { datum: string }) {
+  const demo = useIstDemo();
   const gruppen = useMemo(() => checklisteFuer(datum) ?? [], [datum]);
   const [zustand, setZustand] = useState<ChecklistenZustand | null>(null);
   const [startzeitEingabe, setStartzeitEingabe] = useState("");
@@ -225,6 +227,7 @@ export function EpCheckliste({ datum }: { datum: string }) {
 
   return (
     <div className="space-y-4">
+      {demo && <DemoDeaktiviert />}
       {/* Startzeit + Frühstück-Zeitfenster */}
       <div className="rounded-lg border border-ep/30 bg-ep/5 p-3">
         <label className="flex min-h-11 items-center justify-between gap-3 text-sm">
@@ -233,6 +236,7 @@ export function EpCheckliste({ datum }: { datum: string }) {
           </span>
           <input
             type="time"
+            disabled={demo}
             value={startzeitEingabe}
             onChange={(e) => startzeitGeaendert(e.target.value)}
             onBlur={() => setStartzeitEingabe(zustand.startzeit)}
@@ -306,6 +310,7 @@ export function EpCheckliste({ datum }: { datum: string }) {
                       type="button"
                       role="checkbox"
                       aria-checked={aktiv}
+                      disabled={demo}
                       onClick={() => toggle(p.id)}
                       className="flex min-h-11 w-full items-start gap-3 rounded-lg px-2 py-2.5 text-left transition-colors active:bg-muted"
                     >

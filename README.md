@@ -24,6 +24,53 @@ Die Oberfläche ist für das Smartphone gestaltet und lässt sich als PWA instal
 > Risiko und ist nur für das eigene Konto gedacht. Mehr dazu unter
 > [Sicherheit und Datenschutz](#sicherheit-und-datenschutz).
 
+## Öffentliche Demo
+
+Unter **`/demo`** (z. B. `https://garmin-hub.vercel.app/demo`) läuft eine Demo ohne
+Login, ohne Garmin-Konto und ohne Datenbank. Sie nutzt dieselben Seiten und
+Komponenten wie die App: Dashboard, Aktivitäten mit Detail und 3D-Flyover, Karte,
+Plan, Körper und Schlaf. Einstellungen und Garmin-Verbindung gibt es in der Demo
+nicht. Ein Banner kennzeichnet alle Werte als fiktiv; mit
+`NEXT_PUBLIC_PORTFOLIO_URL` erscheint daneben ein Link „Zum Portfolio".
+
+**Datenquelle: statischer Snapshot statt Demo-DB.** Die Demo liest ausschliesslich
+JSON-Dateien aus [`public/demo/daten/`](public/demo/daten). Es gibt keine
+Verbindungszeichenfolge, keine Umgebungsvariable und keinen Code-Pfad zu einer
+Datenbank; fehlt der Snapshot, zeigt `/demo` einen Fehler. Ein Rückfall auf
+`DATABASE_URL` ist damit ausgeschlossen (Vitest prüft, dass kein Demo-Modul DB-
+oder Server-Code importiert). Gegenüber einer zweiten Postgres-DB entfallen
+Zugangsdaten, Rechteverwaltung und Seed-Ziel-Risiko, und die Seiten bleiben statisch.
+
+**Erzeugung.** `pnpm demo:daten` startet ein In-Memory-Postgres
+([PGlite](https://pglite.dev), nur devDependency, keine Netzwerk-DB) mit den echten
+Migrationen. Es spielt das Training einer erfundenen Person (*Alex Muster*) Woche für
+Woche durch: echte Engine-Neuberechnung, echter Plan-Generator, danach werden die
+geplanten Einheiten „absolviert". Gespeichert werden die Antworten der echten
+Services. Alles ist synthetisch und deterministisch: 155 Aktivitäten (Lauf, Trail,
+Kraft, Wandern, Velo) auf erfundenen Runden um Bern, Gesundheitswerte, 29 Schlafnächte
+im Garmin-Rohformat, Benchmarks und Plan bis zur EP. Die Strecken hat BRouter einmalig
+auf öffentliche Wege gelegt ([`scripts/demo/routen.json`](scripts/demo/routen.json),
+neu mit `node scripts/demo/routen.mjs`).
+
+**Festes Demo-Heute.** Der Snapshot zeigt Donnerstag, 5. November 2026, 20:15 Uhr
+(Taper-Start, 13 Tage vor der EP). Die Demo stellt die App-Uhr im Browser auf diesen
+Zeitpunkt (`jetztMs()` in `lib/format.ts`), damit Countdown, „letzte Nacht" und
+Wochenplan stimmig bleiben, statt mit der Zeit zu veralten. Das Datum steht im Banner.
+
+**Abgrenzung.**
+
+- Die Middleware gibt nur `/demo` und `/demo/*` ohne Session frei
+  ([`lib/oeffentliche-pfade.ts`](lib/oeffentliche-pfade.ts)) und lässt dort nur GET
+  und HEAD zu. Alle anderen Seiten und alle `/api/*`-Endpunkte bleiben geschützt.
+- Header wie `x-demo` verwirft die Middleware; ob etwas Demo ist, entscheidet nur der Pfad.
+- In der Demo beantwortet [`lib/demo/api.ts`](lib/demo/api.ts) die Lesezugriffe der
+  Komponenten im Browser aus dem Snapshot; kein Aufruf erreicht einen geschützten
+  Endpunkt. Jede andere Methode als GET wird abgelehnt.
+- Sync, Senden an die Uhr, Plan-Generierung, Benchmarks, Checkliste, Löschen und
+  Routen speichern sind ausgeblendet oder mit „In der Demo deaktiviert." gesperrt.
+  Filter, Zeitraum, Wochenwechsel, Kartentypen, Flyover sowie Routen zeichnen und als
+  GPX laden funktionieren.
+
 ## Ein Blick in die App
 
 <table>
@@ -340,6 +387,7 @@ Alle Variablen stehen mit Beispielwerten in [`.env.example`](.env.example).
 | `TOKEN_ENC_KEY` | AES-GCM-Schlüssel für die Garmin-Token, genau 64 Hex-Zeichen | `openssl rand -hex 32` |
 | `CRON_SECRET` | Schützt `/api/cron/daily` | `openssl rand -hex 16` |
 | `BRIDGE_URL` | Optional: Adresse der Bridge, wenn sie nicht auf derselben Domain läuft | – |
+| `NEXT_PUBLIC_PORTFOLIO_URL` | Optional: Link „Zum Portfolio" im Banner der Demo (`/demo`), beim Build eingesetzt | z. B. `https://benlinusmueller.com` |
 
 Die Python-Bridge weicht beim Supabase-Pooler automatisch auf den Session-Port 5432
 aus, weil `pg8000` keine Prepared Statements über den Transaction Pooler unterstützt.
@@ -450,11 +498,15 @@ pnpm test                 # Vitest
 npx tsc --noEmit          # Typecheck
 pnpm lint                 # ESLint
 pnpm build                # Produktionsbuild
+pnpm demo:daten           # Demo-Datenstand neu erzeugen (public/demo/daten)
 python scripts/garmin/test_schlaf_sync.py   # Schlaf-Sync der Bridge offline gegen Fixtures
 ```
 
-Stand 5. November 2026: **301 Vitest-Tests** sind grün, dazu Typecheck, Lint (ohne
-Fehler) und Produktionsbuild. Die Tests decken die Engine ab: TRIMP, CTL/ATL/TSB, GAP,
+Stand 5. November 2026: **334 Vitest-Tests** sind grün, dazu Typecheck, Lint (ohne
+Fehler) und Produktionsbuild. Die öffentliche Demo prüft zusätzlich ein
+End-to-End-Skript gegen einen laufenden Server, ohne Login, auf Desktop und 390 px
+(inkl. Statuscodes der geschützten Routen und gefälschtem `x-demo`-Header):
+`GHQ_URL=http://127.0.0.1:3999 node scripts/verify-demo.mjs`. Die Tests decken die Engine ab: TRIMP, CTL/ATL/TSB, GAP,
 Riegel, Notentabellen, Prognose, Muskelabbau, Plan, Taper, Verfügbarkeit,
 EP-Checkliste sowie Schlaf-Parser und Schlaf-Analyse. Parser und Analyse laufen gegen
 echte Garmin-Antworten aus [`tests/fixtures/garmin`](tests/fixtures/garmin), aus denen

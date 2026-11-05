@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { AppLink as Link, useAppPfad } from "@/components/basis-pfad";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -141,6 +141,7 @@ export function SchlafDetailAnsicht({ datum, heute }: { datum: string; heute: st
 
 function Navigation({ datum, heute }: { datum: string; heute: string }) {
   const router = useRouter();
+  const pfad = useAppPfad();
   const gestern = addTage(datum, -1);
   const morgen = addTage(datum, 1);
   const knopf =
@@ -157,7 +158,7 @@ function Navigation({ datum, heute }: { datum: string; heute: string }) {
           type="date"
           value={datum}
           max={heute}
-          onChange={(e) => e.target.value && router.push(`/schlaf/${e.target.value}`)}
+          onChange={(e) => e.target.value && router.push(pfad(`/schlaf/${e.target.value}`))}
           className="min-h-11 min-w-0 flex-1 rounded-lg border border-border bg-card px-3 text-sm"
           aria-label="Datum wählen (Aufwachdatum)"
         />

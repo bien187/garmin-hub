@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ToastProvider } from "@/components/ui/toast";
+import { BasisPfadProvider } from "@/components/basis-pfad";
+import { DEMO_BASIS, istDemoPfad, mitBasis, ohneBasis } from "@/lib/demo/pfade";
 
 const TABS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -84,12 +86,17 @@ function useAppHeight() {
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
+  const vollerPfad = usePathname();
+  // Öffentliche Demo unter /demo: gleiche Shell, alle Links bleiben in /demo
+  const demo = istDemoPfad(vollerPfad);
+  const basis = demo ? DEMO_BASIS : "";
+  const pathname = ohneBasis(vollerPfad);
+  const ziel = (href: string) => mitBasis(basis, href);
   const tastaturOffen = useKeyboardOpen();
   useAppHeight();
 
   // Login-Seite ohne Navigation rendern
-  if (pathname === "/login") return <>{children}</>;
+  if (!demo && pathname === "/login") return <>{children}</>;
 
   const fullBleed = pathname === "/map";
   const aktiverIndex = TABS.findIndex((t) => isActive(pathname, t.href));
@@ -103,6 +110,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // stand unter ihr ein dunkles Band, das wie zusätzliche Leistenhöhe
   // aussah. Genau daran sind die beiden früheren Anläufe gescheitert.
   return (
+    <BasisPfadProvider basis={basis}>
     <ToastProvider>
     <div
       className="fixed inset-x-0 top-0 flex overflow-hidden bg-background"
@@ -110,17 +118,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     >
       {/* Sidebar (Desktop) */}
       <aside className="hidden md:flex md:w-56 md:flex-col md:border-r md:border-sidebar-border md:bg-sidebar fixed inset-y-0 z-40">
-        <Link href="/" className="flex items-center gap-2.5 px-5 py-5">
+        <Link href={ziel("/")} className="flex items-center gap-2.5 px-5 py-5">
           <Mountain className="size-6 text-primary" strokeWidth={2.5} />
           <span className="stat-display text-xl tracking-wide uppercase">
             Garmin Hub
           </span>
+          {demo && (
+            <span className="rounded border border-primary/40 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-primary">
+              Demo
+            </span>
+          )}
         </Link>
         <nav className="flex flex-1 flex-col gap-1 px-3">
           {TABS.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
-              href={href}
+              href={ziel(href)}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 isActive(pathname, href)
@@ -133,9 +146,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
           ))}
         </nav>
+        {/* Einstellungen/Garmin-Verbindung gibt es in der Demo nicht */}
+        {!demo && (
         <div className="px-3 pb-4">
           <Link
-            href="/settings"
+            href={ziel("/settings")}
             className={cn(
               "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
               isActive(pathname, "/settings")
@@ -147,6 +162,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             Einstellungen
           </Link>
         </div>
+        )}
       </aside>
 
       {/* Content-Spalte: Scrollbereich (flex-1) + Navbar (shrink-0) im Flow.
@@ -190,7 +206,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 return (
                   <Link
                     key={href}
-                    href={href}
+                    href={ziel(href)}
                     className={cn(
                       "flex h-full flex-col items-center justify-center gap-0.5 text-[9px] font-medium leading-none",
                       active ? "text-primary" : "text-muted-foreground"
@@ -207,5 +223,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </main>
     </div>
     </ToastProvider>
+    </BasisPfadProvider>
   );
 }

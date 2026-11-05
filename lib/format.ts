@@ -35,8 +35,25 @@ export function isoDatum(d: Date): string {
   return `${y}-${m}-${t}`;
 }
 
+/**
+ * Versatz der App-Uhr in ms. Bleibt in der regulären App immer 0; nur die
+ * öffentliche Demo (`components/demo/demo-rahmen.tsx`) setzt ihn im Browser,
+ * damit „heute" dem fiktiven Datenstand entspricht. Auf dem Server nie gesetzt.
+ */
+let uhrVersatzMs = 0;
+
+export function setzeUhrVersatz(ms: number): void {
+  if (typeof window === "undefined") return; // Server: immer echte Zeit
+  uhrVersatzMs = ms;
+}
+
+/** Aktuelle App-Zeit in ms (Date.now() + Demo-Versatz) */
+export function jetztMs(): number {
+  return Date.now() + uhrVersatzMs;
+}
+
 export function heuteIso(): string {
-  return new Intl.DateTimeFormat('sv-SE', {timeZone:'Europe/Zurich',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  return new Intl.DateTimeFormat('sv-SE', {timeZone:'Europe/Zurich',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(jetztMs()));
 }
 
 export function addTage(iso: string, tage: number): string {

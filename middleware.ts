@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifySessionToken, sessionCookie } from "@/lib/auth";
-
-// Öffentlich: Login, Auth-Endpoint, Cron (eigener CRON_SECRET-Check) und
-// die Python-Bridge (eigener x-internal-key-Check — Server-zu-Server-Aufruf
-// ohne Session-Cookie).
-const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/cron", "/api/bridge"];
+import { istOeffentlicherPfad } from "@/lib/oeffentliche-pfade";
+import { istDemoPfad } from "@/lib/demo/pfade";
 
 /**
  * Content-Security-Policy.
@@ -39,16 +36,37 @@ function mitCsp(res: NextResponse): NextResponse {
   return res;
 }
 
+/**
+ * Eingehende Header, die nach Demo-Umschaltung aussehen (x-demo, x-ghq-demo …),
+ * werden verworfen: Ob eine Anfrage zur Demo gehört, entscheidet allein der
+ * Pfad hier auf dem Server, nie ein Wert vom Client.
+ */
+function ohneDemoHeader(req: NextRequest): Headers {
+  const headers = new Headers(req.headers);
+  for (const name of [...headers.keys()]) {
+    if (/^x-(ghq-)?demo/i.test(name)) headers.delete(name);
+  }
+  return headers;
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const weiter = () => NextResponse.next({ request: { headers: ohneDemoHeader(req) } });
 
-  if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
-    return mitCsp(NextResponse.next());
+  // Öffentliche Demo: nur lesend (statische Seiten und Dateien)
+  if (istDemoPfad(pathname) && req.method !== "GET" && req.method !== "HEAD") {
+    return mitCsp(
+      NextResponse.json({ error: "In der Demo deaktiviert." }, { status: 405, headers: { Allow: "GET, HEAD" } })
+    );
+  }
+
+  if (istOeffentlicherPfad(pathname)) {
+    return mitCsp(weiter());
   }
 
   const token = req.cookies.get(sessionCookie.name)?.value;
   if (token && (await verifySessionToken(token))) {
-    return mitCsp(NextResponse.next());
+    return mitCsp(weiter());
   }
 
   if (pathname.startsWith("/api/")) {

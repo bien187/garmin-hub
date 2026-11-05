@@ -47,6 +47,7 @@ import { decodePolyline } from "@/lib/geo/polyline";
 import { geojsonZuGpx } from "@/lib/geo/gpx";
 import { formatDauer, formatKm, formatPace } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useIstDemo } from "@/components/basis-pfad";
 
 type Koord = [number, number, number?]; // lng, lat, ele
 
@@ -101,6 +102,8 @@ function statistik(segmente: Koord[][]) {
 }
 
 export function RouteBuilder() {
+  // Demo: Routen zeichnen und als GPX laden ja, speichern/senden nein
+  const demo = useIstDemo();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markerRef = useRef<maplibregl.Marker[]>([]);
@@ -647,8 +650,9 @@ export function RouteBuilder() {
           <div className="mt-2 flex flex-wrap gap-1.5">
             <Button
               size="sm"
-              disabled={anzahlWegpunkte < 2}
+              disabled={demo || anzahlWegpunkte < 2}
               onClick={() => setDialogOffen(true)}
+              title={demo ? "In der Demo deaktiviert" : undefined}
             >
               <Save className="size-4" /> Speichern
             </Button>
@@ -661,6 +665,7 @@ export function RouteBuilder() {
               <Download className="size-4" /> GPX
             </Button>
           </div>
+          {demo && <p className="mt-1 text-[11px] text-muted-foreground">Speichern und Senden: in der Demo deaktiviert.</p>}
         </div>
 
         {/* Gespeicherte Routen */}
@@ -679,7 +684,7 @@ export function RouteBuilder() {
                   </div>
                 </div>
                 <div className="flex shrink-0 gap-1">
-                  <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => pushe(g.id)}>
+                  <Button size="sm" variant="ghost" className="h-7 px-2" disabled={demo} onClick={() => pushe(g.id)}>
                     <Send className="size-3.5" />
                   </Button>
                   <Button

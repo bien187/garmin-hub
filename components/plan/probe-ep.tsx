@@ -17,6 +17,7 @@ import {
   notenStufe,
 } from "@/lib/ep/disziplinen";
 import { formatNote } from "@/lib/format";
+import { DemoDeaktiviert, useIstDemo } from "@/components/basis-pfad";
 
 /**
  * Probe-EP: geführter Ablauf aller 5 Disziplinen in Prüfungsreihenfolge
@@ -24,6 +25,7 @@ import { formatNote } from "@/lib/format";
  * gespeichert.
  */
 export function ProbeEp() {
+  const demo = useIstDemo();
   const [schritt, setSchritt] = useState(0); // Index in EP_REIHENFOLGE; 5 = fertig
   const [werte, setWerte] = useState<Partial<Record<DisziplinId, number>>>({});
   const [eingabe, setEingabe] = useState("");
@@ -107,10 +109,13 @@ export function ProbeEp() {
           </div>
           <div className="flex gap-2">
             {schritt === EP_REIHENFOLGE.length && (
-              <Button onClick={alleSpeichern} disabled={speichert} className="flex-1">
-                <Flag className="size-4" />
-                {speichert ? "Speichert…" : "Als Benchmarks speichern"}
-              </Button>
+              <div className="flex-1">
+                <Button onClick={alleSpeichern} disabled={demo || speichert} className="w-full">
+                  <Flag className="size-4" />
+                  {speichert ? "Speichert…" : "Als Benchmarks speichern"}
+                </Button>
+                {demo && <DemoDeaktiviert className="mt-1" />}
+              </div>
             )}
             {schritt > EP_REIHENFOLGE.length && (
               <p className="flex-1 self-center text-center text-sm text-status-green">
