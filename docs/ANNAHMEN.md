@@ -7,9 +7,12 @@ Dokumentationspflichtige Annahmen und bewusst kurz gehaltene Zeitfenster.
 - **EP-Datum:** fix Mi 18.11.2026 (Tag 1) und Do 19.11.2026 (Tag 2) in
   `lib/ep/konstanten.ts`, nicht mehr editierbar — Details unter
   „EP-Termin und Taper-Plan".
-- **Notentabellen:** Zwischen den bekannten Stützpunkten aus dem Auftrag
-  wird linear interpoliert (z. B. Lastlauf 33:00→4.6, 36:00→4.0); exakte
-  Zwischennoten des offiziellen Rasters können minim abweichen.
+- **Notentabellen:** exakt nach der offiziellen „Notentabelle Eignungsprüfung
+  EP_AZ SK" als Stufen ohne Interpolation (`lib/ep/disziplinen.ts`). Bestanden
+  ist die EP bei einem Schnitt von mindestens 3.60 („genügend"). Eine 1.0 gilt
+  laut Tabelle nicht als Ausschluss und wird nur als Warnung angezeigt.
+  Bruchteile: Zeiten zählen bis einschliesslich der Grenze (30:00.4 ist schon
+  über 30:00), Haltezeiten und Wiederholungen ab der Grenze (69.9 s = 69 s).
 - **Prognose-Dämpfung:** Trends werden auf ±20 % des Ist-Werts gedeckelt
   und auf reglementarische Maxima (120 s/150 s) geklemmt.
 - **Health-Backfill:** 365 Tage (in `api/_lib/sync_logic.py` änderbar).

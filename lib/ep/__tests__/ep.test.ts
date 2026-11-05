@@ -1,91 +1,148 @@
 import { describe, expect, it } from "vitest";
-import { berechneNote, bewerteEp, wertFuerNote } from "../disziplinen";
+import { berechneNote, bewerteEp, notenFarbe, notenStufe, wertFuerNote } from "../disziplinen";
 import { berechneEpPrognose } from "../prognose";
 import { aktuellePhase, berechnePhasen, epCountdown, restwochen } from "../phasen";
 import { EP_DATUM, EP_TAG_2, TAPER_START } from "../konstanten";
 
-describe("Notentabellen (berechneNote)", () => {
-  it("Lastlauf: Stützpunkte exakt", () => {
-    expect(berechneNote("lastlauf", 1800)).toBe(5.0); // 30:00
-    expect(berechneNote("lastlauf", 1700)).toBe(5.0); // schneller als 30:00
-    expect(berechneNote("lastlauf", 1980)).toBeCloseTo(4.6, 6); // 33:00
-    expect(berechneNote("lastlauf", 2160)).toBeCloseTo(4.0, 6); // 36:00
-    expect(berechneNote("lastlauf", 2500)).toBe(1.0); // > 40:00
+/* Erwartungen 1:1 aus der offiziellen „Notentabelle Eignungsprüfung EP_AZ SK" */
+const mmss = (m: number, s: number) => m * 60 + s;
+
+describe("Notentabellen (berechneNote) nach offizieller Tabelle", () => {
+  it("Marsch 5 km: jede Zeile an beiden Grenzen", () => {
+    const zeilen: [number, number, number][] = [
+      // [von s, bis s, Note]
+      [mmss(30, 1), mmss(30, 30), 4.9],
+      [mmss(30, 31), mmss(31, 0), 4.8],
+      [mmss(31, 1), mmss(31, 30), 4.7],
+      [mmss(31, 31), mmss(32, 0), 4.6],
+      [mmss(32, 1), mmss(32, 30), 4.5],
+      [mmss(32, 31), mmss(33, 0), 4.4],
+      [mmss(33, 1), mmss(33, 30), 4.3],
+      [mmss(33, 31), mmss(34, 0), 4.2],
+      [mmss(34, 1), mmss(35, 0), 4.1],
+      [mmss(35, 1), mmss(36, 0), 4.0],
+      [mmss(36, 1), mmss(37, 0), 3.9],
+      [mmss(37, 1), mmss(38, 0), 3.8],
+      [mmss(38, 1), mmss(39, 0), 3.7],
+      [mmss(39, 1), mmss(40, 0), 3.6],
+    ];
+    for (const [von, bis, note] of zeilen) {
+      expect(berechneNote("lastlauf", von)).toBe(note);
+      expect(berechneNote("lastlauf", bis)).toBe(note);
+    }
+    expect(berechneNote("lastlauf", mmss(30, 0))).toBe(5.0); // 30 Min und weniger
+    expect(berechneNote("lastlauf", mmss(27, 45))).toBe(5.0);
+    expect(berechneNote("lastlauf", mmss(40, 1))).toBe(1.0); // 40:01 und mehr
+    expect(berechneNote("lastlauf", mmss(30, 0) + 0.4)).toBe(4.9); // Bruchteil über 30:00
   });
 
-  it("Klimmzüge: exakte Tabelle inkl. Stolperkante", () => {
-    expect(berechneNote("klimmzuege", 10)).toBe(5.0);
-    expect(berechneNote("klimmzuege", 9)).toBeCloseTo(4.7, 6);
-    expect(berechneNote("klimmzuege", 8)).toBeCloseTo(4.5, 6);
-    expect(berechneNote("klimmzuege", 7)).toBeCloseTo(3.9, 6);
-    expect(berechneNote("klimmzuege", 6)).toBeCloseTo(3.6, 6);
-    expect(berechneNote("klimmzuege", 5)).toBe(1.0);
-    expect(berechneNote("klimmzuege", 3)).toBe(1.0);
+  it("Klimmzüge: 10 = 5.0 … 6 = 3.6, 5 und weniger = 1.0", () => {
     expect(berechneNote("klimmzuege", 12)).toBe(5.0);
-    // Stolperkante: 8→7 verliert 0.6, 9→8 nur 0.2
+    expect(berechneNote("klimmzuege", 10)).toBe(5.0);
+    expect(berechneNote("klimmzuege", 9)).toBe(4.7);
+    expect(berechneNote("klimmzuege", 8)).toBe(4.5);
+    expect(berechneNote("klimmzuege", 7)).toBe(3.9);
+    expect(berechneNote("klimmzuege", 6)).toBe(3.6);
+    expect(berechneNote("klimmzuege", 5)).toBe(1.0);
+    expect(berechneNote("klimmzuege", 0)).toBe(1.0);
+    // Stolperkante: 8→7 verliert 0.6
     expect(berechneNote("klimmzuege", 8) - berechneNote("klimmzuege", 7)).toBeCloseTo(0.6, 6);
   });
 
-  it("Liegestütze", () => {
-    expect(berechneNote("liegestuetze", 35)).toBe(5.0);
+  it("Liegestützen: 35 = 5.0, je Wiederholung 0.1, 21 = 3.6, 20 und weniger = 1.0", () => {
     expect(berechneNote("liegestuetze", 40)).toBe(5.0);
-    expect(berechneNote("liegestuetze", 30)).toBeCloseTo(4.5, 6);
-    expect(berechneNote("liegestuetze", 20)).toBeCloseTo(1.0, 6);
-    expect(berechneNote("liegestuetze", 10)).toBe(1.0);
+    for (let n = 21; n <= 35; n++) {
+      expect(berechneNote("liegestuetze", n)).toBe(Math.round((5.0 - (35 - n) * 0.1) * 10) / 10);
+    }
+    expect(berechneNote("liegestuetze", 30)).toBe(4.5);
+    expect(berechneNote("liegestuetze", 25)).toBe(4.0);
+    expect(berechneNote("liegestuetze", 20)).toBe(1.0);
   });
 
-  it("Rumpf seitlich/dorsal", () => {
+  it("Rumpfkraft seitlich: jede Zeile an beiden Grenzen", () => {
+    const zeilen: [number, number, number][] = [
+      [115, 119, 4.9], [110, 114, 4.8], [105, 109, 4.7], [100, 104, 4.6], [95, 99, 4.5],
+      [90, 94, 4.4], [85, 89, 4.3], [80, 84, 4.2], [75, 79, 4.1], [70, 74, 4.0],
+      [64, 69, 3.9], [58, 63, 3.8], [52, 57, 3.7], [46, 51, 3.6],
+    ];
+    for (const [von, bis, note] of zeilen) {
+      expect(berechneNote("rumpf_seitlich", von)).toBe(note);
+      expect(berechneNote("rumpf_seitlich", bis)).toBe(note);
+    }
     expect(berechneNote("rumpf_seitlich", 120)).toBe(5.0);
-    expect(berechneNote("rumpf_seitlich", 72)).toBeCloseTo(4.0, 6);
-    expect(berechneNote("rumpf_seitlich", 45)).toBeCloseTo(1.0, 6);
-    expect(berechneNote("rumpf_dorsal", 150)).toBe(5.0);
-    expect(berechneNote("rumpf_dorsal", 102)).toBeCloseTo(4.0, 6);
-    expect(berechneNote("rumpf_dorsal", 71)).toBeCloseTo(1.0, 6);
+    expect(berechneNote("rumpf_seitlich", 45)).toBe(1.0);
+    expect(berechneNote("rumpf_seitlich", 69.9)).toBe(3.9); // Bruchteil zählt nicht
   });
 
-  it("interpoliert zwischen Stützpunkten monoton", () => {
-    const n95 = berechneNote("rumpf_seitlich", 95);
-    expect(n95).toBeGreaterThan(4.0);
-    expect(n95).toBeLessThan(5.0);
+  it("Dorsale Rumpfkette: jede Zeile an beiden Grenzen", () => {
+    const zeilen: [number, number, number][] = [
+      [145, 149, 4.9], [140, 144, 4.8], [135, 139, 4.7], [130, 134, 4.6], [125, 129, 4.5],
+      [120, 124, 4.4], [115, 119, 4.3], [110, 114, 4.2], [105, 109, 4.1], [100, 104, 4.0],
+      [95, 99, 3.9], [90, 94, 3.8], [85, 89, 3.7], [72, 84, 3.6],
+    ];
+    for (const [von, bis, note] of zeilen) {
+      expect(berechneNote("rumpf_dorsal", von)).toBe(note);
+      expect(berechneNote("rumpf_dorsal", bis)).toBe(note);
+    }
+    expect(berechneNote("rumpf_dorsal", 150)).toBe(5.0);
+    expect(berechneNote("rumpf_dorsal", 71)).toBe(1.0);
   });
 });
 
 describe("wertFuerNote (Umkehrung)", () => {
-  it("rundreise Note→Wert→Note", () => {
-    const wert = wertFuerNote("rumpf_dorsal", 4.5);
-    expect(berechneNote("rumpf_dorsal", wert)).toBeCloseTo(4.5, 4);
+  it("liefert die am wenigsten anspruchsvolle Grenze der Zielnote", () => {
+    expect(wertFuerNote("rumpf_dorsal", 4.5)).toBe(125);
+    expect(wertFuerNote("klimmzuege", 4.5)).toBe(8);
+    expect(wertFuerNote("lastlauf", 4.5)).toBe(mmss(32, 30));
+    expect(wertFuerNote("lastlauf", 4.0)).toBe(mmss(36, 0));
+    expect(wertFuerNote("liegestuetze", 9)).toBe(35);
+  });
+  it("Rundreise Note → Wert → Note für alle Stufen", () => {
+    for (const id of ["lastlauf", "klimmzuege", "liegestuetze", "rumpf_seitlich", "rumpf_dorsal"] as const) {
+      for (const note of [5.0, 4.5, 4.0, 3.6]) {
+        expect(berechneNote(id, wertFuerNote(id, note))).toBeGreaterThanOrEqual(note);
+      }
+    }
+  });
+});
+
+describe("Notenstufen und Farben", () => {
+  it("Benotung laut Tabelle", () => {
+    expect(notenStufe(5.0)).toBe("sehr gut");
+    expect(notenStufe(4.5)).toBe("sehr gut");
+    expect(notenStufe(4.49)).toBe("gut");
+    expect(notenStufe(4.0)).toBe("gut");
+    expect(notenStufe(3.99)).toBe("genügend");
+    expect(notenStufe(3.6)).toBe("genügend");
+    expect(notenStufe(3.59)).toBe("ungenügend");
+    expect(notenStufe(1.0)).toBe("ungenügend");
+    expect(notenFarbe(3.7)).toBe("var(--status-orange)");
+    expect(notenFarbe(null)).toBe("var(--muted-foreground)");
   });
 });
 
 describe("bewerteEp", () => {
-  it("Schnitt ≥ 4.0 ohne 1.0 = bestanden", () => {
-    const erg = bewerteEp({
-      lastlauf: 4.6,
-      klimmzuege: 4.5,
-      liegestuetze: 4.5,
-      rumpf_seitlich: 4.0,
-      rumpf_dorsal: 4.0,
-    });
-    expect(erg.schnitt).toBeCloseTo(4.32, 2);
+  it("Schnitt mindestens genügend (≥ 3.60) = bestanden", () => {
+    const erg = bewerteEp({ lastlauf: 3.6, klimmzuege: 3.6, liegestuetze: 3.6, rumpf_seitlich: 3.6, rumpf_dorsal: 3.6 });
+    expect(erg.schnitt).toBeCloseTo(3.6, 6);
     expect(erg.bestanden).toBe(true);
   });
 
-  it("eine 1.0 → nicht bestanden trotz gutem Schnitt", () => {
-    const erg = bewerteEp({
-      lastlauf: 5.0,
-      klimmzuege: 5.0,
-      liegestuetze: 5.0,
-      rumpf_seitlich: 5.0,
-      rumpf_dorsal: 1.0,
-    });
-    expect(erg.schnitt).toBeCloseTo(4.2, 2);
+  it("Schnitt 3.58 = nicht bestanden", () => {
+    const erg = bewerteEp({ lastlauf: 3.6, klimmzuege: 3.6, liegestuetze: 3.6, rumpf_seitlich: 3.6, rumpf_dorsal: 3.5 });
+    expect(erg.schnitt).toBeCloseTo(3.58, 6);
     expect(erg.bestanden).toBe(false);
-    expect(erg.ausschluss).toContain("rumpf_dorsal");
+  });
+
+  it("eine 1.0 ist kein formeller Ausschluss, wird aber gemeldet", () => {
+    const erg = bewerteEp({ lastlauf: 5.0, klimmzuege: 5.0, liegestuetze: 5.0, rumpf_seitlich: 5.0, rumpf_dorsal: 1.0 });
+    expect(erg.schnitt).toBeCloseTo(4.2, 6);
+    expect(erg.bestanden).toBe(true);
+    expect(erg.ausschluss).toEqual(["rumpf_dorsal"]);
   });
 
   it("unvollständig → bestanden = null", () => {
-    const erg = bewerteEp({ klimmzuege: 4.5 });
-    expect(erg.bestanden).toBeNull();
+    expect(bewerteEp({ klimmzuege: 4.5 }).bestanden).toBeNull();
   });
 });
 

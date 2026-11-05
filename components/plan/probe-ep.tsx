@@ -8,10 +8,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Metronome } from "./metronome";
 import {
   berechneNote,
+  BESTEHEN_SCHNITT,
   bewerteEp,
   DisziplinId,
   EP_DISZIPLINEN,
   EP_REIHENFOLGE,
+  notenFarbe,
+  notenStufe,
 } from "@/lib/ep/disziplinen";
 import { formatNote } from "@/lib/format";
 
@@ -73,24 +76,18 @@ export function ProbeEp() {
             <div
               className="stat-display text-6xl"
               style={{
-                color:
-                  (ergebnis.schnitt ?? 0) >= 4.5
-                    ? "var(--status-green)"
-                    : (ergebnis.schnitt ?? 0) >= 4
-                      ? "var(--status-yellow)"
-                      : "var(--status-red)",
+                color: notenFarbe(ergebnis.schnitt),
               }}
             >
               {formatNote(ergebnis.schnitt)}
             </div>
             <div className="text-sm text-muted-foreground">
+              {ergebnis.schnitt != null && `${notenStufe(ergebnis.schnitt)} · `}
               {ergebnis.bestanden
                 ? "Bestanden — weiter Richtung 4.5+"
-                : ergebnis.ausschluss.length > 0
-                  ? `Nicht bestanden: 1.0 in ${ergebnis.ausschluss
-                      .map((a) => EP_DISZIPLINEN[a].kurzname)
-                      .join(", ")}`
-                  : "Unter 4.0 — Schwachstellen im Plan nachschärfen"}
+                : `Nicht bestanden: Schnitt unter ${BESTEHEN_SCHNITT.toFixed(2)} — Schwachstellen im Plan nachschärfen`}
+              {ergebnis.ausschluss.length > 0 &&
+                ` · 1.0 in ${ergebnis.ausschluss.map((a) => EP_DISZIPLINEN[a].kurzname).join(", ")}`}
             </div>
           </div>
           <div className="space-y-1.5">

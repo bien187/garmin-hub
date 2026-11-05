@@ -3,18 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BenchmarkListe } from '@/components/plan/benchmark-liste';
-import { EP_DISZIPLINEN, DisziplinId, berechneNote } from "@/lib/ep/disziplinen";
+import { BESTEHEN_SCHNITT, EP_DISZIPLINEN, DisziplinId, berechneNote, notenFarbe } from "@/lib/ep/disziplinen";
 import { EpPrognose } from "@/lib/ep/prognose";
 import { formatNote, formatDauer } from "@/lib/format";
 import { cn } from "@/lib/utils";
-
-function notenFarbe(note: number | null): string {
-  if (note == null) return "var(--muted-foreground)";
-  if (note >= 4.5) return "var(--status-green)";
-  if (note >= 4.0) return "var(--status-yellow)";
-  if (note > 1.0) return "var(--status-orange)";
-  return "var(--status-red)";
-}
 
 function wertLabel(id: DisziplinId, wert: number | null): string {
   if (wert == null) return "—";
@@ -26,7 +18,7 @@ function wertLabel(id: DisziplinId, wert: number | null): string {
 
 /**
  * EP-Prognose: 5 Disziplinen als horizontale Notenbalken (1.0–5.0) mit
- * Zielmarke, Note-4.0-Linie und Klimmzug-Stolperkante.
+ * Zielmarke, Bestehens-Linie (3.60) und Klimmzug-Stolperkante.
  */
 export function EpWidget({ prognose }: { prognose: EpPrognose }) {
   const reihenfolge: DisziplinId[] = [
@@ -59,7 +51,7 @@ export function EpWidget({ prognose }: { prognose: EpPrognose }) {
         </div>
         <div className="text-right text-xs text-muted-foreground">
           <div>Ziel ≥ 4.5</div>
-          <div>Bestehen ≥ 4.0</div>
+          <div>Bestehen: Schnitt ≥ {BESTEHEN_SCHNITT.toFixed(2)}</div>
           {prognose.ausschluss.length > 0 && (
             <div className="mt-1 font-medium text-status-red">
               1.0 in {prognose.ausschluss.length} Disziplin(en)!
@@ -100,11 +92,11 @@ export function EpWidget({ prognose }: { prognose: EpPrognose }) {
                     }}
                   />
                 )}
-                {/* Note-4.0-Linie */}
+                {/* Bestehens-Linie: „genügend" ab 3.60 */}
                 <div
                   className="absolute inset-y-0 w-px bg-foreground/50"
-                  style={{ left: `${skala(4.0)}%` }}
-                  title="Note 4.0"
+                  style={{ left: `${skala(BESTEHEN_SCHNITT)}%` }}
+                  title={`Genügend ab ${BESTEHEN_SCHNITT.toFixed(2)}`}
                 />
                 {/* Zielmarke */}
                 <div

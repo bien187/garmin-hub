@@ -1,9 +1,12 @@
 /**
  * Eignungsprüfung (EP) Schweizer Armee-Grenadiere — Domänendaten.
  *
- * Notentabellen als stückweise lineare Interpolation zwischen den bekannten
- * Stützpunkten aus dem offiziellen Bewertungsraster. Zwischenwerte sind
- * interpoliert (Annäherung, im README dokumentiert).
+ * Notentabellen exakt nach der offiziellen „Notentabelle Eignungsprüfung
+ * EP_AZ SK": jede Note gilt für einen festen Wertebereich (Stufen, keine
+ * Interpolation). Zeiten in Sekunden, Wiederholungen als Anzahl.
+ *
+ * Bestanden ist die EP, wenn der Durchschnitt aller Disziplinen mindestens
+ * „genügend" ist (≥ 3.60).
  */
 
 export type DisziplinId =
@@ -24,8 +27,13 @@ export interface Disziplin {
   hoeherIstBesser: boolean;
   /** Physisches/reglementarisches Maximum (z.B. 120 s Halten), falls vorhanden */
   maxWert?: number;
-  /** Stützpunkte [wert, note], aufsteigend nach Wert sortiert */
-  stuetzpunkte: [number, number][];
+  /**
+   * Offizielle Stufen [grenzwert, note], von der besten Note abwärts.
+   * hoeherIstBesser: Note gilt ab `grenzwert` (wert ≥ grenzwert).
+   * Zeit (tiefer besser): Note gilt bis einschliesslich `grenzwert` (wert ≤ grenzwert).
+   * Werte ausserhalb aller Stufen ergeben 1.0.
+   */
+  stufen: [number, number][];
   /** Persönliches Ziel (von/bis im Wert der Disziplin) */
   ziel: { von: number; bis: number };
   beschreibung: string;
@@ -41,16 +49,27 @@ export const EP_DISZIPLINEN: Record<DisziplinId, Disziplin> = {
     kurzname: "5-km-Lastlauf",
     einheit: "sekunden",
     hoeherIstBesser: false,
-    // ≤30:00 = 5.0 · ≤33:00 ≈ 4.6 · 35:01–36:00 = 4.0 · >40:00 = 1.0
-    stuetzpunkte: [
-      [1800, 5.0],
-      [1980, 4.6],
-      [2160, 4.0],
-      [2400, 1.5],
+    // Marsch 5 km, Zeitlimite 40 Min: ≤ 30:00 = 5.0, danach je 30 s bzw. 1 Min eine Stufe
+    stufen: [
+      [1800, 5.0], // 30:00 und weniger
+      [1830, 4.9], // 30:01–30:30
+      [1860, 4.8], // 30:31–31:00
+      [1890, 4.7], // 31:01–31:30
+      [1920, 4.6], // 31:31–32:00
+      [1950, 4.5], // 32:01–32:30
+      [1980, 4.4], // 32:31–33:00
+      [2010, 4.3], // 33:01–33:30
+      [2040, 4.2], // 33:31–34:00
+      [2100, 4.1], // 34:01–35:00
+      [2160, 4.0], // 35:01–36:00
+      [2220, 3.9], // 36:01–37:00
+      [2280, 3.8], // 37:01–38:00
+      [2340, 3.7], // 38:01–39:00
+      [2400, 3.6], // 39:01–40:00 · ab 40:01 = 1.0
     ],
     ziel: { von: 1800, bis: 1980 }, // ≤ 33 Min
     beschreibung:
-      "5 km mit 20-kg-Rucksack, Kampfstiefeln und Tarnanzug. Note 5.0 ab 30:00, Ziel ≤ 33:00.",
+      "5 km mit 20-kg-Rucksack, Kampfstiefeln und Tarnanzug, Zeitlimite 40 Min. Note 5.0 bis 30:00, Ziel ≤ 33:00.",
   },
   klimmzuege: {
     id: "klimmzuege",
@@ -59,13 +78,13 @@ export const EP_DISZIPLINEN: Record<DisziplinId, Disziplin> = {
     kurzname: "Klimmzüge",
     einheit: "wiederholungen",
     hoeherIstBesser: true,
-    stuetzpunkte: [
-      [5, 1.0],
-      [6, 3.6],
-      [7, 3.9],
-      [8, 4.5],
-      [9, 4.7],
+    // Keine Zeitlimite, ohne Unterbruch · 5 und weniger = 1.0
+    stufen: [
       [10, 5.0],
+      [9, 4.7],
+      [8, 4.5],
+      [7, 3.9],
+      [6, 3.6],
     ],
     ziel: { von: 9, bis: 10 },
     beschreibung:
@@ -83,11 +102,8 @@ export const EP_DISZIPLINEN: Record<DisziplinId, Disziplin> = {
     kurzname: "Liegestütze",
     einheit: "wiederholungen",
     hoeherIstBesser: true,
-    stuetzpunkte: [
-      [20, 1.0],
-      [30, 4.5],
-      [35, 5.0],
-    ],
+    // Zeitlimite 60 s: 35 = 5.0, je Wiederholung 0.1 weniger bis 21 = 3.6 · 20 und weniger = 1.0
+    stufen: Array.from({ length: 15 }, (_, i) => [35 - i, Math.round((5.0 - i * 0.1) * 10) / 10] as [number, number]),
     ziel: { von: 30, bis: 40 },
     beschreibung:
       "Spezialform: Start in Bauchlage mit Händen auf dem Rücken, oben abwechselnde Handberührung. 60 Sekunden.",
@@ -100,11 +116,23 @@ export const EP_DISZIPLINEN: Record<DisziplinId, Disziplin> = {
     einheit: "sekunden",
     hoeherIstBesser: true,
     maxWert: 120,
-    // 120 s = 5.0 · 70–74 s = 4.0 · ≤45 s = 1.0 (Mittelwert 72 als Stützpunkt)
-    stuetzpunkte: [
-      [45, 1.0],
-      [72, 4.0],
+    // Zeitlimite 120 s: 120 = 5.0, je 5 s eine Stufe bis 70–74 = 4.0, dann 64/58/52/46 · ≤ 45 = 1.0
+    stufen: [
       [120, 5.0],
+      [115, 4.9],
+      [110, 4.8],
+      [105, 4.7],
+      [100, 4.6],
+      [95, 4.5],
+      [90, 4.4],
+      [85, 4.3],
+      [80, 4.2],
+      [75, 4.1],
+      [70, 4.0],
+      [64, 3.9],
+      [58, 3.8],
+      [52, 3.7],
+      [46, 3.6],
     ],
     ziel: { von: 95, bis: 110 },
     beschreibung:
@@ -118,11 +146,23 @@ export const EP_DISZIPLINEN: Record<DisziplinId, Disziplin> = {
     einheit: "sekunden",
     hoeherIstBesser: true,
     maxWert: 150,
-    // 150 s = 5.0 · 100–104 s = 4.0 · ≤71 s = 1.0 (Mittelwert 102)
-    stuetzpunkte: [
-      [71, 1.0],
-      [102, 4.0],
+    // Zeitlimite 150 s: 150 = 5.0, je 5 s eine Stufe bis 85–89 = 3.7, 72–84 = 3.6 · ≤ 71 = 1.0
+    stufen: [
       [150, 5.0],
+      [145, 4.9],
+      [140, 4.8],
+      [135, 4.7],
+      [130, 4.6],
+      [125, 4.5],
+      [120, 4.4],
+      [115, 4.3],
+      [110, 4.2],
+      [105, 4.1],
+      [100, 4.0],
+      [95, 3.9],
+      [90, 3.8],
+      [85, 3.7],
+      [72, 3.6],
     ],
     ziel: { von: 120, bis: 135 },
     beschreibung:
@@ -134,60 +174,69 @@ export const EP_REIHENFOLGE: DisziplinId[] = Object.values(EP_DISZIPLINEN)
   .sort((a, b) => a.reihenfolge - b.reihenfolge)
   .map((d) => d.id);
 
+/** Mindestnote für „genügend" und damit für das Bestehen (Durchschnitt) */
+export const BESTEHEN_SCHNITT = 3.6;
+
 /**
- * Notenberechnung: stückweise lineare Interpolation über die Stützpunkte,
- * geklemmt auf [1.0, 5.0].
+ * Note nach offizieller Stufentabelle. Bruchteile zählen wie auf der Uhr
+ * abgelesen: Zeiten ≤ Grenze (30:00.4 ist schon über 30:00), Haltezeiten und
+ * Wiederholungen ≥ Grenze (69.9 s zählt als 69 s).
  */
 export function berechneNote(disziplin: DisziplinId, wert: number): number {
   const d = EP_DISZIPLINEN[disziplin];
-  const pts = d.stuetzpunkte;
-
-  if (d.hoeherIstBesser) {
-    if (wert <= pts[0][0]) return wert < pts[0][0] ? 1.0 : pts[0][1];
-    if (wert >= pts[pts.length - 1][0]) return pts[pts.length - 1][1];
-  } else {
-    if (wert <= pts[0][0]) return pts[0][1];
-    if (wert >= pts[pts.length - 1][0]) return 1.0;
-  }
-
-  for (let i = 1; i < pts.length; i++) {
-    const [w0, n0] = pts[i - 1];
-    const [w1, n1] = pts[i];
-    if (wert <= w1) {
-      const f = (wert - w0) / (w1 - w0);
-      const note = n0 + f * (n1 - n0);
-      return Math.min(5, Math.max(1, note));
-    }
+  for (const [grenze, note] of d.stufen) {
+    if (d.hoeherIstBesser ? wert >= grenze : wert <= grenze) return note;
   }
   return 1.0;
 }
 
-/** Umkehrung: welcher Wert ist für eine Zielnote nötig? */
+/**
+ * Umkehrung: der am wenigsten anspruchsvolle Wert, der mindestens `zielNote`
+ * ergibt (höher besser: kleinster Wert; Zeit: grösste Zeit). Über 5.0 → Wert für 5.0.
+ */
 export function wertFuerNote(disziplin: DisziplinId, zielNote: number): number {
   const d = EP_DISZIPLINEN[disziplin];
-  const pts = [...d.stuetzpunkte].sort((a, b) => a[1] - b[1]); // nach Note
-  if (zielNote <= pts[0][1]) return pts[0][0];
-  if (zielNote >= pts[pts.length - 1][1]) return pts[pts.length - 1][0];
-  for (let i = 1; i < pts.length; i++) {
-    const [w0, n0] = pts[i - 1];
-    const [w1, n1] = pts[i];
-    if (zielNote <= n1) {
-      const f = (zielNote - n0) / (n1 - n0);
-      return w0 + f * (w1 - w0);
-    }
-  }
-  return pts[pts.length - 1][0];
+  const passend = d.stufen.filter(([, note]) => note >= zielNote - 1e-9);
+  if (passend.length === 0) return d.stufen[0][0];
+  return passend[passend.length - 1][0];
+}
+
+export type NotenStufe = "sehr gut" | "gut" | "genügend" | "ungenügend";
+
+/** Benotung laut Tabelle: 5.00–4.50 sehr gut · 4.49–4.00 gut · 3.99–3.60 genügend · darunter ungenügend */
+export function notenStufe(note: number): NotenStufe {
+  if (note >= 4.5) return "sehr gut";
+  if (note >= 4.0) return "gut";
+  if (note >= BESTEHEN_SCHNITT) return "genügend";
+  return "ungenügend";
+}
+
+/** Statusfarbe je Notenstufe: sehr gut grün · gut gelb · genügend orange · ungenügend rot */
+export function notenFarbe(note: number | null | undefined): string {
+  if (note == null) return "var(--muted-foreground)";
+  const stufe = notenStufe(note);
+  return stufe === "sehr gut"
+    ? "var(--status-green)"
+    : stufe === "gut"
+      ? "var(--status-yellow)"
+      : stufe === "genügend"
+        ? "var(--status-orange)"
+        : "var(--status-red)";
 }
 
 export interface EpErgebnis {
   noten: Partial<Record<DisziplinId, number>>;
   schnitt: number | null;
   bestanden: boolean | null;
-  /** 1.0 in einer Disziplin → praktisch nicht kompensierbar */
+  /** Disziplinen mit 1.0 — kein formeller Ausschluss, aber ein starker Schnitt-Killer */
   ausschluss: DisziplinId[];
 }
 
-/** Bestehenslogik: Schnitt aller 5 Noten ≥ 4.0; eine 1.0 gilt als Ausschluss. */
+/**
+ * Bestehenslogik laut offizieller Tabelle: bestanden, wenn der Durchschnitt
+ * aller fünf Disziplinen mindestens „genügend" ist (≥ 3.60). Eine 1.0 wird
+ * nur als Warnung gemeldet; die Tabelle nennt dafür keinen Ausschluss.
+ */
 export function bewerteEp(noten: Partial<Record<DisziplinId, number>>): EpErgebnis {
   const ids = Object.keys(EP_DISZIPLINEN) as DisziplinId[];
   const vorhanden = ids.filter((id) => noten[id] != null);
@@ -201,7 +250,7 @@ export function bewerteEp(noten: Partial<Record<DisziplinId, number>>): EpErgebn
   return {
     noten,
     schnitt,
-    bestanden: komplett ? schnitt >= 4.0 && ausschluss.length === 0 : null,
+    bestanden: komplett ? schnitt >= BESTEHEN_SCHNITT - 1e-9 : null,
     ausschluss,
   };
 }
