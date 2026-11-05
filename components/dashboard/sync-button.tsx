@@ -6,17 +6,27 @@ import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-type SyncPhase = "idle" | "zonen" | "activities" | "health" | "finalize" | "fehler";
+type SyncPhase =
+  | "idle"
+  | "zonen"
+  | "activities"
+  | "health"
+  | "schlaf"
+  | "finalize"
+  | "fehler";
 
 /**
  * „Jetzt synchronisieren": ruft die Chunk-API in einer Schleife auf,
  * bis hasMore=false, dann finalize (Engine-Neuberechnung).
+ * Nach „health" läuft der Schlaf-Backfill („schlaf") mit Fortschritt x/y;
+ * ist er einmal durch, antwortet die Bridge sofort mit hasMore=false.
  * Zusätzlich Pull-to-Refresh auf Mobile (Overscroll am Seitenanfang).
  */
 export function SyncButton({ kompakt = false }: { kompakt?: boolean }) {
   const router = useRouter();
   const [phase, setPhase] = useState<SyncPhase>("idle");
   const [chunks, setChunks] = useState(0);
+  const [schlaf, setSchlaf] = useState<{ erledigt: number; gesamt: number } | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);
   const laeuft = phase !== "idle" && phase !== "fehler";
   const laeuftRef = useRef(false);
@@ -26,8 +36,10 @@ export function SyncButton({ kompakt = false }: { kompakt?: boolean }) {
     laeuftRef.current = true;
     setFehler(null);
     setChunks(0);
+    setSchlaf(null);
+    let schlafFehler: string | null = null;
     try {
-      for (const typ of ["zonen", "activities", "health"] as const) {
+      for (const typ of ["zonen", "activities", "health", "schlaf"] as const) {
         setPhase(typ);
         let hasMore = true;
         let schutz = 0;
@@ -37,13 +49,24 @@ export function SyncButton({ kompakt = false }: { kompakt?: boolean }) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ typ }),
           });
-          const data = await res.json();
+          const data = await res.json().catch(() => ({}));
           if (!res.ok) {
-            throw new Error(
+            const meldung =
               data.code === "mfa_required"
                 ? "Garmin verlangt einen MFA-Code — unter Einstellungen eingeben."
-                : (data.error ?? "Sync fehlgeschlagen")
-            );
+                : (data.error ?? "Sync fehlgeschlagen");
+            // Schlaf-Backfill blockiert die Berechnung nicht; Rest beim nächsten Sync
+            if (typ === "schlaf" && data.code !== "mfa_required") {
+              schlafFehler = `Schlaf-Historie: ${meldung}`;
+              break;
+            }
+            throw new Error(meldung);
+          }
+          if (typ === "schlaf" && data.fortschritt) {
+            setSchlaf({
+              erledigt: Number(data.fortschritt.erledigt) || 0,
+              gesamt: Number(data.fortschritt.gesamt) || 0,
+            });
           }
           hasMore = Boolean(data.hasMore);
           schutz++;
@@ -57,8 +80,13 @@ export function SyncButton({ kompakt = false }: { kompakt?: boolean }) {
         body: JSON.stringify({ typ: "finalize" }),
       });
       if (!finalisiert.ok) throw new Error('Berechnung fehlgeschlagen. Bitte erneut synchronisieren.');
-      setPhase("idle");
       router.refresh();
+      if (schlafFehler) {
+        setFehler(schlafFehler);
+        setPhase("fehler");
+      } else {
+        setPhase("idle");
+      }
     } catch (e) {
       setFehler(e instanceof Error ? e.message : "Unbekannter Fehler");
       setPhase("fehler");
@@ -107,9 +135,13 @@ export function SyncButton({ kompakt = false }: { kompakt?: boolean }) {
         ? `Läufe ${chunks}`
         : phase === "health"
           ? `Gesundheit ${chunks}`
-          : phase === "finalize"
-            ? "Berechne"
-            : null;
+          : phase === "schlaf"
+            ? schlaf && schlaf.gesamt > 0
+              ? `Schlaf-Historie ${schlaf.erledigt}/${schlaf.gesamt}`
+              : "Schlaf-Historie"
+            : phase === "finalize"
+              ? "Berechne"
+              : null;
 
   if (kompakt) {
     // Dashboard: reiner Icon-Button (44×44), Zähler nur während des Syncs

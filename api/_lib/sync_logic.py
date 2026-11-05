@@ -283,9 +283,12 @@ def sync_activities(con, garmin) -> dict:
 # ------------------------------------------------------------------ Health
 
 
-def _health_tag(con, garmin, datum: str):
+def _health_tag(con, garmin, datum: str) -> bool:
+    """Ein Gesundheits-Tag inkl. Schlaf-Nacht. Rückgabe: Nacht geschrieben?"""
     stats = {}
+    sd = {}
     schlaf = {}
+    hrv = {}
     hrv_summary = {}
     readiness_score = None
     try:
@@ -297,12 +300,14 @@ def _health_tag(con, garmin, datum: str):
         sd = garmin.get_sleep_data(datum) or {}
         schlaf = sd.get("dailySleepDTO") or {}
     except Exception:
+        sd = {}
         schlaf = {}
     _pause()
     try:
         hrv = garmin.get_hrv_data(datum) or {}
         hrv_summary = hrv.get("hrvSummary") or {}
     except Exception:
+        hrv = {}
         hrv_summary = {}
     _pause()
     try:
@@ -358,25 +363,36 @@ def _health_tag(con, garmin, datum: str):
         raw=json.dumps({"stats": stats}),
     )
 
+    # Schlaf-Nacht (eigene Tabelle). Darf den Gesundheits-Tag nie verwerfen,
+    # auch nicht, solange die Schlaf-Migration noch fehlt. Bewusst ohne Log:
+    # die Fehlermeldung könnte Schlafwerte enthalten.
+    try:
+        return _schlaf_nacht(con, garmin, datum, sd, hrv)
+    except Exception:  # noqa: BLE001
+        return False
 
-def sync_health(con, garmin) -> dict:
+
+def sync_health(con, garmin, heute=None) -> dict:
     """Ein Chunk Gesundheits-Tage (ältester fehlender Tag zuerst)."""
     start_ts = time.monotonic()
-    heute = dt.date.today()
+    heute = heute or dt.date.today()
     state = dbmod.get_sync_state(con, "health") or {}
     last = state.get("lastDate")
     if last:
-        # letzten Tag erneut synchen (Daten trudeln nach), dann weiter
-        start = dt.date.fromisoformat(last)
+        # Die letzten 2 Tage immer erneut synchen (Daten trudeln nach, die
+        # Nacht hängt am Aufwachdatum), dann weiter
+        start = min(dt.date.fromisoformat(last), heute - dt.timedelta(days=1))
     else:
         start = heute - dt.timedelta(days=HEALTH_BACKFILL_TAGE)
 
     tag = start
     verarbeitet = 0
+    schlaf_daten = []
     while tag <= heute and verarbeitet < HEALTH_CHUNK_TAGE:
         if time.monotonic() - start_ts > ZEIT_BUDGET_S:
             break
-        _health_tag(con, garmin, tag.isoformat())
+        if _health_tag(con, garmin, tag.isoformat()):
+            schlaf_daten.append(tag.isoformat())
         state["lastDate"] = tag.isoformat()
         dbmod.set_sync_state(con, "health", state)
         tag += dt.timedelta(days=1)
@@ -385,7 +401,479 @@ def sync_health(con, garmin) -> dict:
     has_more = dt.date.fromisoformat(state.get("lastDate", heute.isoformat())) < heute
     state["lastSyncAt"] = dt.datetime.utcnow().isoformat() + "Z"
     dbmod.set_sync_state(con, "health", state)
-    return {"verarbeitet": verarbeitet, "hasMore": has_more, "state": state}
+    return {
+        "verarbeitet": verarbeitet,
+        "hasMore": has_more,
+        "state": state,
+        "schlafDaten": schlaf_daten,  # nur Datumsstrings, keine Werte
+    }
+
+
+# ------------------------------------------------------------------ Schlaf
+#
+# Python speichert nur die Garmin-Direktwerte + die kompakte Rohantwort in
+# sleep_nights. Die Aufbereitung in Epochen/Zeitreihen macht EIN Parser in
+# TypeScript (lib/engine/schlaf-parser.ts) beim Recompute. Datenschutz:
+# Schlafwerte werden nirgends geloggt und tauchen in keiner Fehlermeldung auf.
+
+SCHLAF_CHUNK_NAECHTE = 15
+SCHLAF_ZEIT_BUDGET_S = 30  # Rest der 60 s braucht die Aufbereitung in Next
+SCHLAF_RAW_MAX_BYTES = 1_000_000
+SCHLAF_BACKFILL_TAGE = HEALTH_BACKFILL_TAGE
+
+TAGES_ENDPUNKT_HINWEIS = (
+    "Ersatzreihen aus Tages-Endpunkten: diese liefern erst ab lokal 00:00, "
+    "der Teil der Nacht vor Mitternacht fehlt."
+)
+
+# metrik → (Liste in get_sleep_data, Summenfeld, das belegt, dass Garmin die
+# Metrik in dieser Nacht gemessen hat). Fehlt die Liste trotz Summenwert,
+# wird der Tages-Endpunkt als Ersatz geholt — sonst nicht (Rate-Limit).
+SCHLAF_REIHEN = {
+    "hr": ("sleepHeartRate", "avgHeartRate"),
+    "spo2": ("wellnessEpochSPO2DataDTOList", "averageSpO2Value"),
+    "atemfrequenz": ("wellnessEpochRespirationDataDTOList", "averageRespirationValue"),
+    "stress": ("sleepStress", "avgSleepStress"),
+    "body_battery": ("sleepBodyBattery", None),  # Beleg: sd.bodyBatteryChange
+    "hrv": ("hrvData", None),  # Ersatz aus get_hrv_data().hrvReadings (kein Zusatzaufruf)
+}
+
+
+def _num(v):
+    """Zahl oder None (bool und nicht-endliche Werte zählen nicht)."""
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return None
+    if v != v or v in (float("inf"), float("-inf")):
+        return None
+    return v
+
+
+def _nicht_negativ(v):
+    v = _num(v)
+    return v if v is not None and v >= 0 else None
+
+
+def _iso_utc_ms(s):
+    """Garmin-ISO ohne Zone (= UTC), z. B. "2026-11-03T21:40:17.0" → ms."""
+    if not isinstance(s, str) or len(s) < 19:
+        return None
+    try:
+        basis = dt.datetime.strptime(s[:19].replace(" ", "T"), "%Y-%m-%dT%H:%M:%S")
+    except ValueError:
+        return None
+    rest = s[19:]
+    ms = 0.0
+    if rest.startswith("."):
+        ziffern = ""
+        for ch in rest[1:]:
+            if not ch.isdigit():
+                break
+            ziffern += ch
+        ms = float("0." + ziffern) * 1000 if ziffern else 0.0
+    return int(basis.replace(tzinfo=dt.timezone.utc).timestamp() * 1000 + ms)
+
+
+def _ms_zu_utc(ms):
+    ms = _num(ms)
+    if ms is None or ms <= 0:
+        return None
+    return dt.datetime.fromtimestamp(ms / 1000.0, tz=dt.timezone.utc)
+
+
+def _schlaf_dto(sd):
+    dto = (sd or {}).get("dailySleepDTO") if isinstance(sd, dict) else None
+    return dto if isinstance(dto, dict) else None
+
+
+def _hat_nacht(sd) -> bool:
+    """Leere Nacht = kein dailySleepDTO oder keine (positive) Schlafzeit."""
+    dto = _schlaf_dto(sd)
+    if not dto:
+        return False
+    dauer = _num(dto.get("sleepTimeSeconds"))
+    return dauer is not None and dauer > 0
+
+
+def _schlaf_fenster(dto):
+    """(start_ms, ende_ms) als echte UTC-Instants oder None."""
+    s = _num((dto or {}).get("sleepStartTimestampGMT"))
+    e = _num((dto or {}).get("sleepEndTimestampGMT"))
+    if s is None or e is None or e <= s:
+        return None
+    return int(s), int(e)
+
+
+def _descriptor_index(descs, key, default):
+    """Index einer Spalte aus Garmins *Descriptor*-Listen (Schlüsselnamen variieren)."""
+    for d in descs or []:
+        if not isinstance(d, dict) or key not in d.values():
+            continue
+        for k, v in d.items():
+            if k.lower().endswith("index") and isinstance(v, int):
+                return v
+    return default
+
+
+def _paare_im_fenster(zeilen, ts_index, wert_index, fenster):
+    """[[ms, wert], …] aus Tages-Arrays, auf das Schlaffenster gefiltert.
+    Lücken (None, negative Platzhalter wie -1/-2) fallen weg."""
+    start, ende = fenster
+    out = []
+    for z in zeilen or []:
+        if not isinstance(z, (list, tuple)) or len(z) <= max(ts_index, wert_index):
+            continue
+        t = _num(z[ts_index])
+        w = _nicht_negativ(z[wert_index])
+        if t is None or w is None or t < start or t > ende:
+            continue
+        out.append([int(t), w])
+    return out
+
+
+def _tages_reihe(metrik, antwort, fenster):
+    """Ersatzreihe aus der Antwort eines Tages-Endpunkts (Formate siehe
+    tests/fixtures/garmin/*/get_*.json)."""
+    if metrik == "hr" and isinstance(antwort, dict):
+        i = _descriptor_index(antwort.get("heartRateValueDescriptors"), "heartrate", 1)
+        return _paare_im_fenster(antwort.get("heartRateValues"), 0, i, fenster)
+    if metrik == "atemfrequenz" and isinstance(antwort, dict):
+        i = _descriptor_index(
+            antwort.get("respirationValueDescriptorsDTOList"), "respiration", 1
+        )
+        return _paare_im_fenster(antwort.get("respirationValuesArray"), 0, i, fenster)
+    if metrik == "stress" and isinstance(antwort, dict):
+        i = _descriptor_index(antwort.get("stressValueDescriptorsDTOList"), "stressLevel", 1)
+        return _paare_im_fenster(antwort.get("stressValuesArray"), 0, i, fenster)
+    if metrik == "spo2" and isinstance(antwort, dict):
+        # Nur Stundenmittel verfügbar ([ms, wert]); feiner liefert der Endpunkt nichts
+        return _paare_im_fenster(antwort.get("spO2HourlyAverages"), 0, 1, fenster)
+    if metrik == "body_battery":
+        eintraege = antwort if isinstance(antwort, list) else [antwort]
+        out = []
+        for e in eintraege:
+            if not isinstance(e, dict):
+                continue
+            i = _descriptor_index(
+                e.get("bodyBatteryValueDescriptorDTOList"), "bodyBatteryLevel", 1
+            )
+            out += _paare_im_fenster(e.get("bodyBatteryValuesArray"), 0, i, fenster)
+        return out
+    return []
+
+
+def _hrv_aus_readings(hrv, fenster):
+    start, ende = fenster
+    out = []
+    for r in (hrv or {}).get("hrvReadings") or []:
+        if not isinstance(r, dict):
+            continue
+        t = _iso_utc_ms(r.get("readingTimeGMT"))
+        w = _nicht_negativ(r.get("hrvValue"))
+        if t is None or w is None or t < start or t > ende:
+            continue
+        out.append([t, w])
+    return out
+
+
+TAGES_ENDPUNKTE = {
+    "hr": ("get_heart_rates", lambda g, d: g.get_heart_rates(d)),
+    "spo2": ("get_spo2_data", lambda g, d: g.get_spo2_data(d)),
+    "atemfrequenz": ("get_respiration_data", lambda g, d: g.get_respiration_data(d)),
+    "stress": ("get_all_day_stress", lambda g, d: g.get_all_day_stress(d)),
+    "body_battery": ("get_body_battery", lambda g, d: g.get_body_battery(d)),
+}
+
+
+def _schlaf_zusatz(garmin, datum, sd, hrv):
+    """Ersatzreihen für Metriken, die in get_sleep_data fehlen, obwohl Garmin
+    sie gemessen hat. Rückgabe {"hinweis", "quellen", metrik: [[ms, wert]]}
+    oder None. Jeder Tages-Aufruf hat Pausen und ein eigenes try/except."""
+    dto = _schlaf_dto(sd)
+    fenster = _schlaf_fenster(dto)
+    if not fenster:
+        return None
+    zusatz = {}
+    quellen = {}
+    for metrik, (liste, beleg) in SCHLAF_REIHEN.items():
+        vorhanden = sd.get(liste)
+        if isinstance(vorhanden, list) and vorhanden:
+            continue
+        if metrik == "hrv":
+            punkte = _hrv_aus_readings(hrv, fenster)
+            quelle = "get_hrv_data"
+        else:
+            gemessen = (
+                _num(sd.get("bodyBatteryChange")) is not None
+                if beleg is None
+                else _num(dto.get(beleg)) is not None
+            )
+            if not gemessen:
+                continue
+            quelle, holen = TAGES_ENDPUNKTE[metrik]
+            _pause()
+            try:
+                punkte = _tages_reihe(metrik, holen(garmin, datum), fenster)
+            except Exception:  # noqa: BLE001 — ein fehlender Teil verwirft nicht die Nacht
+                punkte = []
+            _pause()
+        if punkte:
+            zusatz[metrik] = punkte
+            quellen[metrik] = quelle
+    if not zusatz:
+        return None
+    zusatz["quellen"] = quellen
+    zusatz["hinweis"] = TAGES_ENDPUNKT_HINWEIS
+    return zusatz
+
+
+def _raw_kompakt(sd, zusatz=None):
+    """get_sleep_data als kompaktes JSON (≤ SCHLAF_RAW_MAX_BYTES). Zu gross →
+    grösste Listen (zuerst sleepMovement) weglassen und in _gekuerzt vermerken."""
+    raw = dict(sd)
+    if zusatz:
+        raw["zusatz"] = zusatz
+    text = json.dumps(raw, separators=(",", ":"))
+    gekuerzt = []
+    while len(text.encode("utf-8")) > SCHLAF_RAW_MAX_BYTES:
+        listen = [k for k, v in raw.items() if isinstance(v, list) and v]
+        if not listen:
+            break
+        k = (
+            "sleepMovement"
+            if "sleepMovement" in listen
+            else max(listen, key=lambda x: len(json.dumps(raw[x], separators=(",", ":"))))
+        )
+        del raw[k]
+        gekuerzt.append(k)
+        raw["_gekuerzt"] = gekuerzt
+        text = json.dumps(raw, separators=(",", ":"))
+    return text
+
+
+def _schlaf_nacht_speichern(con, datum, sd, hrv, zusatz=None) -> bool:
+    """Upsert einer Nacht in sleep_nights. Fehlendes bleibt NULL (nie 0).
+    Leere Nacht → keine Zeile; eine bestehende Zeile bleibt unangetastet."""
+    if not _hat_nacht(sd):
+        return False
+    dto = _schlaf_dto(sd)
+    fenster = _schlaf_fenster(dto)
+    scores = dto.get("sleepScores") if isinstance(dto.get("sleepScores"), dict) else {}
+    overall = scores.get("overall") if isinstance(scores.get("overall"), dict) else {}
+    summary = (hrv or {}).get("hrvSummary") if isinstance(hrv, dict) else None
+    con.run(
+        """
+        INSERT INTO sleep_nights (datum, schlaf_start, schlaf_ende, garmin_score,
+            schlaf_dauer_s, tief_s, leicht_s, rem_s, wach_s, raw, hrv_baseline,
+            zuletzt_synchronisiert)
+        VALUES (:datum, :start, :ende, :score, :dauer, :tief, :leicht, :rem,
+            :wach, CAST(:raw AS jsonb), CAST(:hrv AS jsonb), now())
+        ON CONFLICT (datum) DO UPDATE SET
+            schlaf_start = excluded.schlaf_start,
+            schlaf_ende = excluded.schlaf_ende,
+            garmin_score = excluded.garmin_score,
+            schlaf_dauer_s = excluded.schlaf_dauer_s,
+            tief_s = excluded.tief_s,
+            leicht_s = excluded.leicht_s,
+            rem_s = excluded.rem_s,
+            wach_s = excluded.wach_s,
+            raw = excluded.raw,
+            hrv_baseline = COALESCE(excluded.hrv_baseline, sleep_nights.hrv_baseline),
+            zuletzt_synchronisiert = now()
+        """,
+        datum=datum,
+        start=_ms_zu_utc(fenster[0]) if fenster else None,
+        ende=_ms_zu_utc(fenster[1]) if fenster else None,
+        score=_nicht_negativ(overall.get("value")),
+        dauer=_nicht_negativ(dto.get("sleepTimeSeconds")),
+        tief=_nicht_negativ(dto.get("deepSleepSeconds")),
+        leicht=_nicht_negativ(dto.get("lightSleepSeconds")),
+        rem=_nicht_negativ(dto.get("remSleepSeconds")),
+        wach=_nicht_negativ(dto.get("awakeSleepSeconds")),
+        raw=_raw_kompakt(sd, zusatz),
+        hrv=json.dumps(summary, separators=(",", ":"))
+        if isinstance(summary, dict) and summary
+        else None,
+    )
+    return True
+
+
+def _schlaf_nacht(con, garmin, datum, sd, hrv) -> bool:
+    """Ersatzreihen holen (nur falls nötig) und die Nacht speichern."""
+    if not _hat_nacht(sd):
+        return False
+    zusatz = _schlaf_zusatz(garmin, datum, sd, hrv)
+    return _schlaf_nacht_speichern(con, datum, sd, hrv, zusatz)
+
+
+def _http_status(e):
+    for quelle in (getattr(e, "error", None), e):
+        resp = getattr(quelle, "response", None)
+        code = getattr(resp, "status_code", None)
+        if isinstance(code, int):
+            return code
+    return None
+
+
+def _ist_abbruch_fehler(e) -> bool:
+    """Rate-Limit/Login-Probleme → Chunk abbrechen statt Nächte zu überspringen."""
+    name = type(e).__name__
+    return (
+        _http_status(e) in (401, 403, 429)
+        or "TooManyRequests" in name
+        or "Authentication" in name
+    )
+
+
+def schlaf_backfill_fertig(con):
+    """Ergebnis ohne Garmin-Aufruf, falls der Backfill schon durch ist (sonst None)."""
+    state = dbmod.get_sync_state(con, "sleep") or {}
+    if not state.get("backfillDone"):
+        return None
+    gesamt = int(state.get("gesamt") or 0)
+    return {
+        "verarbeitet": 0,
+        "hasMore": False,
+        "backfillDone": True,
+        "fortschritt": {"erledigt": gesamt, "gesamt": gesamt},
+        "schlafDaten": [],
+        "state": state,
+    }
+
+
+def _ist_schema_fehler(e) -> bool:
+    """Fehlende Tabelle/Spalte (Migration nicht angewendet) → abbrechen statt überspringen."""
+    text = str(e).lower()
+    return "does not exist" in text or "undefined" in type(e).__name__.lower()
+
+
+def _schlaf_backfill_nacht(con, garmin, datum, state) -> str:
+    """Eine Nacht im Backfill: 'geschrieben' | 'leer' | 'fehler'.
+
+    Rate-Limit/Login-Fehler und ein fehlendes Schema brechen den Chunk ab (der
+    Cursor bleibt stehen); jeder andere Fehler betrifft nur diese Nacht.
+    Fehlertexte enthalten nie Werte aus der Antwort oder der DB.
+    """
+    try:
+        sd = garmin.get_sleep_data(datum) or {}
+    except Exception as e:  # noqa: BLE001
+        if _ist_abbruch_fehler(e):
+            dbmod.set_sync_state(con, "sleep", state)
+            raise RuntimeError(
+                f"Garmin hat den Schlaf-Abruf abgelehnt ({type(e).__name__}); "
+                "später erneut synchronisieren."
+            ) from None
+        _pause()
+        return "fehler"
+    _pause()
+    if not _hat_nacht(sd):
+        return "leer"
+    try:
+        hrv = garmin.get_hrv_data(datum) or {}
+    except Exception:  # noqa: BLE001 — HRV ist optional
+        hrv = {}
+    _pause()
+    try:
+        return "geschrieben" if _schlaf_nacht(con, garmin, datum, sd, hrv) else "leer"
+    except Exception as e:  # noqa: BLE001
+        if _ist_schema_fehler(e):
+            dbmod.set_sync_state(con, "sleep", state)
+            raise RuntimeError(
+                "Schlaf-Tabellen fehlen — Migration drizzle/0002_schlaf.sql anwenden "
+                f"({type(e).__name__})"
+            ) from None
+        return "fehler"
+
+
+def sync_sleep(con, garmin, heute=None) -> dict:
+    """Ein Chunk Schlaf-Backfill: rückwärts ab heute bis heute − 365 Tage.
+
+    Nächte, deren Zeile schon nach dem Aufwachtag synchronisiert wurde (also
+    final ist), werden ohne Garmin-Aufruf übersprungen. Ein Fehler bei einer
+    einzelnen Nacht überspringt nur diese (Datum in state.fehlgeschlagen);
+    Rate-Limit/Login-Fehler brechen den Chunk ab, ohne den Cursor zu bewegen.
+    """
+    fertig = schlaf_backfill_fertig(con)
+    if fertig:
+        return fertig
+
+    start_ts = time.monotonic()
+    heute = heute or dt.date.today()
+    state = dbmod.get_sync_state(con, "sleep") or {}
+    if not state.get("cursor"):
+        bis = heute - dt.timedelta(days=SCHLAF_BACKFILL_TAGE)
+        state = {
+            "backfillDone": False,
+            "von": heute.isoformat(),
+            "bis": bis.isoformat(),
+            "cursor": heute.isoformat(),
+            "gesamt": SCHLAF_BACKFILL_TAGE + 1,
+            "fehlgeschlagen": [],
+        }
+    von = dt.date.fromisoformat(state["von"])
+    bis = dt.date.fromisoformat(state["bis"])
+    cursor = dt.date.fromisoformat(state["cursor"])
+    gesamt = (von - bis).days + 1
+    state["gesamt"] = gesamt
+
+    final = set()
+    if cursor >= bis:
+        rows = con.run(
+            """
+            SELECT datum::text FROM sleep_nights
+            WHERE datum BETWEEN :bis AND :cursor
+              AND zuletzt_synchronisiert >= (datum + 1)::timestamptz
+            """,
+            bis=bis.isoformat(),
+            cursor=cursor.isoformat(),
+        )
+        final = {r[0] for r in rows or []}
+
+    geschrieben = []
+    geholt = 0
+    while cursor >= bis and geholt < SCHLAF_CHUNK_NAECHTE:
+        if time.monotonic() - start_ts > SCHLAF_ZEIT_BUDGET_S:
+            break
+        datum = cursor.isoformat()
+        if datum not in final:
+            geholt += 1
+            ergebnis = _schlaf_backfill_nacht(con, garmin, datum, state)
+            if ergebnis == "geschrieben":
+                geschrieben.append(datum)
+            elif ergebnis == "fehler":
+                state["fehlgeschlagen"] = (state.get("fehlgeschlagen") or [])[-50:] + [datum]
+        cursor -= dt.timedelta(days=1)
+        state["cursor"] = cursor.isoformat()
+
+    # Nach dem Durchlauf: fehlgeschlagene Nächte genau einmal erneut versuchen,
+    # erst danach gilt der Backfill als fertig. Was dann noch scheitert, bleibt
+    # in state.endgueltigFehlgeschlagen (nur Datumsstrings) dokumentiert.
+    while cursor < bis and state.get("fehlgeschlagen") and geholt < SCHLAF_CHUNK_NAECHTE:
+        if time.monotonic() - start_ts > SCHLAF_ZEIT_BUDGET_S:
+            break
+        datum = state["fehlgeschlagen"].pop(0)
+        geholt += 1
+        ergebnis = _schlaf_backfill_nacht(con, garmin, datum, state)
+        if ergebnis == "geschrieben":
+            geschrieben.append(datum)
+        elif ergebnis == "fehler":
+            state["endgueltigFehlgeschlagen"] = (
+                state.get("endgueltigFehlgeschlagen") or []
+            )[-50:] + [datum]
+        dbmod.set_sync_state(con, "sleep", state)
+
+    if cursor < bis and not state.get("fehlgeschlagen"):
+        state["backfillDone"] = True
+    state["lastSyncAt"] = dt.datetime.utcnow().isoformat() + "Z"
+    dbmod.set_sync_state(con, "sleep", state)
+    erledigt = min(gesamt, (von - cursor).days)
+    return {
+        "verarbeitet": geholt,
+        "hasMore": not state["backfillDone"],
+        "backfillDone": bool(state["backfillDone"]),
+        "fortschritt": {"erledigt": erledigt, "gesamt": gesamt},
+        "schlafDaten": geschrieben,
+        "state": state,
+    }
 
 
 # ---------------------------------------------------------------- HF-Zonen

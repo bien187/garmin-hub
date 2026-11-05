@@ -86,6 +86,10 @@ der Schweizer Armee-Grenadiere** (Mitte November 2026) vor.
   nur serverseitig; garth-Token AES-GCM-verschlüsselt in der DB.
 - **In Vercel manuell aktivieren:** Deployment Protection für Preview-Deploys
   (sonst sind Preview-URLs öffentlich).
+- **Schlafdaten (sensibel):** keine Schlafwerte in Logs oder Fehlermeldungen
+  (Python wie TypeScript melden höchstens Datum und Fehlertyp, DB-Fehlertexte
+  werden verworfen). Zugriff nur über Routen hinter der Login-Middleware
+  (`middleware.ts`) bzw. die Bridge mit `x-internal-key`.
 
 ## Tech-Stack
 
@@ -133,7 +137,8 @@ Fortschritt pro Datentyp; ein Aufruf verarbeitet ≤ 12 Aktivitäten bzw.
 40-s-Zeitbudget) und liefert `hasMore`. Frontend/Cron loopen, bis alles da
 ist — so überlebt auch der Erst-Import der kompletten Historie die
 Vercel-Timeouts. Vorab läuft der Typ `zonen` (ein einzelner Request für die
-HF-Zonen). Nach dem Sync materialisiert `recomputeAll()` alle abgeleiteten
+HF-Zonen), nach `health` der Schlaf-Backfill `schlaf` (siehe „Schlaf:
+Datenmodell, Sync und Backfill"). Nach dem Sync materialisiert `recomputeAll()` alle abgeleiteten
 Werte (`computed_daily` inkl. Pace bei Referenzpuls, `muscle_state`,
 Lauf-Modell, Workout-Matching).
 
@@ -170,6 +175,11 @@ entstehen. Ändert sich der Referenzpuls, rechnet der nächste Lauf einmalig
 pnpm db:push        # oder: Migrationen aus ./drizzle anwenden
 ```
 
+Die Migrationen ab `0001` sind idempotent (`IF NOT EXISTS`), laufen also
+auch auf Datenbanken durch, die bisher per `db:push` gepflegt wurden.
+`0002_schlaf.sql` legt `sleep_nights`, `sleep_epochen` und
+`sleep_zeitreihen` an.
+
 ### 4. Deployment (Vercel)
 
 ```bash
@@ -185,7 +195,8 @@ automatisch `Authorization: Bearer $CRON_SECRET`.
 
 App öffnen → einloggen → **Sync** auf dem Dashboard. Der Fortschrittsbalken
 loopt durch die Chunks (komplette Aktivitäts-Historie + 365 Tage
-Gesundheitsdaten). Verlangt Garmin MFA, erscheint eine Meldung — Code unter
+Gesundheitsdaten + 365 Nächte Schlaf-Historie, angezeigt als
+„Schlaf-Historie x/366"). Verlangt Garmin MFA, erscheint eine Meldung — Code unter
 **Einstellungen → Garmin-Verbindung** eingeben.
 
 ## Lokale Entwicklung
@@ -193,7 +204,8 @@ Gesundheitsdaten). Verlangt Garmin MFA, erscheint eine Meldung — Code unter
 ```bash
 pnpm dev            # Next.js (Python-Bridge läuft lokal NICHT mit)
 vercel dev          # inkl. Python-Functions (empfohlen zum Bridge-Testen)
-pnpm test           # Vitest (Engine, EP-Notentabellen, Prognose, Plan)
+pnpm test           # Vitest (Engine, EP-Notentabellen, Prognose, Plan, Schlaf-Parser)
+python scripts/garmin/test_schlaf_sync.py   # Schlaf-Sync (Python) offline gegen die Fixtures
 node scripts/gen-icons.mjs   # PWA-Icons neu generieren
 ```
 
@@ -410,6 +422,95 @@ zeigen Sync/Garmin-Status einen sauberen Fehlerbanner statt zu crashen.
     `false` gesetzt wird (Schliessen-/Abbrechen-Knopf). Vorher blieb das
     Sheet in diesem Fall sichtbar; das betraf auch das bestehende
     „Abbrechen" im Sammel-Senden und im Lösch-Bestätigungs-Sheet.
+
+### Schlaf: Datenmodell, Sync und Backfill
+
+**Aufgabenteilung.** Die Python-Bridge bleibt dünn: Sie speichert pro Nacht
+die Garmin-Direktwerte und die Rohantwort in `sleep_nights`. Die
+Aufbereitung in Segmente und Zeitreihen macht genau ein TypeScript-Parser
+(`lib/engine/schlaf-parser.ts`, reine Funktion, getestet mit den echten
+Fixtures), aufgerufen von `lib/server/sleep-service.ts`. So gibt es keinen
+doppelten Parser, und die Detailseite muss später nicht ~170 KB Roh-JSON
+lesen.
+
+**Tabellen** (Migration `drizzle/0002_schlaf.sql`):
+
+| Tabelle | Inhalt |
+|---|---|
+| `sleep_nights` (PK `datum` = Aufwachdatum) | `schlaf_start`/`schlaf_ende` (echte UTC-Instants aus `sleepStart/EndTimestampGMT`; Anzeige später in Europe/Zurich, die verschobenen `…Local`-Werte werden nicht gespeichert), `garmin_score` (`sleepScores.overall.value`), `schlaf_dauer_s` (`sleepTimeSeconds`, ohne Wach), `tief_s`/`leicht_s`/`rem_s`/`wach_s`, abgeleitet: `anzahl_wachphasen`, `einschlafzeit_s`, `effizienz_proz`; `raw` (get_sleep_data kompakt), `hrv_baseline` (`get_hrv_data().hrvSummary` mit `baseline`, `lastNightAvg`, `weeklyAvg`, `status`), `zuletzt_synchronisiert`, `aufbereitet_am` |
+| `sleep_epochen` (PK `datum, art, start`) | `art` `phase` (Level 0 Tief, 1 Leicht, 2 REM), `wach` (Level 3) oder `bewegung` (unruhige Momente, Level = Garmin-`value` 1–3); `start` (UTC), `dauer_s`. Eine Zeile pro Phasenwechsel, gleiche Nachbarn zusammengefasst |
+| `sleep_zeitreihen` (PK `datum, metrik`) | `metrik` `hr`, `spo2`, `atemfrequenz`, `hrv`, `stress`, `body_battery`, `bewegung`; `punkte` = `[[sekunden_seit_schlaf_start, wert], …]` als Minutenmittel (max. 1 Punkt/min, negative Sekunden = vor dem Einschlafen), `roh_anzahl`, `roh_aufloesung_s` (Median-Abstand), `quelle` |
+
+**Sync.** `_health_tag()` (täglicher Health-Sync) ruft `get_sleep_data` und
+`get_hrv_data` ohnehin auf und upsertet daraus zusätzlich `sleep_nights`.
+Der Health-Sync schreibt immer mindestens die letzten 2 Tage neu (Start =
+min(lastDate, gestern)), damit nachträglich eintreffende Nachtdaten
+ankommen. Danach bereitet `/api/sync` die gemeldeten Nächte sofort auf;
+`recomputeAll()` (Finalize/Cron) holt bis zu 30 offene Reste nach. Offen ist
+eine Nacht, solange `aufbereitet_am` NULL oder älter als
+`zuletzt_synchronisiert` ist. Beim Neu-Aufbereiten werden Epochen und
+Zeitreihen der Nacht in einer Transaktion ersetzt.
+
+**Backfill.** Neuer Sync-Typ `schlaf` mit eigenem `sync_state`-Key `sleep`:
+Cursor rückwärts von heute bis heute − 365 Tage (366 Nächte), pro Aufruf
+höchstens 15 Nächte bzw. 30 s (der Rest der 60 s bleibt für die Aufbereitung
+in Next), je Nacht `get_sleep_data` + `get_hrv_data` mit Pausen. Antwort mit
+`fortschritt: {erledigt, gesamt}` und `schlafDaten` (nur Datumsstrings).
+Ist der Backfill durch, antwortet die Bridge sofort mit `hasMore: false`,
+ohne Garmin-Login. Der tägliche Cron startet den Backfill nicht (nur
+`zonen`, `activities`, `health`). Der Sync-Button loopt nach `health` die
+Phase `schlaf` und zeigt „Schlaf-Historie x/y".
+
+**Annahmen und Definitionen:**
+- Fehlende Werte sind NULL, nie 0. Leere Nacht (kein `dailySleepDTO`,
+  `sleepTimeSeconds` NULL oder 0) → keine Zeile; eine bestehende Zeile bleibt
+  unangetastet. `hrv_baseline` wird nicht mit NULL überschrieben, wenn
+  `get_hrv_data` einmal ausfällt.
+- `raw` = vollständige `get_sleep_data`-Antwort als kompaktes JSON (echte
+  Nächte ≈170 KB). Über 1 MB werden die grössten Listen weggelassen
+  (zuerst `sleepMovement`) und in `raw._gekuerzt` vermerkt.
+- Ersatzreihen: Fehlt in `get_sleep_data` eine Reihe, obwohl
+  `dailySleepDTO` einen Mittelwert dafür hat (bzw. `bodyBatteryChange` für
+  Body Battery), wird der Tages-Endpunkt geholt (`get_heart_rates`,
+  `get_spo2_data` → nur Stundenmittel, `get_respiration_data`,
+  `get_all_day_stress`, `get_body_battery`), auf das Schlaffenster gefiltert
+  und als `raw.zusatz[metrik] = [[ms_utc, wert], …]` mit `raw.zusatz.quellen`
+  und Hinweis abgelegt (Tages-Endpunkte liefern erst ab lokal 00:00). HRV
+  kommt ersatzweise aus `get_hrv_data().hrvReadings` (kein Zusatzaufruf). Ohne
+  Mittelwert-Beleg kein Zusatzaufruf (Rate-Limit). Bei den echten Fixtures
+  fehlt nichts.
+- Lücken: `null` und negative Platzhalter (`-1`, `-2`) werden verworfen; bei
+  HF, SpO2, Atmung und HRV zusätzlich 0 (physiologisch unmöglich). Bei
+  Stress, Body Battery und Bewegung ist 0 ein echter Wert. Fehlt eine Reihe
+  ganz, fehlt die Metrik (keine Zeile mit Nullen).
+- Minutenmittel: Eimer = volle Minuten ab `schlaf_start`, Punkt bei
+  `minute × 60` s, Wert auf 2 Nachkommastellen. `roh_anzahl` = gültige
+  Rohpunkte vor der Reduktion.
+- `anzahl_wachphasen` = Anzahl Wach-Segmente (Level 3, nach dem
+  Zusammenfassen) zwischen dem ersten und dem letzten Schlafsegment. Garmins
+  `dailySleepDTO.awakeCount` zählt offenbar strenger (in beiden echten
+  Nächten 0 trotz je 4 Wach-Segmenten); er bleibt in `raw` verfügbar.
+- `einschlafzeit_s` = Dauer eines Wach-Segments ganz am Anfang der Nacht;
+  beginnt die Nacht direkt mit Schlaf (wie in beiden Fixtures), ist sie
+  nicht ableitbar → NULL.
+- `effizienz_proz` = `sleepTimeSeconds` / (`schlaf_ende` − `schlaf_start`)
+  × 100 (ohne `sleepTimeSeconds`: Summe der Schlafsegmente).
+- Unruhige Momente haben bei Garmin nur einen Zeitpunkt; als Dauer werden
+  60 s angenommen.
+- Backfill: Nächte, deren Zeile schon nach dem Aufwachtag synchronisiert
+  wurde, gelten als final und werden ohne Garmin-Aufruf übersprungen. Ein
+  Fehler bei einer einzelnen Nacht (Abruf oder Speichern) überspringt nur
+  diese (Datum in `sync_state.sleep.fehlgeschlagen`). Nach dem Durchlauf
+  werden diese Nächte genau einmal erneut versucht; erst dann gilt der
+  Backfill als fertig. Was dann noch scheitert, steht in
+  `sync_state.sleep.endgueltigFehlgeschlagen`. Rate-Limit- oder Login-Fehler
+  (401, 403, 429) und fehlende Schlaf-Tabellen brechen den Chunk ab, ohne
+  den Cursor weiterzuschieben.
+- Ersatzreihen aus den Tages-Endpunkten werden nur geholt, wenn die Reihe in
+  `get_sleep_data` fehlt UND `dailySleepDTO` einen Mittelwert für die Metrik
+  meldet (also tatsächlich gemessen wurde). Das schont das Rate-Limit;
+  Abweichung vom Wortlaut des Auftrags (dort: immer, wenn die Reihe fehlt). Ein
+  Fehler im Schlaf-Backfill blockiert im Sync-Button die Neuberechnung nicht.
 
 ## Engine-Formeln (lib/engine, vollständig unit-getestet)
 

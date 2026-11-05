@@ -165,7 +165,7 @@ export const garminTokens = pgTable("garmin_tokens", {
 
 /** Sync-Fortschritt pro Datentyp */
 export const syncState = pgTable("sync_state", {
-  key: text("key").primaryKey(), // activities | health | log
+  key: text("key").primaryKey(), // activities | health | sleep | log
   value: jsonb("value").notNull(),
   aktualisiert: timestamp("aktualisiert", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -182,3 +182,67 @@ export const rateLimits = pgTable("rate_limits", {
   count: integer("count").notNull().default(0),
   windowStart: timestamp("window_start", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/* ------------------------------------------------------------------ Schlaf
+ * Garmin ordnet eine Nacht dem Aufwachdatum zu („letzte Nacht" = heute).
+ * Die Python-Bridge schreibt nur sleep_nights (Garmin-Direktwerte + raw);
+ * lib/server/sleep-service.ts bereitet raw einmal pro Sync in
+ * sleep_epochen/sleep_zeitreihen auf (Parser: lib/engine/schlaf-parser.ts).
+ * Fehlende Werte sind NULL, nie 0.
+ */
+
+/** Eine Nacht: Garmin-Zusammenfassung, abgeleitete Kennzahlen, Rohantwort */
+export const sleepNights = pgTable("sleep_nights", {
+  datum: date("datum").primaryKey(), // Aufwachdatum
+  // Echte UTC-Instants aus sleepStart/EndTimestampGMT; Anzeige in Europe/Zurich
+  schlafStart: timestamp("schlaf_start", { withTimezone: true }),
+  schlafEnde: timestamp("schlaf_ende", { withTimezone: true }),
+  garminScore: doublePrecision("garmin_score"), // sleepScores.overall.value
+  schlafDauerS: doublePrecision("schlaf_dauer_s"), // sleepTimeSeconds (ohne Wach)
+  tiefS: doublePrecision("tief_s"),
+  leichtS: doublePrecision("leicht_s"),
+  remS: doublePrecision("rem_s"),
+  wachS: doublePrecision("wach_s"),
+  // Abgeleitet beim Aufbereiten (Definitionen im README „Datenmodell Schlaf")
+  anzahlWachphasen: integer("anzahl_wachphasen"),
+  einschlafzeitS: doublePrecision("einschlafzeit_s"),
+  effizienzProz: doublePrecision("effizienz_proz"),
+  raw: jsonb("raw"), // get_sleep_data kompakt (≤ ~1 MB) + optional zusatz
+  hrvBaseline: jsonb("hrv_baseline"), // get_hrv_data().hrvSummary
+  zuletztSynchronisiert: timestamp("zuletzt_synchronisiert", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  // = zuletzt_synchronisiert der aufbereiteten raw-Version; kleiner/NULL → offen
+  aufbereitetAm: timestamp("aufbereitet_am", { withTimezone: true }),
+});
+
+/** Schlafphasen-, Wach- und Unruhe-Segmente (eine Zeile pro Phasenwechsel) */
+export const sleepEpochen = pgTable(
+  "sleep_epochen",
+  {
+    datum: date("datum").notNull(),
+    art: text("art").notNull(), // phase | wach | bewegung
+    start: timestamp("start", { withTimezone: true }).notNull(),
+    dauerS: doublePrecision("dauer_s").notNull(),
+    // phase: 0 Tief, 1 Leicht, 2 REM · wach: 3 · bewegung: Unruhe 1–3
+    level: integer("level").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.datum, t.art, t.start] })]
+);
+
+/** Nacht-Zeitreihen, auf Minutenmittel reduziert */
+export const sleepZeitreihen = pgTable(
+  "sleep_zeitreihen",
+  {
+    datum: date("datum").notNull(),
+    metrik: text("metrik").notNull(), // hr | spo2 | atemfrequenz | hrv | stress | body_battery | bewegung
+    // [sekunden_seit_schlaf_start, wert], max. 1 Punkt pro Minute; negative
+    // Sekunden = vor dem Einschlafen (Bewegung beginnt ≈1 h früher)
+    punkte: jsonb("punkte").$type<[number, number][]>().notNull(),
+    rohAnzahl: integer("roh_anzahl").notNull(), // gültige Rohpunkte vor der Reduktion
+    rohAufloesungS: doublePrecision("roh_aufloesung_s"), // Median-Abstand der Rohpunkte
+    // get_sleep_data oder der Tages-Endpunkt, aus dem die Reihe ersatzweise stammt
+    quelle: text("quelle").notNull().default("get_sleep_data"),
+  },
+  (t) => [primaryKey({ columns: [t.datum, t.metrik] })]
+);

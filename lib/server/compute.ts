@@ -23,6 +23,7 @@ import {
   restErschoepfung,
 } from "@/lib/engine/muscle";
 import { addTage, heuteIso, isoDatum, tageDiff } from "@/lib/format";
+import { bereiteSchlafAuf } from "./sleep-service";
 
 const LAUF_TYPEN = ["running", "trail_running", "street_running", "track_running", "treadmill_running"];
 const KRAFT_TYPEN = ["strength_training", "indoor_cardio", "fitness_equipment"];
@@ -50,6 +51,10 @@ function istLastlaufAktivitaet(name: string | null): boolean {
  */
 export async function recomputeAll(): Promise<void> {
   const db = getDb();
+
+  /* ---- Schlaf: noch nicht aufbereitete Nächte (begrenzt wegen 60 s) ---- */
+  await bereiteSchlafAuf(undefined, 30).catch(() => {});
+
   const profil = await ladeProfil();
 
   const alleAktivitaeten = await db

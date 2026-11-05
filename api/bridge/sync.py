@@ -1,7 +1,9 @@
-"""POST /api/bridge/sync — ein Sync-Chunk (Aktivitäten, Health oder HF-Zonen).
+"""POST /api/bridge/sync — ein Sync-Chunk (Aktivitäten, Health, Schlaf-Backfill oder HF-Zonen).
 
-Body: {"typ": "activities" | "health" | "zonen"}
+Body: {"typ": "activities" | "health" | "schlaf" | "zonen"}
 Antwort: {"ok": true, "typ": ..., "verarbeitet": n, "hasMore": bool}
+  health/schlaf zusätzlich "schlafDaten": [Datumsstrings der geschriebenen Nächte];
+  schlaf zusätzlich "fortschritt": {"erledigt", "gesamt"} und "backfillDone".
 """
 import datetime as dt
 import os
@@ -22,9 +24,16 @@ class handler(BridgeHandler):
             typ = body.get("typ", "activities")
             con = dbmod.connect()
             try:
+                if typ == "schlaf":
+                    # Backfill fertig → sofort hasMore=false, ohne Garmin-Login
+                    fertig = sync_logic.schlaf_backfill_fertig(con)
+                    if fertig:
+                        return {"ok": True, "typ": typ, **fertig}
                 garmin = get_client(con)
                 if typ == "health":
                     result = sync_logic.sync_health(con, garmin)
+                elif typ == "schlaf":
+                    result = sync_logic.sync_sleep(con, garmin)
                 elif typ == "zonen":
                     result = sync_logic.sync_hr_zonen(con, garmin)
                 else:
