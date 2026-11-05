@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/toast';
 import { Trash2 } from "lucide-react";
-import { EP_DISZIPLINEN, DisziplinId, berechneNote } from "@/lib/ep/disziplinen";
+import { EP_DISZIPLINEN, DisziplinId, berechneNote, notenFarbe } from "@/lib/ep/disziplinen";
 import { formatDatum, formatDauer, formatNote } from "@/lib/format";
 
 interface Benchmark {
@@ -89,12 +89,7 @@ export function BenchmarkListe() {
               <span
                 className="stat-display text-lg"
                 style={{
-                  color:
-                    note >= 4.5
-                      ? "var(--status-green)"
-                      : note >= 4
-                        ? "var(--status-yellow)"
-                        : "var(--status-red)",
+                  color: notenFarbe(note),
                 }}
               >
                 {formatNote(note)}

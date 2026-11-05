@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { EP_DISZIPLINEN, DisziplinId, berechneNote } from "@/lib/ep/disziplinen";
+import { EP_DISZIPLINEN, DisziplinId, berechneNote, notenFarbe } from "@/lib/ep/disziplinen";
 import { formatNote } from "@/lib/format";
 
 /** Schnelleingabe für EP-Testresultate — speist Prognose & Plan */
@@ -110,12 +110,7 @@ export function BenchmarkForm({ onGespeichert }: { onGespeichert?: () => void })
             <span
               className="stat-display text-xl"
               style={{
-                color:
-                  notenVorschau >= 4.5
-                    ? "var(--status-green)"
-                    : notenVorschau >= 4
-                      ? "var(--status-yellow)"
-                      : "var(--status-red)",
+                color: notenFarbe(notenVorschau),
               }}
             >
               {formatNote(notenVorschau)}
