@@ -4,7 +4,8 @@ Persönliche Single-User-Trainings-Webapp: synchronisiert alle Garmin-Daten
 über die **inoffizielle Garmin-Connect-API**, wertet sie mit einer
 **regelbasierten sportwissenschaftlichen Engine** aus (keine LLM-Aufrufe,
 keine laufenden Kosten) und bereitet gezielt auf die **Eignungsprüfung (EP)
-der Schweizer Armee-Grenadiere** (Mitte November 2026) vor.
+der Schweizer Armee-Grenadiere** vor: **EP Tag 1 am Mi 18.11.2026, Tag 2 am
+Do 19.11.2026** (fest, siehe „EP-Termin und Taper-Plan").
 
 > ⚠️ **Inoffizielle API:** Diese App loggt sich mit deinen normalen
 > Garmin-Zugangsdaten ein (Libraries `garminconnect` + `garth`). Das ist
@@ -72,6 +73,15 @@ der Schweizer Armee-Grenadiere** (Mitte November 2026) vor.
   Garmin in der Aktivität ausweist. Karvonen bleibt nur Fallback, solange
   noch keine Zonen synchronisiert wurden (Status + Knopf „Von Garmin holen"
   unter Einstellungen).
+- **Schlaf**: Dashboard-Kachel „Schlaf letzte Nacht" (Mini-Hypnogramm,
+  Score, Phasen, 7-Tage-Vergleich, 14-Nächte-Verlauf) und Detailansicht
+  `/schlaf/<datum>` mit Hypnogramm, Phasenverteilung (Richtwerte, 30-Tage-
+  Mittel), Herzfrequenz, SpO2 (Schwellen 90/92 %), Atemfrequenz inkl. je
+  Schlafphase, HRV gegen das persönliche Band, Stress, Body Battery, Bewegung
+  und Unruhe, Vergleichskarten 7/30 Tage, regelbasierter Analyse mit
+  Empfehlungen für Training und EP sowie Datenqualität. Alle Zeit-Charts
+  teilen eine Zeitachse (synchronisierter Hover). Fehlende Daten stehen
+  ausdrücklich als „nicht verfügbar" da.
 - **Muskel-Template**: Gym-Einheiten ohne verwertbare Übungsdetails kann man
   manuell ein Template zuweisen (Push/Pull/Beine/Ganzkörper/Core); die
   Zuweisung überschreibt die Ableitung und übersteht den Resync.
@@ -613,3 +623,29 @@ Suspense-Grenze mit Skeleton, damit das Dashboard nicht wartet. Ohne Daten:
 eingeordnet. Phasenfarben: neue Tokens `--schlaf-tief/-leicht/-rem/-wach`
 (dunkel und hell) in `app/globals.css`, Blau-Familie, getrennt vom Akzent
 `--primary`, vom EP-Token und von den Ampelfarben.
+
+## Schlaf-Detailansicht (`/schlaf/<datum>`)
+
+Datum = Aufwachdatum. Navigation: vorherige/nächste Nacht (Pfeile, ≥ 44 px)
+und Datumsauswahl; die Zukunft ist gesperrt. Die Seite lädt die Daten
+clientseitig über `GET /api/schlaf/<datum>`; jede Karte hat ihr eigenes
+Skeleton und ihren eigenen Leerzustand. Reihenfolge: Kopf (Bettzeit, Dauer,
+Effizienz, Garmin-Score mit Ampel, Regel-Bewertung, Fazit) · Hypnogramm
+(Stufen, Tief unten, Wach oben markiert) · Phasenverteilung (Minuten, %,
+Richtwert, Ø 30 Tage) · Herzfrequenz (Min/Max markiert, Phasenhintergrund) ·
+SpO2 (Linien bei 92/90 %, Minimum, Zeit unter den Schwellen, Warnhinweis) ·
+Atemfrequenz (Verlauf mit Phasenhintergrund, Balken je Schlafphase) · HRV
+(Band laut Garmin) · Stress · Body Battery · Bewegung und unruhige Momente ·
+Vergleich 7/30 Tage · Analyse (Zusammenfassung, Auffälligkeiten, „Was das für
+Training und EP bedeutet", Regel-Bewertung) · Datenqualität · Hinweis
+„Uhr-Schätzungen, keine medizinische Messung".
+
+Alle Zeit-Charts liegen auf demselben Minutenraster über die Bettzeit
+(`lib/engine/schlaf-raster.ts`, getestet) und teilen `syncId="schlaf"`.
+Echte Lücken werden nicht überbrückt (Segmente statt Interpolation). Geprüft
+mit Playwright auf 390 px Breite in Dunkel- und Hellmodus (kein horizontales
+Scrollen), mit echten Nächten mit und ohne SpO2 und mit einem Datum ohne Daten.
+
+Hinweis zum Hellmodus: Die App ist Dark-first; `.light` existiert als
+Token-Override in `app/globals.css`, einen Umschalter gibt es nicht. Geprüft
+wurde der Hellmodus durch Setzen der Klasse `light` auf `<html>`.
