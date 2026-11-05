@@ -3,19 +3,23 @@ import { z } from "zod";
 import { bridgeFetch, BridgeError } from "@/lib/garmin/bridge";
 import { recomputeAll } from "@/lib/server/compute";
 import { passePlanAn } from "@/lib/server/plan-service";
+import { bereiteSchlafAuf } from "@/lib/server/sleep-service";
 import { parseBody, requireSession } from "@/lib/api";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 export const maxDuration = 60;
 
 const SyncSchema = z.object({
-  typ: z.enum(["activities", "health", "zonen", "finalize"]),
+  typ: z.enum(["activities", "health", "schlaf", "zonen", "finalize"]),
 });
 
 /**
  * POST /api/sync — führt einen Sync-Chunk aus (Proxy auf die Python-Bridge).
- * Body: { typ: "activities" | "health" | "zonen" | "finalize" }
- * "finalize" stösst die Neuberechnung aller abgeleiteten Daten an.
+ * Body: { typ: "activities" | "health" | "schlaf" | "zonen" | "finalize" }
+ * "schlaf" = ein Chunk Schlaf-Backfill (Antwort mit fortschritt {erledigt, gesamt}).
+ * Nach "health"/"schlaf" werden die gemeldeten Nächte direkt aufbereitet
+ * (Epochen + Zeitreihen). "finalize" stösst die Neuberechnung aller
+ * abgeleiteten Daten an.
  */
 export async function POST(req: Request) {
   const nichtAuth = await requireSession();
@@ -42,11 +46,20 @@ export async function POST(req: Request) {
   }
 
   try {
-    const result = await bridgeFetch("/api/bridge/sync", {
+    const result = await bridgeFetch<{ schlafDaten?: unknown }>("/api/bridge/sync", {
       method: "POST",
       body: { typ },
     });
-    return NextResponse.json(result);
+    let schlafAufbereitet = 0;
+    const daten = Array.isArray(result.schlafDaten)
+      ? result.schlafDaten.filter((d): d is string => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d))
+      : [];
+    if (daten.length) {
+      // Fehler hier dürfen den Sync nicht abbrechen; Reste holt recomputeAll()
+      const r = await bereiteSchlafAuf(daten, daten.length).catch(() => null);
+      schlafAufbereitet = r?.aufbereitet ?? 0;
+    }
+    return NextResponse.json({ ...result, schlafAufbereitet });
   } catch (e) {
     if (e instanceof BridgeError) {
       return NextResponse.json(

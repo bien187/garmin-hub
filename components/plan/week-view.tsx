@@ -10,6 +10,7 @@ import {
   Info,
   RefreshCw,
   Send,
+  Trophy,
   Watch,
   X,
 } from "lucide-react";
@@ -18,8 +19,11 @@ import { Switch } from "@/components/ui/switch";
 import { SheetShell } from "@/components/ui/sheet-confirm";
 import { useToast } from "@/components/ui/toast";
 import { Metronome } from "./metronome";
-import { addTage, formatDatum, heuteIso, montagVon } from "@/lib/format";
+import { EpCheckliste } from "./ep-checkliste";
+import { addTage, formatDatum, formatDatumLang, heuteIso, montagVon } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { taperRegelFuerTag } from "@/lib/engine/taper";
+import { istEpTag, REGENERATION_BIS, TAPER_START } from "@/lib/ep/konstanten";
 
 interface PlanEinheit {
   id: string;
@@ -36,7 +40,8 @@ interface PlanEinheit {
 
 /** Kann diese Einheit überhaupt als Garmin-Workout übertragen werden? */
 function istPushbar(e: PlanEinheit): boolean {
-  return e.struktur != null && e.typ !== "ruhe" && e.typ !== "gtg";
+  // EP-Tage gehen nie an die Uhr (serverseitig ebenfalls abgelehnt)
+  return e.struktur != null && e.typ !== "ruhe" && e.typ !== "gtg" && e.typ !== "ep";
 }
 
 /** Ein automatischer Eingriff der laufenden Plan-Anpassung */
@@ -72,7 +77,29 @@ const TYP_FARBEN: Record<string, string> = {
   rumpf: "border-l-status-yellow",
   gtg: "border-l-muted-foreground",
   ruhe: "border-l-muted",
+  ep: "border-l-ep",
 };
+
+/** Erledigt/Zurücksetzen für einen Plan-Eintrag (aufgeklappte Ansicht und EP-Sheet) */
+function StatusKnopf({
+  status,
+  onSetze,
+  className,
+}: {
+  status: string;
+  onSetze: (status: "absolviert" | "geplant") => void;
+  className?: string;
+}) {
+  return status !== "absolviert" ? (
+    <Button size="sm" variant="ghost" className={className} onClick={() => onSetze("absolviert")}>
+      <Check className="size-4" /> Erledigt
+    </Button>
+  ) : (
+    <Button size="sm" variant="ghost" className={className} onClick={() => onSetze("geplant")}>
+      Zurücksetzen
+    </Button>
+  );
+}
 
 export function WeekView() {
   const toast = useToast();
@@ -85,6 +112,9 @@ export function WeekView() {
   const [pushProgress, setPushProgress] = useState<{ done: number; total: number } | null>(null);
   const [fehlgeschlagen, setFehlgeschlagen] = useState<string[]>([]);
   const [anpassungenWeg, setAnpassungenWeg] = useState(false);
+  /** EP-Eintrag für das Checklisten-Sheet (bleibt beim Schliessen für die Animation stehen) */
+  const [epEintrag, setEpEintrag] = useState<PlanEinheit | null>(null);
+  const [epOffen, setEpOffen] = useState(false);
 
   const lade = useCallback(async () => {
     const res = await fetch(`/api/plan?woche=${woche}`);
@@ -234,6 +264,9 @@ export function WeekView() {
           {daten && (
             <div className="text-[10px] font-medium uppercase tracking-[0.06em] text-primary">
               Phase {daten.phase.nr}: {daten.phase.name}
+              {daten.phase.nr === 3 && TAPER_START > woche && TAPER_START <= addTage(woche, 6) && (
+                <> · Taper ab {formatDatum(TAPER_START)}</>
+              )}
             </div>
           )}
         </div>
@@ -249,10 +282,12 @@ export function WeekView() {
           {WOCHENTAGE.map((tag, i) => {
             const datum = addTage(woche, i);
             const gym = [0, 3, 6].includes(i);
+            const ep = istEpTag(datum);
             const frei = !daten.nichtVerfuegbar.includes(datum);
             return <div key={datum} className="flex min-h-11 items-center justify-between gap-3 text-sm">
               <span>{tag} · {formatDatum(datum)}</span>
-              {gym ? <span className="text-xs text-muted-foreground">Gymtag · fix</span> :
+              {ep ? <span className="text-xs font-medium text-ep">EP · fix</span> :
+                gym ? <span className="text-xs text-muted-foreground">Gymtag · fix</span> :
                 <label className="flex min-h-11 items-center gap-2 text-xs">
                   {frei ? 'Training möglich' : 'Keine Zeit'}
                   <Switch aria-label={tag + ' ' + formatDatum(datum) + ': Training möglich'} checked={frei} disabled={laedt || pushProgress != null || datum < heute} onCheckedChange={v => verfuegbarkeit(datum, v)} />
@@ -319,6 +354,12 @@ export function WeekView() {
             <div key={i} className="h-16 animate-pulse rounded-xl bg-muted" />
           ))}
         </div>
+      ) : daten.einheiten.length === 0 && woche > REGENERATION_BIS ? (
+        <div className="rounded-xl border border-dashed border-border py-10 text-center">
+          <p className="text-sm text-muted-foreground">
+            Kein Trainingsplan nach der EP, bis neue Ziele gesetzt sind.
+          </p>
+        </div>
       ) : daten.einheiten.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border py-10 text-center">
           <p className="mb-3 text-sm text-muted-foreground">
@@ -370,37 +411,59 @@ export function WeekView() {
               const datum = addTage(woche, i);
               const einheiten = daten.einheiten.filter((e) => e.datum === datum);
               if (einheiten.length === 0) return null;
+              // Taper-Begründung pro Tag: reine Funktion, kein DB-Feld nötig
+              const regel = taperRegelFuerTag(datum);
+              const epTag = istEpTag(datum);
               return (
                 <div key={datum}>
                   <div
                     className={cn(
                       "mb-1 flex items-baseline gap-2 text-xs",
-                      datum === heute ? "text-primary" : "text-muted-foreground"
+                      epTag ? "text-ep" : datum === heute ? "text-primary" : "text-muted-foreground"
                     )}
                   >
                     <span className="stat-display text-sm">{WOCHENTAGE[i]}</span>
                     {formatDatum(datum)}
                     {datum === heute && <span className="font-medium">· heute</span>}
                   </div>
+                  {regel && (
+                    <p className="mb-1.5 text-[11px] leading-snug text-dim-foreground">
+                      <span className={cn("font-medium", epTag ? "text-ep" : "text-muted-foreground")}>
+                        {regel.label}:
+                      </span>{" "}
+                      {regel.begruendung}
+                    </p>
+                  )}
                   <div className="space-y-1.5">
                     {einheiten.map((e) => {
                       const istOffen = offen === e.id;
-                      const kannPushen =
-                        e.struktur != null && e.typ !== "ruhe" && e.typ !== "gtg";
+                      const kannPushen = istPushbar(e);
+                      const istEp = e.typ === "ep";
                       return (
                         <div
                           key={e.id}
                           className={cn(
                             "rounded-xl border border-border border-l-4 bg-card",
                             TYP_FARBEN[e.typ] ?? "border-l-muted",
+                            istEp && "bg-ep/10",
                             e.status === "absolviert" && "opacity-60"
                           )}
                         >
+                          {/* EP-Einträge öffnen die Checkliste im Sheet statt aufzuklappen */}
                           <button
                             className="flex w-full items-center gap-2.5 p-3 text-left"
-                            onClick={() => setOffen(istOffen ? null : e.id)}
+                            aria-haspopup={istEp ? "dialog" : undefined}
+                            aria-expanded={istEp ? undefined : istOffen}
+                            onClick={() => {
+                              if (istEp) {
+                                setEpEintrag(e);
+                                setEpOffen(true);
+                              } else setOffen(istOffen ? null : e.id);
+                            }}
                           >
-                            {e.status === "absolviert" ? (
+                            {istEp ? (
+                              <Trophy className="size-4 shrink-0 text-ep" aria-label="EP-Tag" />
+                            ) : e.status === "absolviert" ? (
                               <Check className="size-4 shrink-0 text-status-green" />
                             ) : e.status === "verpasst" ? (
                               <X className="size-4 shrink-0 text-status-red" />
@@ -417,12 +480,16 @@ export function WeekView() {
                             >
                               {e.titel}
                             </span>
-                            {e.erwarteterTrimp != null && (
+                            {e.erwarteterTrimp != null && !istEp && (
                               <span className="stat-mono text-[10px] text-muted-foreground">
                                 ~{e.erwarteterTrimp} TRIMP
                               </span>
                             )}
+                            {istEp && (
+                              <span className="text-[11px] font-medium text-ep">Checkliste</span>
+                            )}
                           </button>
+                          {!istEp && (
                           <div
                             className="grid transition-[grid-template-rows]"
                             style={{
@@ -476,27 +543,15 @@ export function WeekView() {
                                     <X className="size-4" /> Von der Uhr entfernen
                                   </Button>
                                 )}
-                                {e.status !== "absolviert" ? (
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => setzeStatus(e.id, "absolviert")}
-                                  >
-                                    <Check className="size-4" /> Erledigt
-                                  </Button>
-                                ) : (
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => setzeStatus(e.id, "geplant")}
-                                  >
-                                    Zurücksetzen
-                                  </Button>
-                                )}
+                                <StatusKnopf
+                                  status={e.status}
+                                  onSetze={(st) => setzeStatus(e.id, st)}
+                                />
                               </div>
                             </div>
                            </div>
                           </div>
+                          )}
                         </div>
                       );
                     })}
@@ -513,6 +568,51 @@ export function WeekView() {
           </div>
         </>
       )}
+
+      {/* EP-Tag: Checkliste statt der normalen Eintragsansicht */}
+      <SheetShell open={epOffen} onClose={() => setEpOffen(false)} labelledBy="ep-sheet-titel">
+        {epEintrag && (
+          <div className="flex max-h-[85dvh] flex-col">
+            <div className="flex items-start gap-3 px-5 pb-3 pt-1.5">
+              <Trophy className="mt-0.5 size-5 shrink-0 text-ep" />
+              <div className="min-w-0 flex-1">
+                <h2 id="ep-sheet-titel" className="text-base font-semibold">
+                  {epEintrag.titel}
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  {formatDatumLang(epEintrag.datum)} · Checkliste
+                </p>
+              </div>
+              <button
+                onClick={() => setEpOffen(false)}
+                aria-label="Checkliste schliessen"
+                className="-mr-2 -mt-1 flex size-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-3">
+              {epEintrag.beschreibung && (
+                <p className="mb-3 text-sm text-muted-foreground">{epEintrag.beschreibung}</p>
+              )}
+              <EpCheckliste key={epEintrag.datum} datum={epEintrag.datum} />
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3">
+                <p className="min-w-0 flex-1 text-[11px] text-dim-foreground">
+                  Fixer Termin — wird vom Generator nie überschrieben und nicht an die Uhr gesendet.
+                </p>
+                <StatusKnopf
+                  status={epEintrag.status}
+                  className="min-h-11"
+                  onSetze={(st) => {
+                    setzeStatus(epEintrag.id, st);
+                    setEpEintrag({ ...epEintrag, status: st });
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </SheetShell>
 
       {/* Vorschau vor dem Sammel-Senden (Bottom-Sheet) */}
       <SheetShell open={vorschau} onClose={() => setVorschau(false)}>

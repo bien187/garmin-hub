@@ -14,10 +14,14 @@
  *    Ermüdungslage nicht zu verantworten.
  *  - Höchstens eine Anpassung pro Einheit, und einmal angepasste Einheiten
  *    bleiben unangetastet — sonst degradiert jeder Sync die Woche weiter.
+ *  - EP-Einträge (typ „ep") werden nie angefasst.
+ *  - Im Taper (ab 05.11.) bleibt jeder Ersatz innerhalb der Tagesregel:
+ *    ein lockerer Lauf höchstens so lang wie erlaubt, sonst Ruhetag.
  */
 
 import { MuskelId } from "./muscle";
 import { addTage } from "@/lib/format";
+import { istLaufTyp, minutenAusTitel, taperRegelFuerTag } from "./taper";
 
 export interface AnpassungsEinheit {
   id: string;
@@ -69,21 +73,15 @@ export interface Anpassung {
 
 /** Einheiten, die echte Laufbelastung bedeuten */
 const HARTE_LAEUFE = ["intervalle", "huegel_intervalle", "lastlauf", "langer_lauf"];
-const LAUF_TYPEN = [...HARTE_LAEUFE, "lauf_z2", "probe_ep"];
 
 export function istHarterLauf(typ: string): boolean {
   return HARTE_LAEUFE.includes(typ) || typ === "probe_ep";
 }
 
-function istLaufEinheit(typ: string): boolean {
-  return LAUF_TYPEN.includes(typ);
-}
-
-/** Minuten aus dem Titel („Z2-Lauf 50 Min") — für den Ersatztitel */
-function minutenAusTitel(titel: string, standard: number): number {
-  const m = titel.match(/(\d{2,3})\s*min/i);
-  const wert = m ? parseInt(m[1], 10) : NaN;
-  return Number.isFinite(wert) ? Math.min(90, Math.max(20, wert)) : standard;
+/** Minuten aus dem Titel („Z2-Lauf 50 Min"), auf 20–90 geklemmt — für den Ersatztitel */
+function ersatzMinuten(titel: string, standard: number): number {
+  const wert = minutenAusTitel(titel);
+  return wert != null ? Math.min(90, Math.max(20, wert)) : standard;
 }
 
 export function berechneAnpassungen(inp: AnpassungsInput): Anpassung[] {
@@ -111,7 +109,7 @@ export function berechneAnpassungen(inp: AnpassungsInput): Anpassung[] {
     if (e.datum < inp.heute) continue; // Vergangenes bleibt stehen
     if (e.status !== "geplant" && e.status !== "gepusht") continue;
     if (bereits.has(e.id)) continue;
-    if (e.typ === "ruhe" || e.typ === "gtg") continue;
+    if (e.typ === "ruhe" || e.typ === "gtg" || e.typ === "ep") continue;
 
     const vortag = addTage(e.datum, -1);
     const belastungVortag = belastungAm(vortag);
@@ -129,8 +127,15 @@ export function berechneAnpassungen(inp: AnpassungsInput): Anpassung[] {
       bereitsGepusht: gepusht,
     });
 
+    const regel = taperRegelFuerTag(e.datum);
     const zuLocker = (grund: string): Anpassung => {
-      const min = minutenAusTitel(e.titel, 40);
+      // Taper: Ersatz nie über die Tagesregel hinaus (Dauer, erlaubte Typen)
+      if (regel && (!regel.erlaubt.includes("lauf_z2") || regel.maxDauerMin < 20)) {
+        return zuRuhe(grund);
+      }
+      const min = regel
+        ? Math.min(regel.maxDauerMin, ersatzMinuten(e.titel, 30))
+        : ersatzMinuten(e.titel, 40);
       return {
         einheitId: e.id,
         datum: e.datum,
@@ -146,7 +151,7 @@ export function berechneAnpassungen(inp: AnpassungsInput): Anpassung[] {
 
     /* 1. Spontane Einheit am Vortag — der Klassiker: abends spontan
           gelaufen, am nächsten Tag stand schon ein Lauf im Plan. */
-    if (istLaufEinheit(e.typ) && spontanerLaufAm(vortag)) {
+    if (istLaufTyp(e.typ) && spontanerLaufAm(vortag)) {
       if (istHarterLauf(e.typ)) {
         anpassungen.push(
           zuLocker(`Am ${kurz(vortag)} bist du ungeplant gelaufen — zwei harte Tage in Folge wären zu viel.`)

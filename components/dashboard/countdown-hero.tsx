@@ -39,6 +39,7 @@ export function CountdownHero({
   wochen,
   tage,
   vorbei,
+  epTag = null,
   phaseNr,
   phaseName,
   epDatumLang,
@@ -46,6 +47,8 @@ export function CountdownHero({
   wochen: number;
   tage: number;
   vorbei: boolean;
+  /** 1 bzw. 2 an den EP-Tagen */
+  epTag?: 1 | 2 | null;
   phaseNr: number;
   phaseName: string;
   epDatumLang: string;
@@ -60,6 +63,8 @@ export function CountdownHero({
       </div>
       {vorbei ? (
         <div className="stat-display text-[34px] leading-none">EP absolviert</div>
+      ) : epTag ? (
+        <div className="stat-display text-[34px] leading-none">EP – Tag {epTag}</div>
       ) : (
         <div className="stat-display text-[34px] leading-none tabular-nums">
           {w}

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { berechneNote, bewerteEp, wertFuerNote } from "../disziplinen";
 import { berechneEpPrognose } from "../prognose";
-import { aktuellePhase, epCountdown } from "../phasen";
+import { aktuellePhase, berechnePhasen, epCountdown, restwochen } from "../phasen";
+import { EP_DATUM, EP_TAG_2, TAPER_START } from "../konstanten";
 
 describe("Notentabellen (berechneNote)", () => {
   it("Lastlauf: Stützpunkte exakt", () => {
@@ -155,17 +156,45 @@ describe("berechneEpPrognose", () => {
 
 describe("Phasen & Countdown", () => {
   it("16. Juli 2026 liegt in Phase 1", () => {
-    expect(aktuellePhase("2026-07-16", "2026-11-14").nr).toBe(1);
+    expect(aktuellePhase("2026-07-16").nr).toBe(1);
   });
   it("Mitte August in Phase 2, Oktober in Phase 3, EP-Woche im Taper", () => {
-    expect(aktuellePhase("2026-08-15", "2026-11-14").nr).toBe(2);
-    expect(aktuellePhase("2026-10-10", "2026-11-14").nr).toBe(3);
-    expect(aktuellePhase("2026-11-10", "2026-11-14").nr).toBe(4);
+    expect(aktuellePhase("2026-08-15").nr).toBe(2);
+    expect(aktuellePhase("2026-10-10").nr).toBe(3);
+    expect(aktuellePhase("2026-11-10").nr).toBe(4);
   });
-  it("Countdown rechnet Wochen+Tage", () => {
-    const c = epCountdown("2026-07-16", "2026-11-14");
-    expect(c.gesamtTage).toBe(121);
+  it("Phasengrenze: Spezifisch bis 04.11., Taper ab 05.11. bis EP Tag 2", () => {
+    expect(aktuellePhase("2026-11-04").nr).toBe(3);
+    expect(aktuellePhase("2026-11-05").nr).toBe(4);
+    const phasen = berechnePhasen();
+    expect(phasen[2].bis).toBe("2026-11-04");
+    expect(phasen[3].von).toBe(TAPER_START);
+    expect(phasen[3].bis).toBe(EP_TAG_2);
+    expect(aktuellePhase(EP_DATUM).nr).toBe(4);
+    expect(aktuellePhase(EP_TAG_2).nr).toBe(4);
+  });
+  it("nach der EP stürzt nichts ab: Phase 4 bleibt, Countdown meldet vorbei", () => {
+    expect(aktuellePhase("2026-12-15").nr).toBe(4);
+    expect(epCountdown("2026-11-20").vorbei).toBe(true);
+  });
+  it("Countdown rechnet Wochen+Tage bis Tag 1 der EP", () => {
+    const c = epCountdown("2026-07-16");
+    expect(c.gesamtTage).toBe(125);
     expect(c.wochen).toBe(17);
-    expect(c.tage).toBe(2);
+    expect(c.tage).toBe(6);
+  });
+  it("Countdown 04.11. → 18.11. = 14 Tage = 2 Wochen 0 Tage", () => {
+    const c = epCountdown("2026-11-04");
+    expect(c).toEqual({ wochen: 2, tage: 0, gesamtTage: 14, vorbei: false, epTag: null });
+    expect(epCountdown(EP_DATUM)).toEqual({ wochen: 0, tage: 0, gesamtTage: 0, vorbei: false, epTag: 1 });
+  });
+  it("am EP-Tag 2 läuft die EP noch: nicht vorbei, epTag 2", () => {
+    expect(epCountdown(EP_TAG_2)).toEqual({ wochen: 0, tage: 0, gesamtTage: 0, vorbei: false, epTag: 2 });
+  });
+  it("EP-Konstanten sind fix", () => {
+    expect(EP_DATUM).toBe("2026-11-18");
+    expect(EP_TAG_2).toBe("2026-11-19");
+    expect(TAPER_START).toBe("2026-11-05");
+    expect(restwochen("2026-11-04")).toBe(2);
   });
 });

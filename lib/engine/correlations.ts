@@ -1,5 +1,6 @@
 /**
- * Korrelations-Insights: Pearson-r über Metrik-Paare der letzten 60–90 Tage.
+ * Korrelations-Insights: Pearson-r über Metrik-Paare der gesamten Historie
+ * seit Trainingsstart (Tagesreihe aus app/api/insights/route.ts).
  * Nur |r| ≥ 0.3 und n ≥ 15 werden angezeigt; klar als Korrelation gelabelt.
  */
 

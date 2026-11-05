@@ -5,6 +5,7 @@ import { berechneEpPrognose, EpPrognose } from "@/lib/ep/prognose";
 import { DisziplinId } from "@/lib/ep/disziplinen";
 import { lastlaufPrognose } from "@/lib/engine/paces";
 import { heuteIso } from "@/lib/format";
+import { EP_DATUM } from "@/lib/ep/konstanten";
 
 export interface LaufModell {
   fuenfKmS: number | null;
@@ -52,7 +53,7 @@ export async function ladeEpPrognose(): Promise<{
       wert: b.wert,
     })),
     heuteIso(),
-    profil.epDatum,
+    EP_DATUM,
     lastlaufModellSekunden(laufModell, profil)
   );
   return { prognose, profil, laufModell };

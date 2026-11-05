@@ -23,6 +23,7 @@ import {
   restErschoepfung,
 } from "@/lib/engine/muscle";
 import { addTage, heuteIso, isoDatum, tageDiff } from "@/lib/format";
+import { bereiteSchlafAuf } from "./sleep-service";
 
 const LAUF_TYPEN = ["running", "trail_running", "street_running", "track_running", "treadmill_running"];
 const KRAFT_TYPEN = ["strength_training", "indoor_cardio", "fitness_equipment"];
@@ -50,6 +51,10 @@ function istLastlaufAktivitaet(name: string | null): boolean {
  */
 export async function recomputeAll(): Promise<void> {
   const db = getDb();
+
+  /* ---- Schlaf: noch nicht aufbereitete Nächte (begrenzt wegen 60 s) ---- */
+  await bereiteSchlafAuf(undefined, 30).catch(() => {});
+
   const profil = await ladeProfil();
 
   const alleAktivitaeten = await db
@@ -165,15 +170,18 @@ export async function recomputeAll(): Promise<void> {
      Referenz ist die Mitte von Zone 2 — der Bereich, in dem die aerobe
      Grundlage tatsächlich gebaut wird. Ändert sich die Referenz (z.B.
      weil erstmals Garmin-Zonen da sind), wird die Historie einmalig neu
-     gerechnet, sonst nur das laufende Fenster. */
+     gerechnet, sonst nur das laufende Fenster. Bei einem Wechsel werden
+     vorher alle gespeicherten Pace-Werte verworfen — sonst hielte der
+     COALESCE-Upsert Tage vor dem 400-Tage-Fenster mit dem alten
+     Referenzpuls fest und die Kurve mischte zwei Referenzen. */
   const refHr = zonenMitte(aktiveZonen(profil, garminZonen, "running").z2);
   const refHrAlt = await ladeRefHr();
+  const refHrGewechselt = refHrAlt !== refHr;
   const paceProTag = await berechnePaceBeiRefHr(
     alleAktivitaeten,
     refHr,
-    refHrAlt === refHr ? 120 : 400
+    refHrGewechselt ? 400 : 120
   );
-  await speichereRefHr(refHr);
 
   /* ---- Lückenlose Tagesserie + Fitness ---- */
   const daten = [...proTag.keys()].sort();
@@ -205,6 +213,12 @@ export async function recomputeAll(): Promise<void> {
     };
   });
 
+  if (refHrGewechselt) {
+    await db
+      .update(tables.computedDaily)
+      .set({ paceRefHrSKm: null, paceRefHrSekunden: null });
+  }
+
   // Upsert in Batches
   for (let i = 0; i < computedRows.length; i += 500) {
     const batch = computedRows.slice(i, i + 500);
@@ -229,6 +243,9 @@ export async function recomputeAll(): Promise<void> {
         },
       });
   }
+
+  // Erst nach dem Upsert: scheitert er, wird beim nächsten Lauf erneut voll gerechnet
+  await speichereRefHr(refHr);
 
   /* ---- Muskel-Erschöpfung: Ereignisse + Materialisierung 60 Tage ---- */
   const ereignisse: LastEreignis[] = [];
@@ -534,7 +551,8 @@ export async function matcheGeplanteEinheiten(): Promise<void> {
   const laufPlanTypen = ["lauf_z2", "intervalle", "huegel_intervalle", "langer_lauf", "lastlauf", "probe_ep"];
 
   for (const p of offene) {
-    if (p.typ === "ruhe" || p.typ === "gtg") continue;
+    // EP-Tage werden nicht automatisch abgehakt oder als verpasst markiert
+    if (p.typ === "ruhe" || p.typ === "gtg" || p.typ === "ep") continue;
     const kandidaten = aktivitaeten.filter((a) => {
       if (isoDatum(new Date(a.startZeit)) !== p.datum) return false;
       const brauchtLauf = laufPlanTypen.includes(p.typ);

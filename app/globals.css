@@ -44,6 +44,11 @@
   --color-status-yellow: var(--status-yellow);
   --color-status-orange: var(--status-orange);
   --color-status-red: var(--status-red);
+  --color-ep: var(--ep);
+  --color-schlaf-tief: var(--schlaf-tief);
+  --color-schlaf-leicht: var(--schlaf-leicht);
+  --color-schlaf-rem: var(--schlaf-rem);
+  --color-schlaf-wach: var(--schlaf-wach);
   --color-dim-foreground: var(--dim-foreground);
   /* Exakt zwei Radien: 8px (Buttons/Segmente/Inputs/Minimaps) · 12px (Karten/
      Dialoge/Toasts). Vollrund nur für Badges/Pills. */
@@ -90,6 +95,14 @@
   --status-green: oklch(0.78 0.17 152);
   --status-yellow: oklch(0.85 0.14 95);
   --status-orange: oklch(0.75 0.15 60);
+  /* EP-Tage im Plan: eigener Akzent, klar getrennt von Status-Farben */
+  --ep: oklch(0.72 0.17 310);
+  /* Schlafphasen (Datenfarben, keine Status-/Akzentfarben): Blau-Familie,
+     dunkel = tief, hell/neutral = wach */
+  --schlaf-tief: oklch(0.5 0.17 268);
+  --schlaf-leicht: oklch(0.7 0.11 245);
+  --schlaf-rem: oklch(0.74 0.13 292);
+  --schlaf-wach: oklch(0.86 0.02 240);
   --ring: oklch(0.83 0.13 180 / 60%);
   --chart-1: oklch(0.83 0.13 180);
   --chart-2: oklch(0.68 0.1 250);
@@ -145,6 +158,11 @@
   --status-green: oklch(0.62 0.17 152);
   --status-yellow: oklch(0.7 0.14 95);
   --status-orange: oklch(0.65 0.15 60);
+  --ep: oklch(0.52 0.2 310);
+  --schlaf-tief: oklch(0.4 0.17 268);
+  --schlaf-leicht: oklch(0.62 0.12 245);
+  --schlaf-rem: oklch(0.58 0.16 295);
+  --schlaf-wach: oklch(0.78 0.02 240);
   --ring: oklch(0.6 0.12 180 / 60%);
   --sidebar: var(--background);
   --sidebar-foreground: oklch(0.2 0.015 252);

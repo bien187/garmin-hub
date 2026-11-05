@@ -11,7 +11,12 @@ export async function ladeProfil(): Promise<Profil> {
     .select()
     .from(tables.appSettings)
     .where(eq(tables.appSettings.key, "profil"));
-  const gespeichert = (rows[0]?.value ?? {}) as Partial<Profil>;
+  // Ein früher gespeichertes `epDatum` wird bewusst verworfen: der
+  // EP-Termin ist fix (lib/ep/konstanten.ts) und nicht mehr Teil des Profils.
+  const { epDatum: _veraltet, ...gespeichert } = (rows[0]?.value ?? {}) as Partial<Profil> & {
+    epDatum?: unknown;
+  };
+  void _veraltet;
   return { ...PROFIL_DEFAULTS, ...gespeichert };
 }
 

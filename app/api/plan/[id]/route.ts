@@ -2,10 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb, tables } from "@/lib/db";
 import { requireSession } from "@/lib/api";
+import { istFixerEpEintrag } from "@/lib/server/plan-sync";
 
 /**
  * PATCH /api/plan/[id] — Status ändern (absolviert/verpasst/geplant) und/oder
- * das Garmin-Sync-Flag pro Einheit umschalten.
+ * das Garmin-Sync-Flag pro Einheit umschalten. Typ, Titel und Datum sind
+ * hier nicht änderbar. EP-Einträge: nur der Status (absolviert/geplant),
+ * nie „gepusht" und nie an Garmin.
  */
 export async function PATCH(
   req: NextRequest,
@@ -32,6 +35,29 @@ export async function PATCH(
   }
 
   const db = getDb();
+  const [einheit] = await db
+    .select({ typ: tables.plannedWorkouts.typ })
+    .from(tables.plannedWorkouts)
+    .where(eq(tables.plannedWorkouts.id, id));
+  if (!einheit) {
+    return NextResponse.json({ error: "Einheit nicht gefunden" }, { status: 404 });
+  }
+  if (istFixerEpEintrag(einheit)) {
+    if (body?.typ !== undefined && body.typ !== "ep") {
+      return NextResponse.json(
+        { error: "EP-Tage sind fix und lassen sich nicht in eine andere Einheit umwandeln." },
+        { status: 409 }
+      );
+    }
+    if (patch.syncToGarmin === true || patch.status === "gepusht") {
+      return NextResponse.json(
+        { error: "EP-Tage werden nicht an die Uhr gesendet." },
+        { status: 409 }
+      );
+    }
+    patch.syncToGarmin = false;
+  }
+
   await db
     .update(tables.plannedWorkouts)
     .set(patch)
@@ -48,6 +74,16 @@ export async function DELETE(
 
   const { id } = await ctx.params;
   const db = getDb();
+  const [einheit] = await db
+    .select({ typ: tables.plannedWorkouts.typ })
+    .from(tables.plannedWorkouts)
+    .where(eq(tables.plannedWorkouts.id, id));
+  if (einheit && istFixerEpEintrag(einheit)) {
+    return NextResponse.json(
+      { error: "EP-Tage sind fix und können nicht gelöscht werden." },
+      { status: 409 }
+    );
+  }
   await db.delete(tables.plannedWorkouts).where(eq(tables.plannedWorkouts.id, id));
   return NextResponse.json({ ok: true });
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { ArrowRight, CalendarRange, TrendingUp, TrendingDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CountdownHero } from "@/components/dashboard/countdown-hero";
@@ -8,10 +9,13 @@ import { EpWidget } from "@/components/dashboard/ep-widget";
 import { SyncButton } from "@/components/dashboard/sync-button";
 import { InsightCards } from "@/components/dashboard/insight-cards";
 import { PaceHrChart } from "@/components/dashboard/pace-hr-chart";
+import { ZeitraumBereich, ZeitraumSpanne, ZeitraumTitel } from "@/components/dashboard/zeitraum-umschalter";
+import { SchlafKachel, SchlafKachelSkeleton } from "@/components/dashboard/schlaf-kachel";
 import { DashboardAktuell } from '@/components/dashboard/dashboard-aktuell';
 import { BodyMap } from "@/components/body/body-map";
 import { ladeDashboard } from "@/lib/server/dashboard-service";
 import { aktuellePhase, epCountdown } from "@/lib/ep/phasen";
+import { EP_DATUM } from "@/lib/ep/konstanten";
 import { formatDatumLang, formatDauer, formatKm, heuteIso } from "@/lib/format";
 import { tsbZone } from "@/lib/engine/fitness";
 
@@ -21,8 +25,8 @@ export const maxDuration = 60;
 export default async function DashboardPage() {
   const d = await ladeDashboard();
   const heute = heuteIso();
-  const countdown = epCountdown(heute, d.profil.epDatum);
-  const phase = aktuellePhase(heute, d.profil.epDatum);
+  const countdown = epCountdown(heute);
+  const phase = aktuellePhase(heute);
 
   const tsbInfo =
     d.tsbHeute == null
@@ -43,9 +47,10 @@ export default async function DashboardPage() {
           wochen={countdown.wochen}
           tage={countdown.tage}
           vorbei={countdown.vorbei}
+          epTag={countdown.epTag}
           phaseNr={phase.nr}
           phaseName={phase.name}
-          epDatumLang={formatDatumLang(d.profil.epDatum)}
+          epDatumLang={formatDatumLang(EP_DATUM)}
         />
         <SyncButton kompakt />
       </div>
@@ -84,11 +89,17 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Fitness-Kurve */}
+        {/* Schlaf letzte Nacht — eigene Suspense-Grenze, blockiert das Dashboard nicht */}
+        <Suspense fallback={<SchlafKachelSkeleton />}>
+          <SchlafKachel heute={heute} />
+        </Suspense>
+
+        {/* Fitness-Kurve — Titel folgt dem Zeitraum-Umschalter im Chart */}
+        <ZeitraumBereich>
         <Card className="lg:col-span-2">
           <CardHeader className="flex-row items-center justify-between pb-2">
             <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-              Fitness · 90 Tage
+              <ZeitraumTitel name="Fitness" />
             </CardTitle>
             {d.tsbHeute != null && (
               <div className="flex items-baseline gap-1.5 text-right">
@@ -115,16 +126,19 @@ export default async function DashboardPage() {
             )}
           </CardContent>
         </Card>
+        </ZeitraumBereich>
 
         {/* Fortschritt: Pace bei gleichem Puls */}
+        <ZeitraumBereich>
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-              Fortschritt · Pace bei gleichem Puls
+              <ZeitraumTitel name="Pace bei gleichem Puls" />
             </CardTitle>
             <p className="text-[10px] text-dim-foreground">
               Median-Pace bei {d.paceFortschritt.refHr ?? "–"} bpm · je Woche ·
-              höhenkorrigiert · bis heute ({formatDatumLang(heute)})
+              höhenkorrigiert · <ZeitraumSpanne start={d.trainingsstart} heute={heute} />{" "}
+              ({formatDatumLang(heute)})
             </p>
           </CardHeader>
           <CardContent>
@@ -142,6 +156,7 @@ export default async function DashboardPage() {
             </p>
           </CardContent>
         </Card>
+        </ZeitraumBereich>
 
         {/* Mini-Body-Map */}
         <Card>
@@ -270,7 +285,7 @@ export default async function DashboardPage() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-            Insights
+            Insights · seit Trainingsstart
           </CardTitle>
         </CardHeader>
         <CardContent>

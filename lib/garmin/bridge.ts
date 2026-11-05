@@ -1,7 +1,7 @@
 import "server-only";
 
 /**
- * Server-seitiger Client für die Python-Garmin-Bridge (/api/bridge/*).
+ * Server-seitiger Client für die Python-Garmin-Bridge (/api/bridge?aktion=…).
  * Authentifiziert sich mit dem Shared Secret INTERNAL_API_KEY.
  */
 
@@ -21,6 +21,17 @@ function bridgeBaseUrl(): string {
   return "http://localhost:3000";
 }
 
+/**
+ * Alle Aktionen laufen über EINE Python-Function (api/bridge/index.py), weil
+ * Vercel Hobby höchstens 12 Serverless Functions pro Deployment erlaubt.
+ * Aufrufer übergeben weiter "/api/bridge/<aktion>"; das wird hier zu
+ * "/api/bridge?aktion=<aktion>".
+ */
+export function bridgePfad(pfad: string): string {
+  const m = /^\/api\/bridge\/([a-z_]+)$/.exec(pfad);
+  return m ? `/api/bridge?aktion=${m[1]}` : pfad;
+}
+
 export async function bridgeFetch<T = Record<string, unknown>>(
   pfad: string,
   init?: { method?: "GET" | "POST"; body?: unknown; timeoutMs?: number }
@@ -31,7 +42,7 @@ export async function bridgeFetch<T = Record<string, unknown>>(
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), init?.timeoutMs ?? 55_000);
   try {
-    const res = await fetch(`${bridgeBaseUrl()}${pfad}`, {
+    const res = await fetch(`${bridgeBaseUrl()}${bridgePfad(pfad)}`, {
       method: init?.method ?? "GET",
       headers: {
         "x-internal-key": key,

@@ -11,6 +11,9 @@
  *  - Klimmzug-Progression Richtung 9–10, GtG nur bei Oberkörper < 40 %
  *  - Rumpf 3×/Woche, Zielzeiten linear Richtung EP-Ziel interpoliert
  *  - ACWR > 1.3 → Umfang deckeln; TSB < −20 → Extra-Ruhetag
+ *  - Ab 05.11. (Taper) gilt pro Tag `taperRegelFuerTag` (lib/engine/taper.ts):
+ *    05.–08.11. wird der normale Plan abgeschwächt, ab 09.11. kommen die
+ *    Einheiten direkt aus der Tagesregel; 18./19.11. sind fixe EP-Einträge.
  */
 
 import { addTage } from "@/lib/format";
@@ -18,6 +21,18 @@ import { EP_DISZIPLINEN } from "@/lib/ep/disziplinen";
 import { TrainingsPaces } from "./paces";
 import { MuskelId } from "./muscle";
 import { WorkoutStruktur } from "@/lib/garmin/workout-types";
+import { EP_DATUM, EP_TAG_2, TAPER_START, istEpTag } from "@/lib/ep/konstanten";
+import {
+  LETZTE_INTENSITAET,
+  LETZTE_BEINEINHEIT,
+  LETZTER_ZIELTEMPO_LAUF,
+  LETZTER_RUMPF_TAG,
+  istLaufTyp,
+  minutenAusTitel,
+  passtZurRegel,
+  taperRegelFuerTag,
+  type TaperRegel,
+} from "./taper";
 
 export interface HrZonenInput {
   z2: { von: number; bis: number };
@@ -53,21 +68,25 @@ export interface PlanInput {
   letztesLastKg: number;
 }
 
+export type PlanTyp =
+  | "lauf_z2"
+  | "intervalle"
+  | "huegel_intervalle"
+  | "langer_lauf"
+  | "lastlauf"
+  | "kraft"
+  | "klimmzuege"
+  | "liegestuetze"
+  | "rumpf"
+  | "gtg"
+  | "probe_ep"
+  | "ruhe"
+  /** fixer EP-Tag (18./19.11.), nie an Garmin, nie vom Generator überschrieben */
+  | "ep";
+
 export interface PlanEinheit {
   datum: string;
-  typ:
-    | "lauf_z2"
-    | "intervalle"
-    | "huegel_intervalle"
-    | "langer_lauf"
-    | "lastlauf"
-    | "kraft"
-    | "klimmzuege"
-    | "liegestuetze"
-    | "rumpf"
-    | "gtg"
-    | "probe_ep"
-    | "ruhe";
+  typ: PlanTyp;
   titel: string;
   beschreibung: string;
   struktur?: WorkoutStruktur;
@@ -197,7 +216,7 @@ function lastlauf(kg: number, stiefel: boolean, distanzM: number): WorkoutStrukt
   };
 }
 
-function rumpfEinheit(seitZielS: number, dorsalZielS: number): WorkoutStruktur {
+function rumpfEinheit(seitZielS: number, dorsalZielS: number, saetze = 3): WorkoutStruktur {
   return {
     name: "Rumpf im Sekundentakt",
     sport: "kraft",
@@ -205,17 +224,17 @@ function rumpfEinheit(seitZielS: number, dorsalZielS: number): WorkoutStruktur {
     uebungen: [
       {
         name: "Seitliche Rumpfkraft (EP-Form)",
-        saetze: 3,
+        saetze,
         dauerS: seitZielS,
         notiz: "Metronom 60 bpm, pro Seite",
       },
       {
         name: "Dorsale Rumpfkette (EP-Form)",
-        saetze: 3,
+        saetze,
         dauerS: dorsalZielS,
         notiz: "Metronom 60 bpm",
       },
-      { name: "Plank-Variationen", saetze: 2, dauerS: 60 },
+      { name: "Plank-Variationen", saetze: Math.max(1, saetze - 1), dauerS: 60 },
     ],
   };
 }
@@ -588,10 +607,433 @@ export function generiereWochenplan(inp: PlanInput): Wochenplan {
     );
   }
 
+  /* ---- Taper ab 05.11.: Tagesregeln gehen dem Wochenskelett vor ---- */
+  const sonntag = tag(6);
+  let ergebnis = einheiten;
+  let ergebnisHinweise = hinweise;
+  if (sonntag >= TAPER_START) {
+    const taper = wendeTaperAn(einheiten, inp.wochenstart, {
+      zonen: inp.zonen,
+      paces: inp.paces,
+      klimmzugMax,
+      liegestuetzZiel,
+      seitZiel,
+      dorsalZiel,
+    });
+    ergebnis = taper.einheiten;
+    // Reine Taper-Wochen: die Hinweise des Wochenskeletts (Umfang, Lastlauf,
+    // Probe-EP …) gelten nicht mehr — nur Readiness und Taper-Hinweise.
+    ergebnisHinweise =
+      inp.wochenstart >= TAPER_START
+        ? [...hinweise.filter((h) => h.startsWith("Training Readiness")), ...taper.hinweise]
+        : [...hinweise, ...taper.hinweise];
+  }
+
   return {
     wochenstart: inp.wochenstart,
     phaseNr: inp.phaseNr,
-    einheiten: einheiten.sort((a, b) => a.datum.localeCompare(b.datum)),
-    hinweise,
+    einheiten: ergebnis.sort((a, b) => a.datum.localeCompare(b.datum)),
+    hinweise: ergebnisHinweise,
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Taper                                                               */
+/* ------------------------------------------------------------------ */
+
+export interface TaperKontext {
+  zonen: HrZonenInput;
+  paces: TrainingsPaces | null;
+  klimmzugMax: number;
+  liegestuetzZiel: number;
+  seitZiel: number;
+  dorsalZiel: number;
+}
+
+const runde5 = (n: number) => Math.round(n / 5) * 5;
+
+function z2Einheit(datum: string, min: number, zonen: HrZonenInput, titel: string, beschreibung: string): PlanEinheit {
+  return {
+    datum,
+    typ: "lauf_z2",
+    titel,
+    beschreibung,
+    struktur: z2Lauf(min, zonen, titel),
+    erwarteterTrimp: Math.round(min * 1.05),
+  };
+}
+
+/** Kraft-Struktur mit reduzierten Sätzen (mind. 1 Satz pro Übung) */
+function skaliereSaetze(struktur: WorkoutStruktur | undefined, faktor: number): WorkoutStruktur | undefined {
+  if (!struktur?.uebungen) return struktur;
+  return {
+    ...struktur,
+    uebungen: struktur.uebungen.map((u) => ({ ...u, saetze: Math.max(1, Math.round(u.saetze * faktor)) })),
+  };
+}
+
+function epEintrag(datum: string): PlanEinheit {
+  const tag1 = datum === EP_DATUM;
+  return {
+    datum,
+    typ: "ep",
+    titel: tag1 ? "EP – Tag 1" : "EP – Tag 2",
+    beschreibung: tag1
+      ? "Eignungsprüfung, Tag 1. Kein Training vor der Prüfung. Wird nicht an die Uhr gesendet."
+      : "Eignungsprüfung, Tag 2. Kein zusätzliches Training. Wird nicht an die Uhr gesendet.",
+  };
+}
+
+function letzteIntensitaet(datum: string, ctx: TaperKontext): PlanEinheit {
+  return {
+    datum,
+    typ: "intervalle",
+    titel: "Letzte Intensität: 5×2 Min Z5 (45 Min)",
+    beschreibung:
+      "Letzte Intensitätseinheit vor der EP: 5 × 2 Min zügig, 2 Min Trab-Pause. Kurz und knackig, danach nur noch Frische sammeln.",
+    struktur: intervalle(5, 120, 120, ctx.zonen, ctx.paces, "Letzte Intensität 5×2 Min"),
+    erwarteterTrimp: 60,
+  };
+}
+
+/** 05.–08.11.: normale Einheit nach der Tagesregel abschwächen (oder streichen) */
+function schwaecheAb(e: PlanEinheit, regel: TaperRegel, ctx: TaperKontext): PlanEinheit | null {
+  const hinweis = regel.label.startsWith("Taper") ? ` ${regel.label}.` : ` Taper: ${regel.label}.`;
+  let neu: PlanEinheit | null = e;
+  switch (e.typ) {
+    case "ep":
+      return null;
+    case "lastlauf":
+    case "probe_ep":
+    case "langer_lauf": {
+      if (e.datum === LETZTE_INTENSITAET && regel.maxIntensitaet === "z5") {
+        neu = letzteIntensitaet(e.datum, ctx);
+      } else {
+        const basis = e.typ === "langer_lauf" ? (minutenAusTitel(e.titel) ?? 60) : 50;
+        const min = Math.min(regel.maxDauerMin, Math.max(20, runde5(basis * regel.umfangFaktor)));
+        neu = z2Einheit(
+          e.datum,
+          min,
+          ctx.zonen,
+          `Z2-Lauf ${min} Min`,
+          `Statt «${e.titel}»: locker in Z2.` + hinweis
+        );
+      }
+      break;
+    }
+    case "intervalle":
+    case "huegel_intervalle": {
+      if (regel.maxIntensitaet === "z5") {
+        neu =
+          e.datum === LETZTE_INTENSITAET
+            ? letzteIntensitaet(e.datum, ctx)
+            : {
+                datum: e.datum,
+                typ: "intervalle",
+                titel: "Taper: Kurze Spitzen 4×60 s",
+                beschreibung: "4 × 60 s zügig, 2 Min Trab — Frische halten, keine Ermüdung aufbauen." + hinweis,
+                struktur: intervalle(4, 60, 120, ctx.zonen, ctx.paces, "Taper-Intervalle 4×60 s"),
+                erwarteterTrimp: 45,
+              };
+      } else {
+        const min = Math.min(regel.maxDauerMin, 30);
+        neu = z2Einheit(e.datum, min, ctx.zonen, `Z2-Lauf ${min} Min`, `Statt «${e.titel}»: locker in Z2.` + hinweis);
+      }
+      break;
+    }
+    case "lauf_z2": {
+      const vorher = minutenAusTitel(e.titel) ?? 30;
+      const min = Math.min(regel.maxDauerMin, Math.max(20, runde5(vorher * regel.umfangFaktor)));
+      neu = z2Einheit(
+        e.datum,
+        min,
+        ctx.zonen,
+        `Z2-Lauf ${min} Min`,
+        `Locker in Z2 (${ctx.zonen.z2.von}–${ctx.zonen.z2.bis} bpm).` + hinweis
+      );
+      break;
+    }
+    case "kraft":
+    case "klimmzuege":
+    case "liegestuetze":
+    case "rumpf": {
+      const beine =
+        e.typ === "kraft" && /ganzkörper/i.test(e.titel)
+          ? " Beine nur leicht — die letzte schwere Beineinheit folgt am Mo 09.11."
+          : "";
+      const struktur = skaliereSaetze(e.struktur, regel.umfangFaktor);
+      const beschreibung =
+        e.typ === "klimmzuege"
+          ? `Klimmzüge: ${struktur?.uebungen?.[0]?.saetze ?? 3} Sätze statt 5 (aktuell max ${ctx.klimmzugMax}) — nichts steigern, Zusatzgewicht nicht erhöhen.${hinweis}`
+          : `${e.beschreibung} Taper: Sätze ca. −40 %, nichts steigern.${beine}`;
+      neu = {
+        ...e,
+        beschreibung,
+        struktur,
+        erwarteterTrimp:
+          e.erwarteterTrimp != null ? Math.round(e.erwarteterTrimp * regel.umfangFaktor) : e.erwarteterTrimp,
+      };
+      break;
+    }
+    default:
+      break;
+  }
+  return neu && passtZurRegel(neu, regel).ok ? neu : null;
+}
+
+/** Ab 09.11.: die Einheiten des Tages kommen direkt aus der Tagesregel */
+function taperVorgabe(datum: string, regel: TaperRegel, ctx: TaperKontext): PlanEinheit[] | null {
+  if (datum < LETZTE_BEINEINHEIT) return null; // 05.–08.11.: abschwächen statt ersetzen
+  if (istEpTag(datum)) return [epEintrag(datum)];
+  const z4 = ctx.zonen.z4;
+  const klimmzugSub = Math.max(2, Math.round(ctx.klimmzugMax * 0.5));
+  const liegeSub = Math.max(6, Math.round(ctx.liegestuetzZiel * 0.5));
+
+  if (datum === LETZTE_BEINEINHEIT) {
+    return [
+      {
+        datum,
+        typ: "kraft",
+        titel: "Gym: Ganzkörper mit Beinen (letzte Beineinheit)",
+        beschreibung:
+          "Letzte schwere Beineinheit vor der EP: moderat schwer, 2–3 Wiederholungen Reserve, kein Muskelversagen. Kein Lastlauf.",
+        struktur: {
+          name: "Ganzkörper mit Beinen",
+          sport: "kraft",
+          uebungen: [
+            { name: "Kniebeugen", saetze: 3, wdh: 6, notiz: "Moderat schwer, 2–3 Wdh. Reserve" },
+            { name: "Ausfallschritte", saetze: 3, wdh: 8, notiz: "Pro Seite" },
+            { name: "Step-ups", saetze: 2, wdh: 10, notiz: "Pro Seite, ohne Weste" },
+            { name: "Wadenheben", saetze: 3, wdh: 12 },
+            { name: "Bankdrücken", saetze: 3, wdh: 6, notiz: "Brust/Trizeps-Routine verkürzt" },
+            { name: "EP-Liegestütze Technik", saetze: 2, wdh: liegeSub, notiz: "Exakte EP-Form, submaximal" },
+          ],
+        },
+        erwarteterTrimp: 40,
+      },
+    ];
+  }
+  if (datum === LETZTER_ZIELTEMPO_LAUF) {
+    return [
+      {
+        datum,
+        typ: "intervalle",
+        titel: "Zieltempo-Lauf 38 Min (3×5 Min Z4)",
+        beschreibung:
+          "12 Min einlaufen mit Steigerungen, 3 × 5 Min im EP-Zieltempo (Z4) mit 2 Min Trab, 5 Min auslaufen. Insgesamt 15 Min Z4 — Renngefühl, keine Ermüdung.",
+        struktur: {
+          name: "Zieltempo 3×5 Min Z4",
+          sport: "laufen",
+          schritte: [
+            { art: "aufwaermen", dauerTyp: "zeit", dauerWert: 720, notiz: "Locker einlaufen + 3 Steigerungen" },
+            {
+              art: "wiederholung",
+              dauerTyp: "offen",
+              wiederholungen: 3,
+              schritte: [
+                {
+                  art: "intervall",
+                  dauerTyp: "zeit",
+                  dauerWert: 300,
+                  ziel: ctx.paces
+                    ? {
+                        typ: "pace",
+                        vonSproKm: ctx.paces.rennpace5k * 1.03,
+                        bisSproKm: ctx.paces.rennpace5k * 0.99,
+                      }
+                    : { typ: "hr", vonBpm: z4.von, bisBpm: z4.bis },
+                  notiz: "EP-Zieltempo, kontrolliert (Z4)",
+                },
+                { art: "erholung", dauerTyp: "zeit", dauerWert: 120, notiz: "Locker traben" },
+              ],
+            },
+            { art: "auslaufen", dauerTyp: "zeit", dauerWert: 300 },
+          ],
+        },
+        erwarteterTrimp: 45,
+      },
+    ];
+  }
+  if (datum < "2026-11-16") {
+    const einheiten: PlanEinheit[] = [];
+    const wt = (new Date(datum + "T12:00:00").getDay() + 6) % 7; // Mo=0
+    if (datum === "2026-11-11" || datum === "2026-11-14") {
+      const min = datum === "2026-11-11" ? 30 : 25;
+      einheiten.push(
+        z2Einheit(
+          datum,
+          min,
+          ctx.zonen,
+          `Z2-Lauf ${min} Min flach`,
+          `Strikt Z2 (${ctx.zonen.z2.von}–${ctx.zonen.z2.bis} bpm), flache Strecke, kein Bergablauf.`
+        )
+      );
+    }
+    if (datum === "2026-11-11") {
+      einheiten.push({
+        datum,
+        typ: "gtg",
+        titel: "Grease the Groove submaximal (bis So 15.11.)",
+        beschreibung: `Über den Tag 3–4 × ${klimmzugSub} Klimmzüge und ein paar EP-Liegestütze, weit weg vom Versagen. Keine neuen Übungen.`,
+      });
+    }
+    if (datum === LETZTER_RUMPF_TAG) {
+      einheiten.push(
+        {
+          datum,
+          typ: "klimmzuege",
+          titel: "Klimmzüge & Liegestütze submaximal",
+          beschreibung: `Statt «Rücken/Bizeps + Klimmzüge schwer»: nur submaximal, kein Zusatzgewicht (aktuell max ${ctx.klimmzugMax}).`,
+          struktur: {
+            name: "Klimmzüge & Liegestütze submaximal",
+            sport: "kraft",
+            uebungen: [
+              { name: "Klimmzüge Ristgriff", saetze: 3, wdh: klimmzugSub, notiz: "Sauber, weit weg vom Versagen" },
+              { name: "EP-Liegestütze", saetze: 2, wdh: liegeSub, notiz: "Exakte EP-Form, submaximal" },
+            ],
+          },
+          erwarteterTrimp: 20,
+        },
+        {
+          datum,
+          typ: "rumpf",
+          titel: `Rumpf leicht (${Math.round(ctx.seitZiel * 0.7)}s/${Math.round(ctx.dorsalZiel * 0.7)}s)`,
+          beschreibung: "Letzter, leichter Rumpftag vor der EP: 2 Sätze, ca. 70 % der Zielzeit, Metronom 60 bpm.",
+          struktur: rumpfEinheit(Math.round(ctx.seitZiel * 0.7), Math.round(ctx.dorsalZiel * 0.7), 2),
+          erwarteterTrimp: 12,
+        }
+      );
+    }
+    if (einheiten.length === 0) {
+      einheiten.push({
+        datum,
+        typ: "ruhe",
+        titel: wt === 6 ? "Ruhetag — Spazieren" : "Ruhetag — Mobilität",
+        beschreibung: "Taper: Erholung ist jetzt Training. Schlaf, Elektrolyte, Kohlenhydrate.",
+      });
+    }
+    return einheiten;
+  }
+  if (datum === "2026-11-16") {
+    return [
+      {
+        datum,
+        typ: "ruhe",
+        titel: "Spazieren 20 Min + Mobilität",
+        beschreibung: "20 Min locker spazieren, danach 10–15 Min Mobilität. Sonst nichts.",
+      },
+    ];
+  }
+  if (datum < EP_DATUM) {
+    return [
+      z2Einheit(
+        datum,
+        20,
+        ctx.zonen,
+        "Optional: Lockerer Lauf 20 Min",
+        "Frei oder max. 20 Min ganz locker — nur, wenn die Beine danach fragen. Früh schlafen."
+      ),
+    ];
+  }
+  if (regel.erlaubt.includes("ruhe")) {
+    return [
+      {
+        datum,
+        typ: "ruhe",
+        titel: "Regeneration: Spazieren",
+        beschreibung: "Nach der EP: 20–30 Min spazieren, viel schlafen, gut essen.",
+      },
+    ];
+  }
+  return []; // nach der Regeneration: kein Plan, bis neue Ziele gesetzt sind
+}
+
+/**
+ * Wendet die Taper-Tagesregeln auf einen generierten Wochenplan an.
+ * 05.–08.11. werden die normalen Einheiten abgeschwächt, ab 09.11. kommen
+ * sie aus der Tagesregel; am 18./19.11. steht genau ein EP-Eintrag.
+ */
+export function wendeTaperAn(
+  einheiten: PlanEinheit[],
+  wochenstart: string,
+  ctx: TaperKontext
+): { einheiten: PlanEinheit[]; hinweise: string[] } {
+  const ergebnis: PlanEinheit[] = [];
+  for (let i = 0; i < 7; i++) {
+    const datum = addTage(wochenstart, i);
+    const regel = taperRegelFuerTag(datum);
+    const tagesEinheiten = einheiten.filter((e) => e.datum === datum);
+    if (!regel) {
+      ergebnis.push(...tagesEinheiten);
+      continue;
+    }
+    const vorgabe = taperVorgabe(datum, regel, ctx);
+    if (vorgabe) {
+      ergebnis.push(...vorgabe);
+      continue;
+    }
+    const tag: PlanEinheit[] = [];
+    for (const e of tagesEinheiten) {
+      const neu = schwaecheAb(e, regel, ctx);
+      if (!neu) continue;
+      // höchstens ein Lauf pro Tag, keine doppelten Typen
+      if (tag.some((t) => t.typ === neu.typ || (istLaufTyp(t.typ) && istLaufTyp(neu.typ)))) continue;
+      tag.push(neu);
+    }
+    ergebnis.push(...tag);
+  }
+  // Einheiten ausserhalb der Woche (sollte nicht vorkommen) unverändert lassen
+  ergebnis.push(...einheiten.filter((e) => e.datum < wochenstart || e.datum > addTage(wochenstart, 6)));
+
+  const hinweise: string[] = [];
+  const ende = addTage(wochenstart, 6);
+  if (ende >= TAPER_START && wochenstart <= EP_TAG_2) {
+    hinweise.push(
+      "Taper ab Do 05.11.: Jeder Tag folgt einer festen Regel (Begründung beim Tag). Keine Probe-EP, kein Lastlauf, keine neuen Übungen."
+    );
+  }
+  if (wochenstart <= EP_TAG_2 && ende >= EP_DATUM) {
+    hinweise.push(
+      "EP am Mi 18.11. und Do 19.11.: Die EP-Tage sind fix, werden nicht überschrieben und nicht an die Uhr gesendet."
+    );
+  }
+  if (wochenstart > EP_TAG_2) {
+    hinweise.push("Nach der EP: kein Trainingsplan über die Regeneration hinaus, bis neue Ziele gesetzt sind.");
+  }
+  return { einheiten: ergebnis, hinweise };
+}
+
+/**
+ * Harte Taper-Grenzen nach dem Verteilen auf verfügbare Tage durchsetzen
+ * (idempotent, ohne erneutes Abschwächen): verbotene Typen fliegen raus,
+ * zu lange/intensive Läufe werden zu Z2 gekappt, EP-Tage enthalten nur den
+ * EP-Eintrag, höchstens ein Lauf pro Tag.
+ */
+export function erzwingeTaperGrenzen(einheiten: PlanEinheit[], zonen: HrZonenInput): PlanEinheit[] {
+  const ergebnis: PlanEinheit[] = [];
+  for (const e of [...einheiten].sort((a, b) => a.datum.localeCompare(b.datum))) {
+    const regel = taperRegelFuerTag(e.datum);
+    if (!regel) {
+      ergebnis.push(e);
+      continue;
+    }
+    let neu: PlanEinheit | null = e;
+    if (!passtZurRegel(e, regel).ok) {
+      neu = null;
+      if (istLaufTyp(e.typ) && regel.erlaubt.includes("lauf_z2") && regel.maxDauerMin >= 20) {
+        const min = Math.min(regel.maxDauerMin, minutenAusTitel(e.titel) ?? 30);
+        neu = z2Einheit(e.datum, min, zonen, `Z2-Lauf ${min} Min`, `Statt «${e.titel}»: locker in Z2. Taper: ${regel.label}.`);
+      }
+    }
+    if (!neu) continue;
+    const kandidat = neu;
+    if (
+      istLaufTyp(kandidat.typ) &&
+      ergebnis.some((v) => v.datum === kandidat.datum && istLaufTyp(v.typ))
+    ) {
+      continue;
+    }
+    ergebnis.push(kandidat);
+  }
+  return ergebnis;
 }

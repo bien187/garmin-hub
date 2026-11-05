@@ -2,10 +2,11 @@ import { and, asc, desc, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm"
 import { getDb, tables } from "@/lib/db";
 import { ladeProfil, PROFIL_DEFAULTS, Profil } from "@/lib/profile";
 import { EpPrognose, berechneEpPrognose } from "@/lib/ep/prognose";
+import { EP_DATUM } from "@/lib/ep/konstanten";
 import { ladeEpPrognose } from "./ep-service";
-import { addTage, heuteIso, montagVon } from "@/lib/format";
+import { addTage, heuteIso, isoDatum, montagVon } from "@/lib/format";
 import { MuskelId } from "@/lib/engine/muscle";
-import { fortschrittBisHeute, type PaceWoche } from '@/lib/engine/fortschritt';
+import { verlaufSeitTrainingsstart, type PaceWoche } from '@/lib/engine/fortschritt';
 import { recomputeAll } from './compute';
 
 export interface DashboardDaten {
@@ -19,6 +20,9 @@ export interface DashboardDaten {
     schlafScore: number | null;
     ruhepuls: number | null;
   };
+  /** Erster Tag mit Trainingsdaten: min(datum) computed_daily, nie vor der ersten nicht gelöschten Aktivität (trainingsstartAus) */
+  trainingsstart: string | null;
+  /** CTL/ATL/TSB je Tag seit Trainingsstart bis heute */
   fitness: { datum: string; ctl: number; atl: number; tsb: number }[];
   tsbHeute: number | null;
   acwrHeute: number | null;
@@ -76,10 +80,11 @@ const LEER: DashboardDaten = {
     schlafScore: null,
     ruhepuls: null,
   },
+  trainingsstart: null,
   fitness: [],
   tsbHeute: null,
   acwrHeute: null,
-  epPrognose: berechneEpPrognose([], heuteIso(), PROFIL_DEFAULTS.epDatum),
+  epPrognose: berechneEpPrognose([], heuteIso(), EP_DATUM),
   muskelnHeute: {},
   letzteAktivitaet: null,
   naechsteEinheit: null,
@@ -109,10 +114,13 @@ export async function ladeDashboard(): Promise<DashboardDaten> {
       refHrRows,
     ] = await Promise.all([
         db.select().from(tables.dailyHealth).where(eq(tables.dailyHealth.datum, heute)),
+        /* Gesamte Historie bis heute: computed_daily beginnt am ersten
+           Trainingstag (lückenlose Tagesserie aus compute.ts). Bei ~130–400
+           Zeilen ist das unkritisch und wird nicht ausgedünnt. */
         db
           .select()
           .from(tables.computedDaily)
-          .where(and(gte(tables.computedDaily.datum, addTage(heute, -90)), lte(tables.computedDaily.datum, heute)))
+          .where(lte(tables.computedDaily.datum, heute))
           .orderBy(asc(tables.computedDaily.datum)),
         db.select().from(tables.muscleState).where(eq(tables.muscleState.datum, heute)),
         db
@@ -197,7 +205,9 @@ export async function ladeDashboard(): Promise<DashboardDaten> {
       seit: s?.seit ? new Date(s.seit).toISOString().slice(0, 10) : null,
     };
 
-    const fortschritt = fortschrittBisHeute(fitnessRows, heute, addTage(heute, -90));
+    // Kalendertag wie in compute.ts (isoDatum), damit Start und Serie übereinstimmen
+    const ersteAktivitaet = s?.seit ? isoDatum(new Date(s.seit)) : null;
+    const { trainingsstart, verlauf, fortschritt } = verlaufSeitTrainingsstart(fitnessRows, heute, ersteAktivitaet);
     const refHrWert = (refHrRows[0]?.value as { refHr?: number } | undefined)?.refHr;
 
     return {
@@ -211,7 +221,8 @@ export async function ladeDashboard(): Promise<DashboardDaten> {
         schlafScore: h?.schlafScore ?? null,
         ruhepuls: h?.ruhepuls ?? profil.ruhepuls,
       },
-      fitness: fitnessRows.map((r) => ({
+      trainingsstart,
+      fitness: verlauf.map((r) => ({
         datum: r.datum,
         ctl: Math.round(r.ctl * 10) / 10,
         atl: Math.round(r.atl * 10) / 10,

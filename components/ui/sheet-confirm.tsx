@@ -27,7 +27,22 @@ export function SheetShell({
 
   // Mount/Unmount mit Schliess-Animation entkoppeln
   useEffect(() => {
-    if (open) setSichtbar(true);
+    if (open) {
+      setDragY(0);
+      setSichtbar(true);
+      return;
+    }
+    // Von aussen geschlossen (Abbrechen-/Schliessen-Knopf setzt nur `open`):
+    // ebenfalls mit Animation ausblenden. Ist das Sheet schon weg, ist
+    // sheetRef leer und es passiert nichts.
+    const el = sheetRef.current;
+    if (!el) return;
+    setDragY(el.offsetHeight);
+    const t = window.setTimeout(() => {
+      setSichtbar(false);
+      setDragY(0);
+    }, 240);
+    return () => window.clearTimeout(t);
   }, [open]);
 
   const schliessen = useCallback(() => {
