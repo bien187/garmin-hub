@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { SheetShell } from "@/components/ui/sheet-confirm";
 import { useToast } from "@/components/ui/toast";
+import { DemoDeaktiviert, useIstDemo } from "@/components/basis-pfad";
 import { Metronome } from "./metronome";
 import { EpCheckliste } from "./ep-checkliste";
 import { addTage, formatDatum, formatDatumLang, heuteIso, montagVon } from "@/lib/format";
@@ -104,6 +105,8 @@ function StatusKnopf({
 
 export function WeekView() {
   const toast = useToast();
+  // Demo: nur ansehen — nichts generieren, senden oder abhaken
+  const demo = useIstDemo();
   const [woche, setWoche] = useState(() => montagVon(heuteIso()));
   // „Deine Trainingstage" ist standardmässig eingeklappt
   const [tageOffen, setTageOffen] = useState(false);
@@ -316,7 +319,7 @@ export function WeekView() {
                 gym ? <span className="text-xs text-muted-foreground">Gymtag · fix</span> :
                 <label className="flex min-h-11 items-center gap-2 text-xs">
                   {frei ? 'Training möglich' : 'Keine Zeit'}
-                  <Switch aria-label={tag + ' ' + formatDatum(datum) + ': Training möglich'} checked={frei} disabled={laedt || pushProgress != null || datum < heute} onCheckedChange={v => verfuegbarkeit(datum, v)} />
+                  <Switch aria-label={tag + ' ' + formatDatum(datum) + ': Training möglich'} checked={frei} disabled={demo || laedt || pushProgress != null || datum < heute} onCheckedChange={v => verfuegbarkeit(datum, v)} />
                 </label>}
             </div>;
           })}
@@ -393,17 +396,18 @@ export function WeekView() {
           <p className="mb-3 text-sm text-muted-foreground">
             Für diese Woche ist noch kein Plan generiert.
           </p>
-          <Button onClick={generiere} disabled={laedt || pushProgress != null}>
+          <Button onClick={generiere} disabled={demo || laedt || pushProgress != null}>
             <RefreshCw className={cn("size-4", laedt && "animate-spin")} />
             Woche generieren
           </Button>
+          {demo && <DemoDeaktiviert className="mt-2" />}
         </div>
       ) : (
         <>
           {/* Sammel-Aktion: der einzige gefüllte Akzentbutton dieser Seite.
               Während des Sendens ist der Button die Fortschrittsanzeige
               (Füllung von links + „x von y"). */}
-          {teile && (teile.zuSenden.length > 0 || pushProgress) && (
+          {!demo && teile && (teile.zuSenden.length > 0 || pushProgress) && (
             <button
               disabled={pushProgress != null}
               onClick={() => setVorschau(true)}
@@ -549,12 +553,16 @@ export function WeekView() {
                                     )}
                                   </div>
                                   <Switch
+                                    disabled={demo}
                                     checked={e.syncToGarmin}
                                     onCheckedChange={(v) => toggleSync(e.id, v)}
                                   />
                                 </div>
                               )}
                               {e.struktur?.metronom && <Metronome />}
+                              {demo ? (
+                                <DemoDeaktiviert />
+                              ) : (
                               <div className="flex flex-wrap gap-1.5">
                                 {kannPushen && e.garminWorkoutId == null && (
                                   <Button size="sm" variant="secondary" onClick={() => pushe(e.id)}>
@@ -576,6 +584,7 @@ export function WeekView() {
                                   onSetze={(st) => setzeStatus(e.id, st)}
                                 />
                               </div>
+                              )}
                             </div>
                            </div>
                           </div>
@@ -588,12 +597,14 @@ export function WeekView() {
               );
             })}
           </div>
+          {!demo && (
           <div className="flex justify-end">
             <Button variant="ghost" size="sm" onClick={generiere} disabled={laedt || pushProgress != null}>
               <RefreshCw className={cn("size-4", laedt && "animate-spin")} />
               {generiert ? "Neu generiert" : "Woche neu generieren"}
             </Button>
           </div>
+          )}
         </>
       )}
 
@@ -628,14 +639,14 @@ export function WeekView() {
                 <p className="min-w-0 flex-1 text-[11px] text-dim-foreground">
                   Fixer Termin — wird vom Generator nie überschrieben und nicht an die Uhr gesendet.
                 </p>
-                <StatusKnopf
+                {!demo && <StatusKnopf
                   status={epEintrag.status}
                   className="min-h-11"
                   onSetze={(st) => {
                     setzeStatus(epEintrag.id, st);
                     setEpEintrag({ ...epEintrag, status: st });
                   }}
-                />
+                />}
               </div>
             </div>
           </div>

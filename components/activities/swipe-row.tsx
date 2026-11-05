@@ -13,10 +13,13 @@ export function SwipeRow({
   children,
   onDelete,
   collapsed = false,
+  deaktiviert = false,
 }: {
   children: React.ReactNode;
   onDelete: () => void;
   collapsed?: boolean;
+  /** Demo: kein Wischen, keine Löschen-Aktion */
+  deaktiviert?: boolean;
 }) {
   const [offset, setOffset] = useState(0); // aktuelle Verschiebung (px, ≤0)
   const startX = useRef(0);
@@ -24,6 +27,8 @@ export function SwipeRow({
   const basis = useRef(0);
   const richtung = useRef<"?" | "h" | "v">("?");
   const REVEAL = 88;
+
+  if (deaktiviert) return <div className="h-15 overflow-hidden">{children}</div>;
 
   return (
     <div

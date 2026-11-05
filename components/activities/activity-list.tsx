@@ -1,14 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import { AppLink as Link, useIstDemo } from "@/components/basis-pfad";
 import { RefreshCw } from "lucide-react";
 import { PolylineSvg } from "./polyline-svg";
 import { SwipeRow } from "./swipe-row";
 import { useActivityDelete } from "./use-activity-delete";
 import { useToast } from "@/components/ui/toast";
 import { ConfirmSheet } from "@/components/ui/sheet-confirm";
-import { formatDauer, formatPace, heuteIso, isoDatum, montagVon } from "@/lib/format";
+import { formatDauer, formatPace, heuteIso, isoDatum, jetztMs, montagVon } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 interface ListenAktivitaet {
@@ -61,9 +61,9 @@ function gruppenLabel(iso: string, heute: string): string {
 function syncStatusText(lastSync: string | null): string {
   if (!lastSync) return "noch nie synchronisiert";
   const d = new Date(lastSync);
-  const diffS = (Date.now() - d.getTime()) / 1000;
+  const diffS = (jetztMs() - d.getTime()) / 1000;
   if (diffS < 60) return "zuletzt synchronisiert · gerade eben";
-  const heute = new Date();
+  const heute = new Date(jetztMs());
   const gleich = d.toDateString() === heute.toDateString();
   const zeit = d.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" });
   if (gleich) return `zuletzt synchronisiert · Heute ${zeit}`;
@@ -91,6 +91,7 @@ export function ActivityList() {
   const [resync, setResync] = useState<{ done: number; total: number } | null>(null);
   const [einzelResync, setEinzelResync] = useState<number | null>(null);
   const heute = heuteIso();
+  const demo = useIstDemo();
 
   const entferneAusListe = useCallback((id: number) => {
     setKollabiert((s) => new Set(s).add(id));
@@ -120,7 +121,7 @@ export function ActivityList() {
       if (cur) p.set("cursor", cur);
       if (typ !== "alle") p.set("typ", typ);
       if (zeitraum) {
-        const von = new Date(Date.now() - Number(zeitraum) * 86_400_000);
+        const von = new Date(jetztMs() - Number(zeitraum) * 86_400_000);
         p.set("von", von.toISOString());
       }
       try {
@@ -166,7 +167,7 @@ export function ActivityList() {
 
   /* Sammel-Update letzte 30 Tage (sequenziell, Garmin-schonend) */
   const alleAktualisieren = useCallback(async () => {
-    const von = new Date(Date.now() - 30 * 86_400_000).toISOString();
+    const von = new Date(jetztMs() - 30 * 86_400_000).toISOString();
     const ids: number[] = [];
     let cur: string | null = null;
     do {
@@ -250,6 +251,8 @@ export function ActivityList() {
       <div className="flex items-center gap-1.5 px-4 pt-2 pb-1.5">
         {segment(FILTER, typ, setTyp)}
         {segment(ZEITRAUM, zeitraum, setZeitraum)}
+        {/* Garmin-Abgleich gibt es in der Demo nicht */}
+        {!demo && (
         <button
           onClick={alleAktualisieren}
           disabled={resync != null}
@@ -263,6 +266,7 @@ export function ActivityList() {
             </span>
           )}
         </button>
+        )}
       </div>
 
       {/* Sync-Statuszeile */}
@@ -345,6 +349,7 @@ export function ActivityList() {
                   key={a.id}
                   onDelete={() => setZuLoeschen(a)}
                   collapsed={kollabiert.has(a.id)}
+                  deaktiviert={demo}
                 >
                   <Link
                     href={`/activities/${a.id}`}

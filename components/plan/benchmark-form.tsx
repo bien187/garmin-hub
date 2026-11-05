@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EP_DISZIPLINEN, DisziplinId, berechneNote, notenFarbe } from "@/lib/ep/disziplinen";
 import { formatNote } from "@/lib/format";
+import { DemoDeaktiviert, useIstDemo } from "@/components/basis-pfad";
 
 /** Schnelleingabe für EP-Testresultate — speist Prognose & Plan */
 export function BenchmarkForm({ onGespeichert }: { onGespeichert?: () => void }) {
+  const demo = useIstDemo();
   const [disziplin, setDisziplin] = useState<DisziplinId>("klimmzuege");
   const [wert, setWert] = useState("");
   const [minuten, setMinuten] = useState("");
@@ -100,7 +102,7 @@ export function BenchmarkForm({ onGespeichert }: { onGespeichert?: () => void })
             />
           </div>
         )}
-        <Button onClick={speichern} disabled={laedt || !zahlWert || zahlWert <= 0}>
+        <Button onClick={speichern} disabled={demo || laedt || !zahlWert || zahlWert <= 0}>
           {gespeichert ? <Check className="size-4" /> : null}
           {gespeichert ? "Erfasst" : "Erfassen"}
         </Button>
@@ -119,6 +121,7 @@ export function BenchmarkForm({ onGespeichert }: { onGespeichert?: () => void })
         )}
       </div>
       <p className="text-xs text-muted-foreground">{d.beschreibung}</p>
+      {demo && <DemoDeaktiviert />}
     </div>
   );
 }

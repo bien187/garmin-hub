@@ -6,6 +6,7 @@ import { useToast } from '@/components/ui/toast';
 import { Check, Pencil, Trash2, X } from "lucide-react";
 import { EP_DISZIPLINEN, DisziplinId, berechneNote, benchmarkWertAlsText, notenFarbe, parseBenchmarkWert } from "@/lib/ep/disziplinen";
 import { formatDatum, formatDauer, formatNote, heuteIso } from "@/lib/format";
+import { useIstDemo } from "@/components/basis-pfad";
 
 interface Benchmark {
   id: string;
@@ -16,6 +17,7 @@ interface Benchmark {
 }
 
 export function BenchmarkListe() {
+  const demo = useIstDemo();
   const router = useRouter();
   const toast = useToast();
   const [loescht, setLoescht] = useState<string | null>(null);
@@ -182,7 +184,7 @@ export function BenchmarkListe() {
               </span>
               <button
                 onClick={() => setBearbeitet({ id: b.id, wert: benchmarkWertAlsText(b), datum: b.datum })}
-                disabled={loescht !== null || speichert}
+                disabled={demo || loescht !== null || speichert}
                 aria-label={d.kurzname + ' vom ' + formatDatum(b.datum) + ' anpassen'}
                 className="flex min-h-11 min-w-11 items-center justify-center text-muted-foreground hover:text-primary disabled:opacity-40"
                 title="Anpassen"
@@ -191,7 +193,7 @@ export function BenchmarkListe() {
               </button>
               <button
                 onClick={() => loesche(b.id)}
-                disabled={loescht !== null}
+                disabled={demo || loescht !== null}
                 aria-label={d.kurzname + ' vom ' + formatDatum(b.datum) + ' löschen'}
                 className="flex min-h-11 min-w-11 items-center justify-center text-muted-foreground hover:text-status-red disabled:opacity-40"
                 title="Löschen"

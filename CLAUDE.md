@@ -39,6 +39,7 @@ vorschlagen). Neue Migrationen additiv halten (`CREATE TABLE IF NOT EXISTS`,
 - Engine (`lib/engine/`, `lib/ep/`) = reine, deterministische Funktionen ohne DB, mit Vitest-Tests in `__tests__/`.
 - Server-Zugriff in `lib/server/*-service.ts`, Route Handler in `app/api/**/route.ts` (Session-Prüfung im Handler zusätzlich zur `middleware.ts`).
 - Design-Tokens in `app/globals.css` (`--primary`, `--status-green/yellow/orange/red`, `--muted-foreground`, `--border`). Kachel-Titel: `text-[11px] uppercase tracking-[0.08em]`, Zahlen mit `stat-display` / `stat-mono`. Dark-first, ein Akzent, Ampelfarben nur für Status. Touch-Ziele ≥ 44 px, kein horizontales Scrollen auf 390 px.
+- Öffentliche Demo unter `/demo` (ohne Login, nur fiktive Daten aus `public/demo/daten/`, erzeugt mit `pnpm demo:daten`). Geteilte Komponenten verlinken intern über `AppLink`/`useAppPfad()` (`components/basis-pfad.tsx`), „jetzt" über `jetztMs()`/`heuteIso()` — nie `Date.now()` direkt in Komponenten. Die Demo ist nur lesend: neue GET-Aufrufe der UI in `lib/demo/api.ts` beantworten, schreibende Aktionen mit `useIstDemo()` sperren.
 - Fehlende Daten als `null` behandeln und im UI als „nicht verfügbar" zeigen, nie als 0 oder geraten.
 
 ## Garmin-Hinweise

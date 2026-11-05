@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/basis-pfad";
 import { BESTEHEN_SCHNITT, EP_DISZIPLINEN, DisziplinId, berechneNote, notenFarbe } from "@/lib/ep/disziplinen";
 import { EpPrognose } from "@/lib/ep/prognose";
 import { formatDatum, formatNote, formatDauer } from "@/lib/format";
