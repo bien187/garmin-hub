@@ -215,10 +215,12 @@ export async function ladeSchlafDetail(datum: string): Promise<SchlafDetail | nu
     .where(eq(n.datum, datum));
   if (!zeile) return null;
 
-  const [epochenRows, reihenRows, historieRows, geplant, [vorher], [nachher]] = await Promise.all([
-    db.select().from(tables.sleepEpochen).where(eq(tables.sleepEpochen.datum, datum)).orderBy(asc(tables.sleepEpochen.start)),
-    db.select().from(tables.sleepZeitreihen).where(eq(tables.sleepZeitreihen.datum, datum)),
-    db
+  // Bewusst nacheinander statt Promise.all: mehr parallele Abfragen als
+  // Verbindungen (max: 4) pipelinet postgres.js auf eine Verbindung, was der
+  // Supabase-Transaction-Pooler nicht verträgt (Hänger, siehe lib/db).
+  const epochenRows = await db.select().from(tables.sleepEpochen).where(eq(tables.sleepEpochen.datum, datum)).orderBy(asc(tables.sleepEpochen.start));
+  const reihenRows = await db.select().from(tables.sleepZeitreihen).where(eq(tables.sleepZeitreihen.datum, datum));
+  const historieRows = await db
       .select({
         datum: n.datum,
         schlafDauerS: n.schlafDauerS,
@@ -231,14 +233,15 @@ export async function ladeSchlafDetail(datum: string): Promise<SchlafDetail | nu
       })
       .from(n)
       .where(and(gte(n.datum, addTage(datum, -30)), lt(n.datum, datum)))
-      .orderBy(asc(n.datum)),
-    db
+      .orderBy(asc(n.datum));
+  const geplant = await db
       .select({ typ: tables.plannedWorkouts.typ, titel: tables.plannedWorkouts.titel })
       .from(tables.plannedWorkouts)
-      .where(eq(tables.plannedWorkouts.datum, datum)),
-    db.select({ datum: n.datum }).from(n).where(lt(n.datum, datum)).orderBy(desc(n.datum)).limit(1),
-    db.select({ datum: n.datum }).from(n).where(gt(n.datum, datum)).orderBy(asc(n.datum)).limit(1),
-  ]);
+      .where(eq(tables.plannedWorkouts.datum, datum));
+  const vorherRows = await db.select({ datum: n.datum }).from(n).where(lt(n.datum, datum)).orderBy(desc(n.datum)).limit(1);
+  const nachherRows = await db.select({ datum: n.datum }).from(n).where(gt(n.datum, datum)).orderBy(asc(n.datum)).limit(1);
+  const [vorher] = vorherRows;
+  const [nachher] = nachherRows;
 
   const epochen: SchlafEpoche[] = epochenRows.map((e) => ({
     art: e.art as SchlafEpoche["art"],

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { ArrowRight, CalendarRange, TrendingUp, TrendingDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CountdownHero } from "@/components/dashboard/countdown-hero";
@@ -9,6 +10,7 @@ import { SyncButton } from "@/components/dashboard/sync-button";
 import { InsightCards } from "@/components/dashboard/insight-cards";
 import { PaceHrChart } from "@/components/dashboard/pace-hr-chart";
 import { ZeitraumBereich, ZeitraumSpanne, ZeitraumTitel } from "@/components/dashboard/zeitraum-umschalter";
+import { SchlafKachel, SchlafKachelSkeleton } from "@/components/dashboard/schlaf-kachel";
 import { DashboardAktuell } from '@/components/dashboard/dashboard-aktuell';
 import { BodyMap } from "@/components/body/body-map";
 import { ladeDashboard } from "@/lib/server/dashboard-service";
@@ -86,6 +88,11 @@ export default async function DashboardPage() {
             <EpWidget prognose={d.epPrognose} />
           </CardContent>
         </Card>
+
+        {/* Schlaf letzte Nacht — eigene Suspense-Grenze, blockiert das Dashboard nicht */}
+        <Suspense fallback={<SchlafKachelSkeleton />}>
+          <SchlafKachel heute={heute} />
+        </Suspense>
 
         {/* Fitness-Kurve — Titel folgt dem Zeitraum-Umschalter im Chart */}
         <ZeitraumBereich>

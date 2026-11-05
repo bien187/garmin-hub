@@ -596,3 +596,20 @@ Alle Werte sind Uhr-Schätzungen; Richtwerte sind keine Diagnose.
 | Datenqualität | Rohpunkte / erwartete Punkte (Bettzeit ÷ nominale Auflösung), ≥ 80 % gut, sonst lückenhaft, 0 % = nicht verfügbar |
 | Empfehlungen (max. 3) | EP-Tag bzw. Taper-Phase → Schlaf hat Vorrang; < 7 h in drei Nächten in Folge → harte Einheit verschieben; HRV unter dem Bereich → Intensität senken; Tiefschlaf < 75 % des 30-Tage-Mittels (≥ 5 Nächte) → kein Lastlauf, keine schwere Beineinheit |
 | Warnhinweis | SpO2 ≥ 2× bzw. ≥ 5 Min unter 90 %, oder Atemfrequenz ≥ 30-Tage-Mittel + 3 Atemzüge/min bei ≥ 60 % der Nacht (≥ 5 Vergleichsnächte). Text: kein medizinischer Befund, bei Beschwerden ärztlich abklären |
+
+## Schlaf-Kachel im Dashboard
+
+Kachel „Schlaf letzte Nacht" (`components/dashboard/schlaf-kachel.tsx`): letzte
+Nacht mit Aufwachdatum ≤ heute (sonst mit Datum gekennzeichnet), Dauer,
+Bettzeit, Effizienz, Garmin-Score mit Ampel (oder „–"), Mini-Hypnogramm,
+Phasen-Balken mit Minuten und Prozent, Vergleich gegen das 7-Tage-Mittel,
+Verlauf der Schlafdauer der letzten 14 Nächte (gestrichelt = 7 h) und ein Satz
+Fazit. Die ganze Kachel verlinkt auf `/schlaf/<datum>`. Eigene
+Suspense-Grenze mit Skeleton, damit das Dashboard nicht wartet. Ohne Daten:
+„Noch keine Schlafdaten. Nach dem nächsten Sync verfügbar."
+
+**Abweichung:** Der im Auftrag genannte Dashboard-Edit-Modus (d92cde1) wurde in
+97ea34f wieder entfernt; die Kachel ist deshalb fest neben der Fitness-Kurve
+eingeordnet. Phasenfarben: neue Tokens `--schlaf-tief/-leicht/-rem/-wach`
+(dunkel und hell) in `app/globals.css`, Blau-Familie, getrennt vom Akzent
+`--primary`, vom EP-Token und von den Ampelfarben.
