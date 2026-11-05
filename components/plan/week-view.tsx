@@ -23,7 +23,7 @@ import { EpCheckliste } from "./ep-checkliste";
 import { addTage, formatDatum, formatDatumLang, heuteIso, montagVon } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { taperRegelFuerTag } from "@/lib/engine/taper";
-import { istEpTag, REGENERATION_BIS } from "@/lib/ep/konstanten";
+import { istEpTag, REGENERATION_BIS, TAPER_START } from "@/lib/ep/konstanten";
 
 interface PlanEinheit {
   id: string;
@@ -264,6 +264,9 @@ export function WeekView() {
           {daten && (
             <div className="text-[10px] font-medium uppercase tracking-[0.06em] text-primary">
               Phase {daten.phase.nr}: {daten.phase.name}
+              {daten.phase.nr === 3 && TAPER_START > woche && TAPER_START <= addTage(woche, 6) && (
+                <> · Taper ab {formatDatum(TAPER_START)}</>
+              )}
             </div>
           )}
         </div>

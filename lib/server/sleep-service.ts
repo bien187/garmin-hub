@@ -181,6 +181,8 @@ export interface SchlafDetail {
   epochen: SchlafEpoche[];
   zeitreihen: Partial<Record<SchlafMetrik, SchlafZeitreihe>>;
   analyse: SchlafAnalyse;
+  /** 30-Tage-Mittel der Phasen in Minuten (ohne den Tag selbst, nur Nächte mit Wert) */
+  phasenMittel30: Record<"tief" | "leicht" | "rem" | "wach", number | null>;
   /** Trend der letzten Nächte bis einschliesslich datum (für Kachel/Verlauf) */
   trend: { datum: string; dauerS: number | null; garminScore: number | null }[];
 }
@@ -228,6 +230,7 @@ export async function ladeSchlafDetail(datum: string): Promise<SchlafDetail | nu
         tiefS: n.tiefS,
         leichtS: n.leichtS,
         remS: n.remS,
+        wachS: n.wachS,
         garminScore: n.garminScore,
         ...rawFelder(),
       })
@@ -299,7 +302,17 @@ export async function ladeSchlafDetail(datum: string): Promise<SchlafDetail | nu
     dauerS: h.schlafDauerS,
     garminScore: h.garminScore,
   }));
-  return { datum, vorher: vorher?.datum ?? null, nachher: nachher?.datum ?? null, epochen, zeitreihen, analyse, trend };
+  const mittelMin = (werte: (number | null)[]) => {
+    const w = werte.filter((v): v is number => v != null);
+    return w.length ? Math.round(w.reduce((a, b) => a + b, 0) / w.length / 60) : null;
+  };
+  const phasenMittel30 = {
+    tief: mittelMin(historieRows.map((h) => h.tiefS)),
+    leicht: mittelMin(historieRows.map((h) => h.leichtS)),
+    rem: mittelMin(historieRows.map((h) => h.remS)),
+    wach: mittelMin(historieRows.map((h) => h.wachS)),
+  };
+  return { datum, vorher: vorher?.datum ?? null, nachher: nachher?.datum ?? null, epochen, zeitreihen, analyse, trend, phasenMittel30 };
 }
 
 /** Letzte Nacht mit Daten bis einschliesslich `bis` (für die Dashboard-Kachel) */
