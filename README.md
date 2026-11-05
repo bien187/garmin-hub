@@ -47,6 +47,16 @@ Die Oberfläche ist für das Smartphone gestaltet und lässt sich als PWA instal
     <td><img src="docs/screenshots/mobile-plan.png" width="260" alt="Wochenplan mit Taper-Begründungen und den beiden EP-Tagen"></td>
     <td><img src="docs/screenshots/mobile-koerper.png" width="260" alt="Body-Map mit Muskel-Erschöpfung von vorne und hinten"></td>
   </tr>
+  <tr>
+    <th>EP-Checkliste</th>
+    <th>Probe-EP</th>
+    <th>Schlaf</th>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/mobile-ep-checkliste.png" width="260" alt="Checkliste für EP Tag 1 mit Startzeit, Frühstücksfenster und abhakbaren Punkten"></td>
+    <td><img src="docs/screenshots/mobile-probe-ep.png" width="260" alt="Resultat einer Probe-EP mit Note pro Disziplin und Gesamtschnitt"></td>
+    <td><img src="docs/screenshots/mobile-schlaf.png" width="260" alt="Schlaf-Detailansicht mit Kopfwerten und Hypnogramm"></td>
+  </tr>
 </table>
 
 Alle Screenshots stammen aus der laufenden App. Die Daten sind **fiktiv**: Läufe auf
@@ -110,11 +120,39 @@ die Woche gesammelt mit Vorschau und ohne Duplikate; Gym-Einheiten sind standard
 ausgenommen. Bereits gesendete Einheiten lassen sich wieder von der Uhr entfernen.
 Ziel-Herzfrequenzen kommen aus den Zonen, die im Garmin-Konto hinterlegt sind.
 
+Der Workout-Generator „Heute frei Schnauze" baut aus Distanz oder Dauer und
+Anstrengung ein Workout mit den eigenen Paces und zeigt den erwarteten TRIMP sowie die
+Wirkung auf die Form (TSB) von morgen.
+
+<table>
+  <tr>
+    <th>Workout-Generator</th>
+    <th>Benchmarks</th>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/mobile-generator.png" width="260" alt="Workout-Generator mit gebautem Intervall-Workout und TSB-Vorschau"></td>
+    <td><img src="docs/screenshots/mobile-benchmarks.png" width="260" alt="Erfassung von EP-Benchmarks mit Verlauf und Note pro Eintrag"></td>
+  </tr>
+</table>
+
 ### Vorbereitung auf die Eignungsprüfung
 
-Alle fünf Disziplinen sind mit Notentabellen hinterlegt: 5-km-Lastlauf, Klimmzüge,
-EP-Liegestütze, seitliche Rumpfkraft und dorsale Rumpfkette. Aus den erfassten
-Benchmarks entsteht eine Prognose pro Disziplin und für den Gesamtschnitt.
+Alle fünf Disziplinen sind exakt nach der offiziellen **Notentabelle Eignungsprüfung
+EP_AZ SK** hinterlegt ([`lib/ep/disziplinen.ts`](lib/ep/disziplinen.ts)): Marsch 5 km
+mit 20 kg, Klimmzüge, Liegestützen in 60 s, seitliche Rumpfkraft (max. 120 s) und
+dorsale Rumpfkette (max. 150 s). Aus den erfassten Benchmarks entsteht eine Prognose
+pro Disziplin und für den Gesamtschnitt.
+
+| Note | Bewertung | Bedeutung |
+| --- | --- | --- |
+| 5.00–4.50 | sehr gut | erfüllt die Anforderungen deutlich |
+| 4.49–4.00 | gut | erfüllt die Anforderungen |
+| 3.99–3.60 | genügend | erfüllt die Mindestanforderungen knapp |
+| 3.59–1.00 | ungenügend | erfüllt die Mindestanforderungen nicht |
+
+Die EP gilt als **bestanden**, wenn der Durchschnitt aller Disziplinen mindestens
+**genügend (3.60)** ist. Eine 1.0 in einer Disziplin zieht den Schnitt stark nach
+unten und wird in der App eigens gewarnt.
 
 Ab dem **5. November** gilt ein expliziter **Taper-Plan** mit einer Regel und einer
 Begründung pro Tag: Umfang reduzieren, letzte Intensität am 7. November, nur noch
@@ -122,6 +160,8 @@ lockere Läufe in der letzten Woche. Die beiden **EP-Tage** sind fest im Plan, w
 nie überschrieben und nie an die Uhr gesendet. Ein Tipp auf einen EP-Tag öffnet die
 **Checkliste** mit Startzeit, Frühstücksfenster und abhakbaren Punkten.
 Details: [EP-Termin, Taper-Plan und Checkliste](docs/EP-UND-TAPER.md).
+
+![Wochenplan auf dem Desktop mit Taper-Begründung pro Tag und den beiden EP-Tagen](docs/screenshots/desktop-plan.png)
 
 ### Körper- und Muskelanalyse
 
@@ -131,14 +171,19 @@ Heuristik und in der App so gekennzeichnet. Der Plan-Generator meidet harte Einh
 für stark belastete Muskelgruppen. Gym-Einheiten ohne verwertbare Übungsdetails lassen
 sich manuell einem Template zuweisen (Push, Pull, Beine, Ganzkörper, Core).
 
+Ein Tipp auf einen Muskel öffnet ein Detail mit Rest-Erschöpfung, der Zeit bis zur
+vollen Belastbarkeit, einem Verlauf über 14 Tage und den Einheiten, die beigetragen haben.
+
+<img src="docs/screenshots/mobile-muskel-detail.png" width="300" alt="Muskel-Detail für den Quadrizeps mit Rest-Erschöpfung, Verlauf und Beiträgen der letzten Einheiten">
+
 ### Schlaf
 
 ![Schlaf-Detailansicht auf dem Desktop mit Kopfwerten, Hypnogramm und Phasenverteilung](docs/screenshots/desktop-schlaf.png)
 
 <details>
-  <summary>Mobile Schlaf-Detailansicht ansehen</summary>
+  <summary>Herzfrequenz und SpO2 in der Nacht ansehen</summary>
 
-<img src="docs/screenshots/mobile-schlaf.png" width="300" alt="Mobile Schlaf-Detailansicht mit Datumsauswahl, Kopfwerten und Hypnogramm">
+<img src="docs/screenshots/mobile-schlaf-verlauf.png" width="300" alt="Herzfrequenz und Sauerstoffsättigung in der Nacht mit Phasenhintergrund, Minimum, Maximum und Schwellen">
 
 </details>
 
@@ -405,7 +450,7 @@ pnpm build                # Produktionsbuild
 python scripts/garmin/test_schlaf_sync.py   # Schlaf-Sync der Bridge offline gegen Fixtures
 ```
 
-Stand 5. November 2026: **298 Vitest-Tests** sind grün, dazu Typecheck, Lint (ohne
+Stand 5. November 2026: **301 Vitest-Tests** sind grün, dazu Typecheck, Lint (ohne
 Fehler) und Produktionsbuild. Die Tests decken die Engine ab: TRIMP, CTL/ATL/TSB, GAP,
 Riegel, Notentabellen, Prognose, Muskelabbau, Plan, Taper, Verfügbarkeit,
 EP-Checkliste sowie Schlaf-Parser und Schlaf-Analyse. Parser und Analyse laufen gegen
@@ -434,6 +479,7 @@ Plan-Wochen generieren. Dann:
 GHQ_URL=http://127.0.0.1:3999 GHQ_PASSWORT=… node scripts/readme/screenshots.mjs
 ```
 
+Das Skript speichert 17 Aufnahmen; mit `GHQ_NUR=mobile-plan,desktop-plan` nur ausgewählte.
 Das Seed-Skript schreibt nur in lokale Datenbanken und bricht bei jedem anderen Host ab.
 
 ## Weitere Dokumentation

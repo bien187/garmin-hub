@@ -52,7 +52,10 @@ async function kontext({ breite, hoehe, mobil }) {
 }
 
 const fehler = [];
+// Optional nur einzelne Aufnahmen: GHQ_NUR=mobile-plan,desktop-plan
+const NUR = process.env.GHQ_NUR ? process.env.GHQ_NUR.split(",").map((x) => x.trim()) : null;
 async function aufnahme(ctx, pfad, datei, { warten = 5000, vorher } = {}) {
+  if (NUR && !NUR.includes(datei.replace(".png", ""))) return;
   const p = await ctx.newPage();
   p.on("pageerror", (e) => fehler.push(`${pfad}: ${String(e).slice(0, 160)}`));
   await p.goto(BASIS + pfad, { waitUntil: "domcontentloaded", timeout: 90_000 });
@@ -118,6 +121,81 @@ await aufnahme(mobil, "/plan", "mobile-plan.png", {
 });
 await aufnahme(mobil, "/body", "mobile-koerper.png", { warten: 6000 });
 await aufnahme(mobil, `/schlaf/${heute}`, "mobile-schlaf.png", { warten: 7000 });
+
+/* Weitere Ansichten */
+const zuEpWoche = async (p) => {
+  const weiter = p.locator("button:has(svg.lucide-chevron-right)").first();
+  for (let i = 0; i < 2; i++) {
+    await weiter.click();
+    await p.waitForTimeout(2500);
+  }
+};
+const reiter = (name) => async (p) => {
+  await p.getByRole("tab", { name }).click();
+  await p.waitForTimeout(2500);
+};
+await aufnahme(desktop, "/plan", "desktop-plan.png", {
+  warten: 6000,
+  vorher: async (p) => {
+    await zuEpWoche(p);
+    await p.locator('button[aria-haspopup="dialog"]').first().evaluate((el) => el.scrollIntoView({ block: "center" }));
+    await p.waitForTimeout(800);
+  },
+});
+await aufnahme(mobil, "/plan", "mobile-ep-checkliste.png", {
+  warten: 6000,
+  vorher: async (p) => {
+    await zuEpWoche(p);
+    await p.locator('button[aria-haspopup="dialog"]').first().click();
+    await p.locator('[role="checkbox"]').first().waitFor({ timeout: 30_000 });
+    await p.waitForTimeout(1200);
+  },
+});
+await aufnahme(mobil, "/plan", "mobile-benchmarks.png", { warten: 6000, vorher: reiter("Benchmarks") });
+await aufnahme(mobil, "/plan", "mobile-probe-ep.png", {
+  warten: 6000,
+  vorher: async (p) => {
+    // Geführter Ablauf in EP-Reihenfolge mit fiktiven Resultaten bis zur Sofort-Benotung
+    await reiter("Probe-EP")(p);
+    for (const wert of ["9", "31", "92", "128"]) {
+      await p.locator('input[type="number"]').first().fill(wert);
+      await p.getByRole("button", { name: /Weiter/ }).click();
+      await p.waitForTimeout(700);
+    }
+    const felder = p.locator('input[type="number"]');
+    await felder.nth(0).fill("31");
+    await felder.nth(1).fill("20");
+    await p.getByRole("button", { name: /Weiter/ }).click();
+    await p.getByText("Probe-EP Resultat").waitFor({ timeout: 15_000 });
+    await p.waitForTimeout(1200);
+  },
+});
+await aufnahme(mobil, "/plan", "mobile-generator.png", {
+  warten: 6000,
+  vorher: async (p) => {
+    await reiter("Generator")(p);
+    await p.getByRole("button", { name: "Hart" }).click();
+    await p.getByRole("button", { name: /Workout bauen/ }).click();
+    await p.getByText(/Nach diesem Lauf/).waitFor({ timeout: 30_000 });
+    await p.waitForTimeout(1200);
+  },
+});
+await aufnahme(mobil, `/schlaf/${heute}`, "mobile-schlaf-verlauf.png", {
+  warten: 7000,
+  vorher: async (p) => {
+    await p.getByText("Herzfrequenz in der Nacht").first().evaluate((el) => el.scrollIntoView({ block: "start" }));
+    await p.waitForTimeout(1200);
+  },
+});
+await aufnahme(mobil, "/body", "mobile-muskel-detail.png", {
+  warten: 6000,
+  vorher: async (p) => {
+    // Quadrizeps in der Vorderansicht antippen → Bottom-Sheet mit Beiträgen
+    const box = await p.locator("svg").filter({ has: p.locator("path.cursor-pointer") }).first().boundingBox();
+    await p.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.58);
+    await p.waitForTimeout(2000);
+  },
+});
 
 await browser.close();
 if (fehler.length) console.log("Seitenfehler:\n" + fehler.join("\n"));
