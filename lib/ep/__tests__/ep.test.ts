@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { berechneNote, bewerteEp, notenFarbe, notenStufe, wertFuerNote } from "../disziplinen";
+import { benchmarkWertAlsText, berechneNote, bewerteEp, notenFarbe, notenStufe, parseBenchmarkWert, wertFuerNote } from "../disziplinen";
 import { berechneEpPrognose } from "../prognose";
 import { aktuellePhase, berechnePhasen, epCountdown, restwochen } from "../phasen";
 import { EP_DATUM, EP_TAG_2, TAPER_START } from "../konstanten";
@@ -253,5 +253,21 @@ describe("Phasen & Countdown", () => {
     expect(EP_TAG_2).toBe("2026-11-19");
     expect(TAPER_START).toBe("2026-11-05");
     expect(restwochen("2026-11-04")).toBe(2);
+  });
+});
+
+describe("Benchmark-Eingabe", () => {
+  it("liest Lastlauf als mm:ss oder Minuten, andere Disziplinen als Zahl", () => {
+    expect(parseBenchmarkWert("lastlauf", "33:13")).toBe(1993);
+    expect(parseBenchmarkWert("lastlauf", "30:47")).toBe(1847);
+    expect(parseBenchmarkWert("lastlauf", "31,5")).toBe(1890);
+    expect(parseBenchmarkWert("lastlauf", "33:75")).toBeNull();
+    expect(parseBenchmarkWert("klimmzuege", "9")).toBe(9);
+    expect(parseBenchmarkWert("rumpf_seitlich", "0")).toBeNull();
+    expect(parseBenchmarkWert("liegestuetze", "abc")).toBeNull();
+  });
+  it("zeigt Lastlauf-Werte als mm:ss", () => {
+    expect(benchmarkWertAlsText({ disziplin: "lastlauf", wert: 1993 })).toBe("33:13");
+    expect(benchmarkWertAlsText({ disziplin: "klimmzuege", wert: 8 })).toBe("8");
   });
 });

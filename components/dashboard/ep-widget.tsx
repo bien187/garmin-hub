@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { BenchmarkListe } from '@/components/plan/benchmark-liste';
 import { BESTEHEN_SCHNITT, EP_DISZIPLINEN, DisziplinId, berechneNote, notenFarbe } from "@/lib/ep/disziplinen";
 import { EpPrognose } from "@/lib/ep/prognose";
 import { formatNote, formatDauer } from "@/lib/format";
@@ -123,10 +122,12 @@ export function EpWidget({ prognose }: { prognose: EpPrognose }) {
         })}
       </div>
 
-      <details className="rounded-lg border border-border p-3">
-        <summary className="min-h-11 cursor-pointer content-center text-sm text-primary">Einträge verwalten / löschen</summary>
-        <BenchmarkListe />
-      </details>
+      <Link
+        href="/plan?tab=benchmarks"
+        className="flex min-h-11 items-center text-sm text-primary underline-offset-2 hover:underline"
+      >
+        Einträge erfassen, anpassen oder löschen → Plan · Benchmarks
+      </Link>
       {prognose.fehlendeDisziplinen.length > 0 && (
         <p className="text-xs text-muted-foreground">
           {prognose.fehlendeDisziplinen.length} Disziplin(en) ohne Benchmark —{" "}

@@ -6,6 +6,7 @@ import { ladeGarminZonen } from "./zonen-service";
 import {
   fasseZusammen,
   medianPaceBeiHr,
+  referenzPulsAusLaeufen,
   type PaceBeiHrErgebnis,
 } from "@/lib/engine/pace-bei-hr";
 import { trimpFuerEinheit } from "@/lib/engine/trimp";
@@ -167,14 +168,22 @@ export async function recomputeAll(): Promise<void> {
   }
 
   /* ---- Pace bei Referenzpuls (Fortschrittskurve) ----
-     Referenz ist die Mitte von Zone 2 — der Bereich, in dem die aerobe
-     Grundlage tatsächlich gebaut wird. Ändert sich die Referenz (z.B.
-     weil erstmals Garmin-Zonen da sind), wird die Historie einmalig neu
+     Referenz ist der typische Puls der eigenen lockeren Läufe — dort wird
+     die aerobe Grundlage tatsächlich gebaut. Ändert sich die Referenz (z.B.
+     nach neuen Läufen um 4 bpm), wird die Historie einmalig neu
      gerechnet, sonst nur das laufende Fenster. Bei einem Wechsel werden
      vorher alle gespeicherten Pace-Werte verworfen — sonst hielte der
      COALESCE-Upsert Tage vor dem 400-Tage-Fenster mit dem alten
      Referenzpuls fest und die Kurve mischte zwei Referenzen. */
-  const refHr = zonenMitte(aktiveZonen(profil, garminZonen, "running").z2);
+  // Referenz = Puls der eigenen lockeren Läufe (siehe referenzPulsAusLaeufen);
+  // die Zone-2-Mitte ist nur noch Fallback und traf bei zu tief liegenden
+  // Garmin-Zonen keinen einzigen Lauf.
+  const laufZonen = aktiveZonen(profil, garminZonen, "running");
+  const refHr = referenzPulsAusLaeufen(
+    alleAktivitaeten.filter((a) => istLauf(a.typ)),
+    { von: laufZonen.z2.von, bis: laufZonen.z3.bis },
+    zonenMitte(laufZonen.z2)
+  );
   const refHrAlt = await ladeRefHr();
   const refHrGewechselt = refHrAlt !== refHr;
   const paceProTag = await berechnePaceBeiRefHr(

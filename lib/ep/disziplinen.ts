@@ -254,3 +254,24 @@ export function bewerteEp(noten: Partial<Record<DisziplinId, number>>): EpErgebn
     ausschluss,
   };
 }
+
+/* ---------- Eingabe von Benchmark-Werten (Erfassen/Anpassen) ---------- */
+
+/** "mm:ss" (Lastlauf) bzw. Zahl → Wert in der Einheit der Disziplin; null bei ungültiger Eingabe */
+export function parseBenchmarkWert(disziplin: DisziplinId, text: string): number | null {
+  const t = text.trim().replace(",", ".");
+  if (disziplin === "lastlauf") {
+    const m = /^(\d{1,3}):([0-5]?\d)$/.exec(t);
+    if (m) return Number(m[1]) * 60 + Number(m[2]);
+    const min = Number(t);
+    return isFinite(min) && min > 0 ? Math.round(min * 60) : null;
+  }
+  const n = Number(t);
+  return isFinite(n) && n > 0 ? n : null;
+}
+
+export function benchmarkWertAlsText(b: { disziplin: DisziplinId; wert: number }): string {
+  if (b.disziplin !== "lastlauf") return String(b.wert);
+  const s = Math.round(b.wert);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
