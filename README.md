@@ -573,3 +573,26 @@ gegen `dailySleepDTO`: `0` = Tief, `1` = Leicht, `2` = REM, `3` = Wach.
 Nicht vorhanden in den geprüften Nächten: Hauttemperatur (`skinTempDataExists: false`),
 Einschlafdauer (kein eigenes Feld; wird aus dem ersten Nicht-Wach-Segment abgeleitet,
 wenn möglich).
+
+## Schlaf-Analyse (lib/engine/schlaf.ts)
+
+Reine Funktionen auf dem normalisierten Format (ohne DB), getestet mit beiden
+echten Fixtures und Randfällen (`lib/engine/__tests__/schlaf.test.ts`). API:
+`GET /api/schlaf/<datum>` (Aufwachdatum; keine Daten → `detail: null`).
+Alle Werte sind Uhr-Schätzungen; Richtwerte sind keine Diagnose.
+
+| Bereich | Regel |
+|---|---|
+| Zusammenfassung | Dauer = `sleepTimeSeconds`; Bettzeit = Ende − Start; Effizienz = Schlafzeit / Bettzeit; Einschlafen/Aufwachen = erstes/letztes Schlafsegment (Uhrzeit Europe/Zurich); Wachphasen = Wach-Segmente zwischen erstem und letztem Schlafsegment |
+| Phasen | Minuten aus den Garmin-Summen; Tief/Leicht/REM in % der Schlafzeit, Wach in % der Bettzeit. Richtwerte = Garmins persönliche Zielbereiche (`sleepScores.*Percentage.optimalStart/End`), sonst allgemeine Werte (Tief 16–33 %, Leicht 30–64 %, REM 21–31 %) |
+| Herzfrequenz | Min/Mittel/Max mit Zeitpunkt; Nachtabfall = Mittel der ersten 30 Min nach dem Einschlafen gegen Mittel ±30 Min um die Nachtmitte; tiefste HF im Tiefschlaf |
+| SpO2 | Mittel, Minimum, Minuten < 90 % und < 92 %, Abfälle = zusammenhängende Läufe unter der Schwelle (Lücke > 3 Min trennt) |
+| Atemfrequenz | Mittel/Min/Max/Standardabweichung; Mittel je Phase über die Zuordnung jedes Messpunkts zum Phasensegment |
+| HRV | Mittel/Min/Max, Einordnung unter/im/über dem ausgeglichenen Bereich (`balancedLow`–`balancedUpper` aus `get_hrv_data`) |
+| Stress, Body Battery | Mittel/Max; Body Battery Start, Ende, Aufladung |
+| Bewegung | Bewegungsphasen = zusammenhängende Minuten mit `activityLevel` > 2 innerhalb der Schlafzeit; unruhige Momente aus `sleepRestlessMoments` |
+| Baseline | 7- und 30-Tage-Mittel OHNE den betrachteten Tag, nur Nächte mit Wert; unter ±3 % = „gleich"; Bewertung je Metrik (HRV hoch = gut, Ruhepuls hoch = schlecht, Atemfrequenz neutral). Für die Vergleichsnächte zählen Garmins Nachtwerte (`avgOvernightHrv`, `averageRespirationValue`, `lowestSpO2Value`, `restingHeartRate`) |
+| Regel-Bewertung | Eigene, transparente Punkte (Dauer 40, Effizienz 20, Tiefschlaf 15, REM 15, Wachphasen 10), separat vom Garmin-Score, nie als Ersatz |
+| Datenqualität | Rohpunkte / erwartete Punkte (Bettzeit ÷ nominale Auflösung), ≥ 80 % gut, sonst lückenhaft, 0 % = nicht verfügbar |
+| Empfehlungen (max. 3) | EP-Tag bzw. Taper-Phase → Schlaf hat Vorrang; < 7 h in drei Nächten in Folge → harte Einheit verschieben; HRV unter dem Bereich → Intensität senken; Tiefschlaf < 75 % des 30-Tage-Mittels (≥ 5 Nächte) → kein Lastlauf, keine schwere Beineinheit |
+| Warnhinweis | SpO2 ≥ 2× bzw. ≥ 5 Min unter 90 %, oder Atemfrequenz ≥ 30-Tage-Mittel + 3 Atemzüge/min bei ≥ 60 % der Nacht (≥ 5 Vergleichsnächte). Text: kein medizinischer Befund, bei Beschwerden ärztlich abklären |
