@@ -1,11 +1,9 @@
 import { eq } from "drizzle-orm";
 import { getDb, tables } from "@/lib/db";
 import { ladeProfil, Profil } from "@/lib/profile";
-import { berechneEpPrognose, EpPrognose } from "@/lib/ep/prognose";
+import { aktuellerEpStand, EpPrognose } from "@/lib/ep/prognose";
 import { DisziplinId } from "@/lib/ep/disziplinen";
 import { lastlaufPrognose } from "@/lib/engine/paces";
-import { heuteIso } from "@/lib/format";
-import { EP_DATUM } from "@/lib/ep/konstanten";
 
 export interface LaufModell {
   fuenfKmS: number | null;
@@ -46,15 +44,13 @@ export async function ladeEpPrognose(): Promise<{
   const profil = await ladeProfil();
   const benchmarks = await db.select().from(tables.epBenchmarks);
   const laufModell = await ladeLaufModell();
-  const prognose = berechneEpPrognose(
+  // Notenanzeige nur mit selbst erfassten Werten: kein Trend, kein Lauf-Modell
+  const prognose = aktuellerEpStand(
     benchmarks.map((b) => ({
       datum: b.datum,
       disziplin: b.disziplin as DisziplinId,
       wert: b.wert,
-    })),
-    heuteIso(),
-    EP_DATUM,
-    lastlaufModellSekunden(laufModell, profil)
+    }))
   );
   return { prognose, profil, laufModell };
 }

@@ -1,8 +1,7 @@
 import { and, asc, desc, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
 import { getDb, tables } from "@/lib/db";
 import { ladeProfil, PROFIL_DEFAULTS, Profil } from "@/lib/profile";
-import { EpPrognose, berechneEpPrognose } from "@/lib/ep/prognose";
-import { EP_DATUM } from "@/lib/ep/konstanten";
+import { EpPrognose, aktuellerEpStand } from "@/lib/ep/prognose";
 import { ladeEpPrognose } from "./ep-service";
 import { addTage, heuteIso, isoDatum, montagVon } from "@/lib/format";
 import { MuskelId } from "@/lib/engine/muscle";
@@ -84,7 +83,7 @@ const LEER: DashboardDaten = {
   fitness: [],
   tsbHeute: null,
   acwrHeute: null,
-  epPrognose: berechneEpPrognose([], heuteIso(), EP_DATUM),
+  epPrognose: aktuellerEpStand([]),
   muskelnHeute: {},
   letzteAktivitaet: null,
   naechsteEinheit: null,

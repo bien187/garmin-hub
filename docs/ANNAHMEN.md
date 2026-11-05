@@ -13,8 +13,11 @@ Dokumentationspflichtige Annahmen und bewusst kurz gehaltene Zeitfenster.
   laut Tabelle nicht als Ausschluss und wird nur als Warnung angezeigt.
   Bruchteile: Zeiten zählen bis einschliesslich der Grenze (30:00.4 ist schon
   über 30:00), Haltezeiten und Wiederholungen ab der Grenze (69.9 s = 69 s).
-- **Prognose-Dämpfung:** Trends werden auf ±20 % des Ist-Werts gedeckelt
-  und auf reglementarische Maxima (120 s/150 s) geklemmt.
+- **EP-Notenanzeige ohne Prognose:** Das Dashboard zeigt seit dem 5.11.2026 nur
+  den zuletzt erfassten Wert je Disziplin (`aktuellerEpStand` in
+  `lib/ep/prognose.ts`): kein Trend, kein Lauf-Modell, keine Altersgrenze. Die
+  frühere Trend-Prognose (`berechneEpPrognose`, gedämpft auf ±20 %, mit
+  Lauf-Modell für den Marsch) bleibt im Code, wird aber nicht mehr angezeigt.
 - **Health-Backfill:** 365 Tage (in `api/_lib/sync_logic.py` änderbar).
 - **Course-Push:** Das JSON-Schema von `POST /course-service/course` ist
   inoffiziell; sollte Garmin es ändern, dient der GPX-Export als Fallback
@@ -72,8 +75,8 @@ Dokumentationspflichtige Annahmen und bewusst kurz gehaltene Zeitfenster.
   (ältere Zeilen bleiben per Upsert erhalten).
 - **Bewusst bei kurzen Fenstern geblieben**, weil sie aktuelle Zustände
   statt Verläufe zeigen:
-  - EP-Prognose (`lib/ep/prognose.ts`): Benchmarks max. 90 Tage alt — ältere
-    Leistungen sagen über den EP-Tag wenig aus.
+  - EP-Noten: zeigen den zuletzt erfassten Wert, unabhängig vom Alter
+    (siehe „EP-Notenanzeige ohne Prognose").
   - ACWR 7:28 und Wochenvergleich (diese Woche vs. Vorwoche).
   - Körper-Tab (`app/api/body/route.ts`): Muskel-Sparklines 14 Tage
     (Erschöpfung klingt mit τ = 30–48 h ab, ältere Werte sind 0) und

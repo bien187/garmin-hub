@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { benchmarkWertAlsText, berechneNote, bewerteEp, notenFarbe, notenStufe, parseBenchmarkWert, wertFuerNote } from "../disziplinen";
-import { berechneEpPrognose } from "../prognose";
+import { aktuellerEpStand, berechneEpPrognose } from "../prognose";
 import { aktuellePhase, berechnePhasen, epCountdown, restwochen } from "../phasen";
 import { EP_DATUM, EP_TAG_2, TAPER_START } from "../konstanten";
 
@@ -269,5 +269,31 @@ describe("Benchmark-Eingabe", () => {
   it("zeigt Lastlauf-Werte als mm:ss", () => {
     expect(benchmarkWertAlsText({ disziplin: "lastlauf", wert: 1993 })).toBe("33:13");
     expect(benchmarkWertAlsText({ disziplin: "klimmzuege", wert: 8 })).toBe("8");
+  });
+});
+
+describe("aktuellerEpStand (Notenanzeige ohne Prognose)", () => {
+  it("nimmt je Disziplin den zuletzt erfassten Wert, ohne Trend und ohne Altersgrenze", () => {
+    const stand = aktuellerEpStand([
+      { datum: "2026-08-13", disziplin: "rumpf_seitlich", wert: 70 },
+      { datum: "2026-08-13", disziplin: "klimmzuege", wert: 6 },
+      { datum: "2026-08-23", disziplin: "klimmzuege", wert: 7 },
+      { datum: "2026-09-24", disziplin: "klimmzuege", wert: 8 },
+      { datum: "2026-10-01", disziplin: "rumpf_dorsal", wert: 125 },
+    ]);
+    expect(stand.disziplinen.klimmzuege.prognoseWert).toBe(8);
+    expect(stand.disziplinen.klimmzuege.prognoseNote).toBe(4.5);
+    expect(stand.disziplinen.klimmzuege.datumLetzte).toBe("2026-09-24");
+    expect(stand.disziplinen.klimmzuege.trendProWoche).toBeNull();
+    expect(stand.disziplinen.rumpf_seitlich.prognoseNote).toBe(4.0); // auch nach > 90 Tagen
+    expect(stand.disziplinen.lastlauf.prognoseWert).toBeNull(); // kein Eintrag → keine Prognose
+    expect(stand.fehlendeDisziplinen).toEqual(["lastlauf", "liegestuetze"]);
+    expect(stand.schnitt).toBeCloseTo((4.5 + 4.0 + 4.5) / 3, 6);
+    expect(stand.bestanden).toBeNull(); // erst mit allen fünf
+  });
+  it("leer → keine Noten", () => {
+    const stand = aktuellerEpStand([]);
+    expect(stand.schnitt).toBeNull();
+    expect(stand.fehlendeDisziplinen).toHaveLength(5);
   });
 });
