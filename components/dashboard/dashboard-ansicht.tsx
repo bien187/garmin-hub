@@ -7,6 +7,7 @@ import { FitnessChart } from "@/components/dashboard/fitness-chart";
 import { EpWidget } from "@/components/dashboard/ep-widget";
 import { InsightCards } from "@/components/dashboard/insight-cards";
 import { PaceHrChart } from "@/components/dashboard/pace-hr-chart";
+import { KonsistenzKachel } from "@/components/dashboard/konsistenz-kachel";
 import { ZeitraumBereich, ZeitraumSpanne, ZeitraumTitel } from "@/components/dashboard/zeitraum-umschalter";
 import { BodyMap } from "@/components/body/body-map";
 import type { DashboardDaten } from "@/lib/server/dashboard-service";
@@ -166,6 +167,20 @@ export function DashboardAnsicht({
           </CardContent>
         </Card>
         </ZeitraumBereich>
+
+        {/* Konsistenz: Trainingsstunden je Woche gegen Budget */}
+        {d.konsistenz && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                Konsistenz · 12 Wochen
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <KonsistenzKachel k={d.konsistenz} />
+            </CardContent>
+          </Card>
+        )}
 
         {/* Mini-Body-Map */}
         <Card>

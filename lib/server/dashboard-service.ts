@@ -7,6 +7,7 @@ import { addTage, heuteIso, isoDatum, montagVon } from "@/lib/format";
 import { MuskelId } from "@/lib/engine/muscle";
 import { verlaufSeitTrainingsstart, type PaceWoche } from '@/lib/engine/fortschritt';
 import { recomputeAll } from './compute';
+import { berechneKonsistenz, type Konsistenz } from '@/lib/engine/konsistenz';
 
 export interface DashboardDaten {
   dbBereit: boolean;
@@ -40,6 +41,8 @@ export interface DashboardDaten {
   vorwoche: { km: number; hm: number };
   allTime: AllTimeStats;
   paceFortschritt: { refHr: number | null; wochen: PaceWoche[]; letzteMessung: string | null };
+  /** Trainingsstunden der letzten 12 Wochen + Serie (fehlt in älteren Demo-Daten) */
+  konsistenz?: Konsistenz;
 }
 
 /** Summenwerte über die gesamte Historie */
@@ -111,6 +114,7 @@ export async function ladeDashboard(): Promise<DashboardDaten> {
       naechste,
       summenRows,
       refHrRows,
+      dauerRows,
     ] = await Promise.all([
         db.select().from(tables.dailyHealth).where(eq(tables.dailyHealth.datum, heute)),
         /* Gesamte Historie bis heute: computed_daily beginnt am ersten
@@ -170,6 +174,12 @@ export async function ladeDashboard(): Promise<DashboardDaten> {
           .select()
           .from(tables.appSettings)
           .where(eq(tables.appSettings.key, "pace_ref_hr")),
+        /* Dauer je Aktivität für Konsistenz (ganze Historie, damit die
+           Serie über die sichtbaren 12 Wochen hinaus zählt) */
+        db
+          .select({ startZeit: tables.activities.startZeit, dauerS: tables.activities.dauerS })
+          .from(tables.activities)
+          .where(isNull(tables.activities.deletedAt)),
       ]);
 
     const { prognose } = await ladeEpPrognose();
@@ -238,6 +248,11 @@ export async function ladeDashboard(): Promise<DashboardDaten> {
       woche: summe(montag, heute),
       vorwoche: summe(vorMontag, addTage(montag, -1)),
       allTime,
+      konsistenz: berechneKonsistenz(
+        dauerRows.map((a) => ({ datum: isoDatum(new Date(a.startZeit)), dauerS: a.dauerS })),
+        heute,
+        profil.wochenBudgetH ?? null
+      ),
       paceFortschritt: {
         refHr: typeof refHrWert === "number" ? refHrWert : null,
         ...fortschritt,

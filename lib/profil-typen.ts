@@ -11,6 +11,8 @@ export interface Profil {
   /** Zusatzlast-Kalibrierung Lastlauf: s/km Zuschlag pro 10 kg (auto-kalibriert) */
   lastZuschlagSproKmPro10kg: number;
   stiefelMalusSproKm: number;
+  /** Wochen-Budget Trainingszeit in Stunden (Konsistenz-Kachel) */
+  wochenBudgetH: number;
 }
 
 export const PROFIL_DEFAULTS: Profil = {
@@ -21,6 +23,7 @@ export const PROFIL_DEFAULTS: Profil = {
   hfMax: 197,
   lastZuschlagSproKmPro10kg: 8.5, // ~7–10 s/km pro 10 kg, Startwert
   stiefelMalusSproKm: 10,
+  wochenBudgetH: 5.5,
 };
 
 /** Karvonen-Herzfrequenzzonen aus Profil */
