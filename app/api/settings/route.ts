@@ -37,6 +37,10 @@ export async function POST(req: NextRequest) {
     patch.lastZuschlagSproKmPro10kg = body.lastZuschlagSproKmPro10kg;
   }
 
+  if (typeof body.wochenBudgetH === "number" && body.wochenBudgetH > 0 && body.wochenBudgetH <= 40) {
+    patch.wochenBudgetH = Math.round(body.wochenBudgetH * 10) / 10;
+  }
+
   const profil = await speichereProfil(patch);
   return NextResponse.json({ ok: true, profil });
 }

@@ -15,6 +15,7 @@ interface ProfilForm {
   ruhepuls: number;
   gewichtKg: number;
   lastZuschlagSproKmPro10kg: number;
+  wochenBudgetH: number;
 }
 
 export function ProfileForm() {
@@ -111,6 +112,12 @@ export function ProfileForm() {
             hinweis="wird auto-kalibriert"
             wert={form.lastZuschlagSproKmPro10kg}
             onChange={(v) => setForm({ ...form, lastZuschlagSproKmPro10kg: v })}
+          />
+          <Feld
+            label="Wochen-Budget (h)"
+            hinweis="Trainingszeit pro Woche (Konsistenz)"
+            wert={form.wochenBudgetH}
+            onChange={(v) => setForm({ ...form, wochenBudgetH: v })}
           />
         </div>
         <div>
