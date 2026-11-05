@@ -6,7 +6,7 @@ Single-User-Trainings-Webapp. Spezifikation: `instructions.md`, aktueller Stand:
 
 - Next.js 15 (App Router, TypeScript, Turbopack), React 19, Tailwind v4 + shadcn/ui + lucide, Recharts, MapLibre.
 - Drizzle ORM auf Supabase Postgres (`lib/db/schema.ts`, Migrationen in `drizzle/`).
-- Python-Serverless-Functions in `api/bridge/*.py` (Garmin über `garminconnect==0.2.25` + `garth==0.5.2`, DB über `pg8000`). Gemeinsamer Code in `api/_lib/` (Unterstrich = wird nicht deployt).
+- EINE Python-Serverless-Function `api/bridge/index.py` (Aktion per `?aktion=`, Logik in `api/_lib/bridge_aktionen.py`; Garmin über `garminconnect==0.2.25` + `garth==0.5.2`, DB über `pg8000`). Gemeinsamer Code in `api/_lib/` (Unterstrich = wird nicht deployt).
 - Vercel Hobby, alles Free Tier. Keine bezahlten Dienste, keine API-Keys, keine LLM-Aufrufe.
 
 ## Befehle
@@ -49,4 +49,5 @@ vorschlagen). Neue Migrationen additiv halten (`CREATE TABLE IF NOT EXISTS`,
 - Garmin ordnet eine Nacht dem **Aufwachdatum** zu.
 - Echte Antwortformate liegen als Fixtures in `tests/fixtures/garmin/<datum>/` (erzeugt mit `scripts/garmin/dump_sleep.py`, Personendaten entfernt). Feldnamen immer an diesen Fixtures prüfen, nie raten. Beschreibung im README unter „Garmin-Datenformat".
 - Debug-Skripte gehören nach `scripts/`, nicht nach `api/` (Vercel deployt jede `.py` unter `api/` als Function).
+- **Vercel Hobby: max. 12 Serverless Functions.** Next belegt 7 (Gruppen nach `maxDuration`), die Bridge 1. Keine neuen `.py`-Dateien unter `api/` und keine neuen `maxDuration`-Werte ohne Not; neue Bridge-Aktionen in `AKTIONEN` eintragen.
 - Schlafdaten sind sensibel: nie loggen, nie Werte in Fehlermeldungen.

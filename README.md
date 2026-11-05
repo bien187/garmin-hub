@@ -118,7 +118,7 @@ Tiles, Esri World Imagery, swisstopo WMTS, BRouter — keinerlei bezahlte Keys.
 Garmin-Uhr ──BT──> Garmin Connect Cloud
                         │  (inoffizielle API, garth-Token aus DB)
                         ▼
-     Python Functions  /api/bridge/*   ← Vercel Cron (05:00 UTC) + Sync-Button
+     Python Function   /api/bridge?aktion=…  ← Vercel Cron (05:00 UTC) + Sync-Button
                         │  schreibt (pg8000)
                         ▼
               Supabase Postgres (Rohdaten + berechnete Metriken)
@@ -140,6 +140,17 @@ durch das Präfix `/api/bridge/*` ausgeschlossen; Next-eigene Handler leben
 unter `/app/api/*`. Ein separates FastAPI-Projekt (Plan B aus dem Auftrag)
 war dadurch nicht nötig. Die Bridge akzeptiert nur Requests mit dem Header
 `x-internal-key` (Shared Secret).
+
+**Eine Python-Function statt sieben:** Vercel Hobby erlaubt höchstens 12
+Serverless Functions pro Deployment. Next.js bündelt seine Routen zu 7
+Functions (gruppiert nach `maxDuration`); mit den früher 7 Bridge-Dateien waren
+es 14, und die Builds seit dem 30.09.2026 scheiterten daran. Alle Aktionen
+(`sync`, `mfa`, `push_course`, `push_workout`, `unpush_workout`,
+`resync_activity`, `status`) laufen deshalb über `api/bridge/index.py` mit
+`?aktion=<name>`; die Logik steht in `api/_lib/bridge_aktionen.py`.
+`bridgeFetch()` übersetzt die bisherigen Pfade `/api/bridge/<name>`
+automatisch. Ergebnis: 7 + 1 = 8 Functions. Neue Bridge-Aktionen gehören in
+`AKTIONEN`, nie in eine neue Datei unter `api/`.
 
 **Sync-Strategie:** inkrementell + idempotent. `sync_state` merkt sich
 Fortschritt pro Datentyp; ein Aufruf verarbeitet ≤ 12 Aktivitäten bzw.
