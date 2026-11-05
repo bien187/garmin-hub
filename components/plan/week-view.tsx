@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CircleDashed,
@@ -104,6 +105,8 @@ function StatusKnopf({
 export function WeekView() {
   const toast = useToast();
   const [woche, setWoche] = useState(() => montagVon(heuteIso()));
+  // „Deine Trainingstage" ist standardmässig eingeklappt
+  const [tageOffen, setTageOffen] = useState(false);
   const [daten, setDaten] = useState<PlanDaten | null>(null);
   const [laedt, setLaedt] = useState(false);
   const [generiert, setGeneriert] = useState(false);
@@ -276,8 +279,31 @@ export function WeekView() {
       </div>
 
       {daten && (
-        <div className="rounded-xl border border-border p-3 space-y-2">
-          <h2 className="text-sm font-medium">Deine Trainingstage</h2>
+        <div className="rounded-xl border border-border">
+          <button
+            type="button"
+            className="flex min-h-11 w-full items-center justify-between gap-3 px-3 py-2 text-left"
+            aria-expanded={tageOffen}
+            aria-controls="trainingstage-liste"
+            onClick={() => setTageOffen((o) => !o)}
+          >
+            <span>
+              <span className="block text-sm font-medium">Deine Trainingstage</span>
+              {!tageOffen && (
+                <span className="block text-xs text-muted-foreground">
+                  {(() => {
+                    const gesperrt = WOCHENTAGE.filter((_, i) => daten.nichtVerfuegbar.includes(addTage(woche, i))).length;
+                    return gesperrt === 0
+                      ? "Alle Tage verfügbar · zum Anpassen öffnen"
+                      : `${gesperrt} ${gesperrt === 1 ? "Tag" : "Tage"} ohne Zeit · zum Anpassen öffnen`;
+                  })()}
+                </span>
+              )}
+            </span>
+            <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform", tageOffen && "rotate-180")} />
+          </button>
+          {tageOffen && (
+          <div id="trainingstage-liste" className="space-y-2 px-3 pb-3">
           <p className="text-xs text-muted-foreground">Markiere, wann du trainieren kannst. Der Plan passt sich direkt an.</p>
           {WOCHENTAGE.map((tag, i) => {
             const datum = addTage(woche, i);
@@ -294,6 +320,8 @@ export function WeekView() {
                 </label>}
             </div>;
           })}
+          </div>
+          )}
         </div>
       )}
 

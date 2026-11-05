@@ -187,3 +187,33 @@ export function fasseZusammen(
     sekunden: gueltig.reduce((s, e) => s + e.sekunden, 0),
   };
 }
+
+/**
+ * Referenzpuls aus den eigenen Läufen statt aus der Zonen-Mitte.
+ *
+ * Die Zone-2-Mitte trifft oft keinen einzigen Lauf: liegen die lockeren
+ * Läufe bei 145–150 bpm (z. B. weil im Garmin-Konto eine zu hohe HFmax die
+ * Zonen nach unten drückt), hält kaum ein Lauf fünf Minuten bei 136 ±3 bpm,
+ * und die Kurve bleibt leer. Deshalb: 35. Perzentil des Durchschnittspulses
+ * aller Läufe ≥ 20 Min — das ist der Puls der lockeren Läufe, Intervalle
+ * verschieben es kaum. Gerundet auf 4 bpm, damit nicht jeder neue Lauf eine
+ * komplette Neuberechnung auslöst, und begrenzt auf Zone 2 bis Zone 3.
+ * Weniger als 5 passende Läufe → Fallback (Zonen-Mitte).
+ */
+export function referenzPulsAusLaeufen(
+  laeufe: { dauerS: number; avgHr: number | null }[],
+  grenzen: { von: number; bis: number },
+  fallback: number
+): number {
+  const werte = laeufe
+    .filter((l) => l.dauerS >= 20 * 60 && l.avgHr != null && l.avgHr > 0)
+    .map((l) => l.avgHr as number)
+    .sort((a, b) => a - b);
+  if (werte.length < 5) return fallback;
+  const pos = 0.35 * (werte.length - 1);
+  const u = Math.floor(pos);
+  const o = Math.min(werte.length - 1, u + 1);
+  const p35 = werte[u] + (werte[o] - werte[u]) * (pos - u);
+  const gerundet = Math.round(p35 / 4) * 4;
+  return Math.min(grenzen.bis, Math.max(grenzen.von, gerundet));
+}

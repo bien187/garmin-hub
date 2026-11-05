@@ -3,6 +3,7 @@ import {
   fasseZusammen,
   gewichteterMedian,
   medianPaceBeiHr,
+  referenzPulsAusLaeufen,
 } from "../pace-bei-hr";
 
 interface Abschnitt {
@@ -123,5 +124,24 @@ describe("fasseZusammen", () => {
 
   it("liefert null, wenn nichts verwertbar ist", () => {
     expect(fasseZusammen([])).toBeNull();
+  });
+});
+
+describe("referenzPulsAusLaeufen", () => {
+  const lauf = (avgHr: number | null, dauerMin = 40) => ({ dauerS: dauerMin * 60, avgHr });
+  it("nimmt den Puls der lockeren Läufe (35. Perzentil, auf 4 bpm gerundet)", () => {
+    // echte Verteilung: lockere Läufe 143–152, Intervalle 155–175
+    const hr = [161, 145, 157, 143, 155, 148, 152, 152, 129, 148, 175, 146, 152, 145, 156, 144, 155, 167, 163, 148, 162, 165, 166, 146, 145, 167, 148];
+    expect(referenzPulsAusLaeufen(hr.map((h) => lauf(h)), { von: 126, bis: 168 }, 136)).toBe(148);
+  });
+  it("ignoriert kurze Läufe und fehlende Pulswerte", () => {
+    const l = [lauf(150), lauf(150), lauf(150), lauf(150), lauf(null), lauf(190, 10)];
+    expect(referenzPulsAusLaeufen(l, { von: 126, bis: 168 }, 136)).toBe(136); // nur 4 gültige → Fallback
+  });
+  it("bleibt in den Grenzen von Zone 2 bis Zone 3", () => {
+    const hoch = Array.from({ length: 8 }, () => lauf(185));
+    expect(referenzPulsAusLaeufen(hoch, { von: 126, bis: 168 }, 136)).toBe(168);
+    const tief = Array.from({ length: 8 }, () => lauf(110));
+    expect(referenzPulsAusLaeufen(tief, { von: 126, bis: 168 }, 136)).toBe(126);
   });
 });

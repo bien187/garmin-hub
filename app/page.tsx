@@ -81,7 +81,7 @@ export default async function DashboardPage() {
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-              EP-Notenprognose
+              EP-Noten · aktueller Stand
             </CardTitle>
           </CardHeader>
           <CardContent>

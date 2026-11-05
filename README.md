@@ -6,11 +6,11 @@
 <p align="center"><strong>Deine Garmin-Daten. Dein Ziel. Ein Plan.</strong></p>
 <p align="center">Eine persönliche Trainings-App für die Vorbereitung auf die Eignungsprüfung der Schweizer Armee-Grenadiere.</p>
 
-![Garmin Hub auf dem Desktop: Dashboard mit EP-Countdown, Bereitschaft, EP-Notenprognose, Schlaf und Fitness-Kurve](docs/screenshots/desktop-dashboard.png)
+![Garmin Hub auf dem Desktop: Dashboard mit EP-Countdown, Bereitschaft, aktuellen EP-Noten, Schlaf und Fitness-Kurve](docs/screenshots/desktop-dashboard.png)
 
 Garmin Hub holt Aktivitäten, Gesundheits- und Schlafdaten von Garmin Connect und
 wertet sie mit einer regelbasierten Engine aus. Daraus entstehen ein Dashboard, ein
-adaptiver Trainingsplan und eine Notenprognose für die Eignungsprüfung (EP). Die EP
+adaptiver Trainingsplan und der aktuelle Notenstand für die Eignungsprüfung (EP). Die EP
 findet am **Mittwoch, 18. November 2026** (Tag 1) und am **Donnerstag, 19. November
 2026** (Tag 2) statt.
 
@@ -33,7 +33,7 @@ Die Oberfläche ist für das Smartphone gestaltet und lässt sich als PWA instal
     <th>Aktivitätsdetail</th>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/mobile-dashboard.png" width="260" alt="Mobiles Dashboard mit EP-Countdown, Bereitschafts-Ampel und Notenprognose"></td>
+    <td><img src="docs/screenshots/mobile-dashboard.png" width="260" alt="Mobiles Dashboard mit EP-Countdown, Bereitschafts-Ampel und aktuellen EP-Noten"></td>
     <td><img src="docs/screenshots/mobile-aktivitaeten.png" width="260" alt="Aktivitätsliste mit Wochengruppen, Minikarten und Kennzahlen"></td>
     <td><img src="docs/screenshots/mobile-aktivitaet.png" width="260" alt="Detail eines Laufs mit Kennzahlen, Karte und Flyover-Steuerung"></td>
   </tr>
@@ -68,11 +68,11 @@ lokalen Datenbank erzeugt. Echte Garmin-Daten kommen in keiner Aufnahme vor.
 
 | Bereich | Funktionen |
 | --- | --- |
-| **Dashboard** | EP-Countdown mit Phase, Bereitschafts-Ampel mit Handlungssatz, EP-Notenprognose, Schlaf der letzten Nacht, Fitness-Kurve (CTL/ATL/TSB), Pace bei gleichem Puls, Muskelstatus, Wochenvergleich, All-Time-Summen und Korrelations-Insights. |
+| **Dashboard** | EP-Countdown mit Phase, Bereitschafts-Ampel mit Handlungssatz, EP-Noten nach aktuellem Stand, Schlaf der letzten Nacht, Fitness-Kurve (CTL/ATL/TSB), Pace bei gleichem Puls, Muskelstatus, Wochenvergleich, All-Time-Summen und Korrelations-Insights. |
 | **Aktivitäten** | Liste mit Filter und Minikarten, Detailseite mit 3D-Flyover, Höhenprofil, Splits, Herzfrequenzzonen, GAP, Effizienz und aerober Entkopplung. Krafttrainings mit Satz-Tabelle und belasteten Muskeln. |
 | **Karte** | Routen-Builder mit Routing per Klick, Undo/Redo, Rückweg, Rundkurs, Höhenprofil, geschätzter Dauer nach eigener Pace, Heatmap, GPX-Export und Senden auf die Uhr. |
 | **Trainingsplan** | Regelbasierter Wochenplan, Anpassung nach jedem Sync, Verfügbarkeit pro Tag, Workout-Generator, Senden auf die Uhr und Rückgängig. |
-| **Eignungsprüfung** | Notentabellen aller fünf Disziplinen, Benchmarks mit Sofort-Note, Prognose, Probe-EP-Modus mit 60-bpm-Metronom, Taper-Plan ab 5. November und abhakbare Checkliste für beide EP-Tage. |
+| **Eignungsprüfung** | Notentabellen aller fünf Disziplinen, Benchmarks mit Sofort-Note (erfassen, anpassen, löschen), aktueller Notenstand, Probe-EP-Modus mit 60-bpm-Metronom, Taper-Plan ab 5. November und abhakbare Checkliste für beide EP-Tage. |
 | **Körper** | Body-Map mit 16 Muskelgruppen, Rest-Erschöpfung aus Kraft- und Laufeinheiten und systemische Ermüdung (TSB, ACWR, HRV-Trend). |
 | **Schlaf** | Kachel im Dashboard und Detailansicht pro Nacht mit Hypnogramm, Phasen, Herzfrequenz, SpO2, Atemfrequenz je Phase, HRV, Stress, Body Battery, Bewegung, Vergleich mit 7 und 30 Tagen und Empfehlungen. |
 | **Garmin** | Chunkweiser Sync mit Fortschritt, täglicher Cron, verschlüsselte Token, MFA-Eingabe und Herzfrequenzzonen direkt aus dem Garmin-Konto. |
@@ -140,8 +140,11 @@ Wirkung auf die Form (TSB) von morgen.
 Alle fünf Disziplinen sind exakt nach der offiziellen **Notentabelle Eignungsprüfung
 EP_AZ SK** hinterlegt ([`lib/ep/disziplinen.ts`](lib/ep/disziplinen.ts)): Marsch 5 km
 mit 20 kg, Klimmzüge, Liegestützen in 60 s, seitliche Rumpfkraft (max. 120 s) und
-dorsale Rumpfkette (max. 150 s). Aus den erfassten Benchmarks entsteht eine Prognose
-pro Disziplin und für den Gesamtschnitt.
+dorsale Rumpfkette (max. 150 s). Die Notenanzeige zeigt nur **selbst gemessene Werte**:
+pro Disziplin den zuletzt erfassten Benchmark mit Datum und Note, dazu den Schnitt der
+vorhandenen Disziplinen. Es gibt bewusst keine Prognose aus Trends oder aus dem
+Lauf-Modell. Benchmarks werden im Plan unter **Benchmarks** erfasst, angepasst und
+gelöscht.
 
 | Note | Bewertung | Bedeutung |
 | --- | --- | --- |
@@ -430,7 +433,7 @@ api/bridge/index.py   Python-Bridge zu Garmin Connect (eine Vercel-Function)
 api/_lib/             Garmin-Client, Sync-Logik, Verschlüsselung, Bridge-Aktionen
 components/           UI nach Bereichen (dashboard, activities, map, plan, body, schlaf)
 lib/engine/           Engine: TRIMP, Fitness, GAP, Riegel, Muskeln, Plan, Taper, Schlaf
-lib/ep/               EP-Disziplinen, Notentabellen, Prognose, Phasen, Checkliste
+lib/ep/               EP-Disziplinen, Notentabellen, Notenstand, Phasen, Checkliste
 lib/server/           Datenbankzugriff und Dienste für die Seiten
 lib/db/               Drizzle-Schema und Verbindung
 drizzle/              SQL-Migrationen
@@ -500,7 +503,7 @@ Das Seed-Skript schreibt nur in lokale Datenbanken und bricht bei jedem anderen 
 - **Inoffizielle API.** Ändert Garmin Endpunkte oder Login, kann der Sync ausfallen, bis die Bibliotheken nachziehen. Für Courses dient GPX-Export als Ausweichweg.
 - **Single User.** Ein Konto, ein Passwort, keine Mandantentrennung.
 - **Bridge lokal nur mit Vercel CLI.** `pnpm dev` startet die Python-Bridge nicht.
-- **Schätzungen.** Muskelmodell, Notenprognose und Schlafwerte sind Modelle bzw. Uhr-Schätzungen, keine Messungen oder Diagnosen.
+- **Schätzungen.** Muskelmodell und Schlafwerte sind Modelle bzw. Uhr-Schätzungen, keine Messungen oder Diagnosen. Die EP-Noten zeigen nur den letzten eigenen Messwert, keinen Ausblick auf den Prüfungstag.
 - **Kraft-Workouts.** Das Garmin-Workout-Format bildet nicht jede Satzstruktur ab; Übungen landen als beschriftete Schritte auf der Uhr.
 - **Hellmodus.** Die App ist Dark-first; die Farben für den Hellmodus existieren, ein Umschalter in der Oberfläche fehlt.
 - **Vercel Hobby.** Function-Laufzeit 60 Sekunden, höchstens 12 Functions, nur tägliche Crons.

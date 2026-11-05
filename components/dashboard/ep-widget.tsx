@@ -2,10 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { BenchmarkListe } from '@/components/plan/benchmark-liste';
 import { BESTEHEN_SCHNITT, EP_DISZIPLINEN, DisziplinId, berechneNote, notenFarbe } from "@/lib/ep/disziplinen";
 import { EpPrognose } from "@/lib/ep/prognose";
-import { formatNote, formatDauer } from "@/lib/format";
+import { formatDatum, formatNote, formatDauer } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 function wertLabel(id: DisziplinId, wert: number | null): string {
@@ -17,8 +16,9 @@ function wertLabel(id: DisziplinId, wert: number | null): string {
 }
 
 /**
- * EP-Prognose: 5 Disziplinen als horizontale Notenbalken (1.0–5.0) mit
- * Zielmarke, Bestehens-Linie (3.60) und Klimmzug-Stolperkante.
+ * EP-Noten nach dem aktuellen Stand: je Disziplin der zuletzt erfasste Wert
+ * (keine Prognose) als Notenbalken (1.0–5.0) mit Zielmarke,
+ * Bestehens-Linie (3.60) und Klimmzug-Stolperkante.
  */
 export function EpWidget({ prognose }: { prognose: EpPrognose }) {
   const reihenfolge: DisziplinId[] = [
@@ -40,7 +40,7 @@ export function EpWidget({ prognose }: { prognose: EpPrognose }) {
       <div className="flex items-end justify-between">
         <div>
           <div className="text-[10px] font-medium uppercase tracking-[0.06em] text-dim-foreground">
-            Prognose Gesamtschnitt
+            Gesamtschnitt{prognose.fehlendeDisziplinen.length > 0 ? ` · ${5 - prognose.fehlendeDisziplinen.length} von 5 Disziplinen` : ""}
           </div>
           <div
             className="stat-display text-[28px] leading-none"
@@ -69,7 +69,12 @@ export function EpWidget({ prognose }: { prognose: EpPrognose }) {
           return (
             <div key={id}>
               <div className="mb-0.5 flex items-baseline justify-between text-xs">
-                <span className="font-medium">{d.kurzname}</span>
+                <span className="font-medium">
+                  {d.kurzname}
+                  {p.datumLetzte && (
+                    <span className="ml-1.5 font-normal text-dim-foreground">{formatDatum(p.datumLetzte)}</span>
+                  )}
+                </span>
                 <span className="stat-mono text-muted-foreground">
                   {wertLabel(id, p.prognoseWert)}
                   <span
@@ -123,14 +128,16 @@ export function EpWidget({ prognose }: { prognose: EpPrognose }) {
         })}
       </div>
 
-      <details className="rounded-lg border border-border p-3">
-        <summary className="min-h-11 cursor-pointer content-center text-sm text-primary">Einträge verwalten / löschen</summary>
-        <BenchmarkListe />
-      </details>
+      <Link
+        href="/plan?tab=benchmarks"
+        className="flex min-h-11 items-center text-sm text-primary underline-offset-2 hover:underline"
+      >
+        Einträge erfassen, anpassen oder löschen → Plan · Benchmarks
+      </Link>
       {prognose.fehlendeDisziplinen.length > 0 && (
         <p className="text-xs text-muted-foreground">
           {prognose.fehlendeDisziplinen.length} Disziplin(en) ohne Benchmark —{" "}
-          <Link href="/plan" className="text-primary underline-offset-2 hover:underline">
+          <Link href="/plan?tab=benchmarks" className="text-primary underline-offset-2 hover:underline">
             im Plan-Tab erfassen
           </Link>
           .

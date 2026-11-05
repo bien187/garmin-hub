@@ -23,6 +23,8 @@ export interface DisziplinPrognose {
   /** Trend pro Woche im Wert der Disziplin */
   trendProWoche: number | null;
   anzahlMessungen: number;
+  /** Datum der letzten Messung */
+  datumLetzte: string | null;
 }
 
 export interface EpPrognose {
@@ -136,6 +138,7 @@ export function berechneEpPrognose(
           : null,
       trendProWoche: trendWoche,
       anzahlMessungen: eintraege.length,
+      datumLetzte: eintraege.length ? eintraege[eintraege.length - 1].datum : null,
     };
     disziplinen[id] = prognose;
     if (prognose.prognoseNote != null) {
@@ -150,5 +153,44 @@ export function berechneEpPrognose(
     bestanden: ergebnis.bestanden,
     ausschluss: ergebnis.ausschluss,
     fehlendeDisziplinen: ids.filter((id) => prognoseNoten[id] == null),
+  };
+}
+
+/**
+ * Aktueller EP-Stand ohne Prognose: pro Disziplin genau der zuletzt erfasste
+ * Wert und seine Note laut offizieller Tabelle — kein Trend, kein Lauf-Modell,
+ * keine Altersgrenze. So zeigt die Notenanzeige nur selbst gemessene, reale
+ * Werte. Disziplinen ohne Eintrag bleiben leer; der Schnitt läuft über die
+ * vorhandenen, „bestanden" gibt es erst mit allen fünf.
+ */
+export function aktuellerEpStand(benchmarks: BenchmarkEintrag[]): EpPrognose {
+  const ids = Object.keys(EP_DISZIPLINEN) as DisziplinId[];
+  const disziplinen = {} as Record<DisziplinId, DisziplinPrognose>;
+  const noten: Partial<Record<DisziplinId, number>> = {};
+  for (const id of ids) {
+    const eintraege = benchmarks
+      .filter((b) => b.disziplin === id)
+      .sort((a, b) => a.datum.localeCompare(b.datum));
+    const letzte = eintraege[eintraege.length - 1] ?? null;
+    const note = letzte ? berechneNote(id, letzte.wert) : null;
+    disziplinen[id] = {
+      disziplin: id,
+      aktuellerWert: letzte?.wert ?? null,
+      aktuelleNote: note,
+      prognoseWert: letzte?.wert ?? null,
+      prognoseNote: note,
+      trendProWoche: null,
+      anzahlMessungen: eintraege.length,
+      datumLetzte: letzte?.datum ?? null,
+    };
+    if (note != null) noten[id] = note;
+  }
+  const ergebnis = bewerteEp(noten);
+  return {
+    disziplinen,
+    schnitt: ergebnis.schnitt,
+    bestanden: ergebnis.bestanden,
+    ausschluss: ergebnis.ausschluss,
+    fehlendeDisziplinen: ids.filter((id) => noten[id] == null),
   };
 }

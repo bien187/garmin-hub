@@ -58,3 +58,11 @@ gerechnet und per `COALESCE` upgeserted — ältere Wochen behalten damit
 ihren Wert, statt bei jedem Lauf neu (und teuer) aus den Streams zu
 entstehen. Ändert sich der Referenzpuls, rechnet der nächste Lauf einmalig
 400 Tage nach.
+
+Referenzpuls ist der typische Puls der eigenen lockeren Läufe: das
+35. Perzentil des Durchschnittspulses aller Läufe ab 20 Minuten, auf 4 bpm
+gerundet und auf Zone 2 bis Zone 3 begrenzt (`referenzPulsAusLaeufen` in
+`lib/engine/pace-bei-hr.ts`). Früher war es die Mitte von Zone 2. Liegen die
+Garmin-Zonen zu tief (z. B. wegen einer zu hoch eingestellten HFmax), traf
+diese Mitte kaum einen Lauf: Kein Lauf blieb fünf Minuten im Fenster
+±3 bpm, und die Kurve blieb ab September leer.
