@@ -23,6 +23,8 @@ export interface RasterBasemap {
   maxzoom: number;
   /** Bild bringt eigene Schattierung mit → Hillshade stört nur */
   ohneHillshade: boolean;
+  /** Deckt die ganze Welt ab → Vektorkarte darunter ist nie zu sehen */
+  weltweit: boolean;
 }
 
 /**
@@ -40,6 +42,7 @@ export const RASTER_BASEMAPS: RasterBasemap[] = [
     attribution: "Esri · Maxar · Earthstar Geographics",
     maxzoom: 19,
     ohneHillshade: true,
+    weltweit: true,
   },
   {
     id: "topo",
@@ -50,6 +53,7 @@ export const RASTER_BASEMAPS: RasterBasemap[] = [
     attribution: "© swisstopo",
     maxzoom: 18,
     ohneHillshade: true,
+    weltweit: false,
   },
 ];
 
@@ -98,20 +102,89 @@ export function fuegeRasterBasemapsHinzu(map: MapLibreMap) {
   }
 }
 
-export function setzeKartenTyp(map: MapLibreMap, typ: KartenTyp) {
+const vektorOriginal = new WeakMap<MapLibreMap, Map<string, string>>();
+
+/** Layer-IDs der Vektor-Basemap (Liberty), ohne eigene ghq-/Routen-Layer */
+function vektorBasemapLayer(map: MapLibreMap): string[] {
+  const ids: string[] = [];
+  for (const l of map.getStyle().layers ?? []) {
+    if (!("source" in l) || typeof l.source !== "string") continue;
+    if (map.getSource(l.source)?.type === "vector") ids.push(l.id);
+  }
+  return ids;
+}
+
+export interface KartenTypOptionen {
+  /**
+   * Raster-Kartentyp als reines Bild: Vektor-Layer der Basemap (Flächen,
+   * Strassen, Gebäude, Beschriftungen) ganz ausblenden. Sie lägen ohnehin
+   * unter dem Satellitenbild, kosten mit Terrain aber Kachel-Downloads,
+   * Worker-Parsing, Render-to-Texture und Beschriftungs-Platzierung pro
+   * Frame — auf dem Handy der grösste Ruckel-Faktor im Flyover. MapLibre
+   * lädt die Kacheln einer Quelle nicht mehr, wenn keiner ihrer Layer
+   * sichtbar ist. Gilt nur für weltweite Raster (Satellit) — Topo CH
+   * braucht die Vektorkarte ausserhalb der Schweiz als Fallback.
+   */
+  nurBild?: boolean;
+}
+
+export function setzeKartenTyp(
+  map: MapLibreMap,
+  typ: KartenTyp,
+  opt: KartenTypOptionen = {}
+) {
+  const aktiv = RASTER_BASEMAPS.find((b) => b.id === typ);
+  if (opt.nurBild) {
+    // Ursprüngliche Sichtbarkeit einmal merken: Liberty blendet einzelne
+    // Layer selbst aus, die dürfen beim Zurückschalten nicht auftauchen
+    let original = vektorOriginal.get(map);
+    if (!original) {
+      original = new Map(
+        vektorBasemapLayer(map).map((id) => [
+          id,
+          (map.getLayoutProperty(id, "visibility") as string | undefined) ?? "visible",
+        ])
+      );
+      vektorOriginal.set(map, original);
+    }
+    for (const [id, sichtbar] of original) {
+      if (!map.getLayer(id)) continue;
+      const ziel = aktiv?.weltweit ? "none" : sichtbar;
+      if (map.getLayoutProperty(id, "visibility") !== ziel) {
+        map.setLayoutProperty(id, "visibility", ziel);
+      }
+    }
+  }
   for (const b of RASTER_BASEMAPS) {
     const id = basemapLayerId(b.id);
     if (map.getLayer(id)) {
       map.setLayoutProperty(id, "visibility", b.id === typ ? "visible" : "none");
     }
   }
-  const aktiv = RASTER_BASEMAPS.find((b) => b.id === typ);
   if (map.getLayer("ghq-hillshade")) {
     map.setLayoutProperty(
       "ghq-hillshade",
       "visibility",
       aktiv?.ohneHillshade ? "none" : "visible"
     );
+  }
+}
+
+/**
+ * Zum Horizont hin gröbere Raster-Kacheln: Die geneigte Flyover-Kamera
+ * würde sonst bis in die Ferne hochauflösende Satellitenkacheln anfordern,
+ * die der Nebel dort ohnehin verdeckt. Bewusst nur für die Raster-
+ * Basemaps — das Terrain-DEM bleibt unberührt, sonst findet MapLibre für
+ * den Kartenmittelpunkt keine Höhe und die Kamera sinkt ins Gelände.
+ */
+export function setzeRasterLod(
+  map: MapLibreMap,
+  maxZoomStufen: number,
+  kachelVerhaeltnis: number
+) {
+  for (const b of RASTER_BASEMAPS) {
+    const id = basemapLayerId(b.id);
+    if (map.getSource(id)) map.setSourceTileLodParams(maxZoomStufen, kachelVerhaeltnis, id);
   }
 }
 

@@ -40,6 +40,8 @@ export function FlyoverGraph({
   const rafRef = useRef(0);
   const cursorRef = useRef(new SampleCursor());
   const ziehtRef = useRef(false);
+  /** Zuletzt gezeichneter Stand — unverändert heisst: Frame auslassen */
+  const gezeichnetRef = useRef<{ t: number; b: number } | null>(null);
 
   const xVonZeit = useCallback(
     (t: number, breite: number) => (t / track.totalDuration) * breite,
@@ -135,6 +137,7 @@ export function FlyoverGraph({
     if (!ctx) return;
     ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, b, h);
+    gezeichnetRef.current = null; // Overlay mit neuer Breite nachziehen
 
     // Graph liegt in einer dunklen Card → kein eigener Hintergrund nötig.
     // Noch nicht durchlaufener Teil bewusst gedimmt (Kontext), der
@@ -178,9 +181,16 @@ export function FlyoverGraph({
     const canvas = overlayRef.current;
     const wrapper = wrapperRef.current;
     if (!canvas || !wrapper) return;
+    rafRef.current = requestAnimationFrame(zeichneOverlay);
     const dpr = window.devicePixelRatio || 1;
     const b = wrapper.clientWidth;
     const h = heightPx;
+    // Nur neu zeichnen, wenn sich Videozeit oder Breite geändert haben —
+    // sonst liefe das komplette Neuzeichnen aller Kurven 60× pro Sekunde
+    // auch im Stillstand und nähme der Karte auf dem Handy Rechenzeit weg
+    const letzte = gezeichnetRef.current;
+    if (letzte && letzte.t === tVideoRef.current && letzte.b === b) return;
+    gezeichnetRef.current = { t: tVideoRef.current, b };
     if (canvas.width !== b * dpr) {
       canvas.width = b * dpr;
       canvas.height = h * dpr;
@@ -237,8 +247,6 @@ export function FlyoverGraph({
     ctx.fillRect(lx - 3, 2, tb + 6, 14);
     ctx.fillStyle = "#fff";
     ctx.fillText(label, lx, 12);
-
-    rafRef.current = requestAnimationFrame(zeichneOverlay);
   }, [heightPx, track, daten, videoDauerS, tVideoRef, xVonZeit, yEle, ySpeed, yHr, zeichneKurven]);
 
   useEffect(() => {

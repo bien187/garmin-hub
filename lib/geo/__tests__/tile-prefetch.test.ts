@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { routenTiles, tileXY, verduennen } from "../tile-prefetch";
+import { prefetchZooms, routenTiles, tileXY, verduennen } from "../tile-prefetch";
 
 describe("tileXY", () => {
   it("bekannte Referenz: Lenzburg auf z14", () => {
@@ -51,5 +51,22 @@ describe("verduennen", () => {
     expect(duenn.length).toBeLessThan(10);
     expect(duenn[0]).toEqual(punkte[0]);
     expect(duenn[duenn.length - 1]).toEqual(punkte[punkte.length - 1]);
+  });
+});
+
+describe("prefetchZooms", () => {
+  it("lädt die Stufen, die MapLibre bei der Kamerahöhe anfragt", () => {
+    expect(prefetchZooms(16)).toEqual({ raster: [16, 17], vektor: [14], dem: [14, 15] });
+  });
+
+  it("rundet den Kamera-Zoom und deckelt an den Quellgrenzen", () => {
+    const z = prefetchZooms(18.6);
+    expect(z.raster).toEqual([19]);
+    expect(z.vektor).toEqual([14]);
+    expect(z.dem).toEqual([15]);
+  });
+
+  it("bleibt bei kleinem Zoom unterhalb der Grenzen unverändert", () => {
+    expect(prefetchZooms(13.4)).toEqual({ raster: [13, 14], vektor: [12, 13], dem: [11, 12] });
   });
 });

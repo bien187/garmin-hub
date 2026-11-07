@@ -144,7 +144,9 @@ Jede Aktivität hat eine Detailseite mit Dauer, Distanz, Pace, GAP (höhenkorrig
 nach Minetti), Herzfrequenz, Aufstieg, Kalorien, aerober Entkopplung und VO₂max. Der
 **3D-Flyover** fährt die Strecke auf MapLibre mit Terrain ab; Geschwindigkeit,
 Scrubber und Live-Werte lassen sich steuern. Die Route ist nach Pace oder Herzfrequenz
-eingefärbt, das Höhenprofil ist mit der Karte verbunden.
+eingefärbt, das Höhenprofil ist mit der Karte verbunden. Standard ist das
+Satellitenbild ohne Vektorkarte darunter; auf Touch-Geräten rendert die Karte mit
+höchstens 1,5-facher Pixeldichte, Läuferpunkt und Live-Werte laufen ohne React-Render.
 
 Aktivitäten lassen sich lokal ausblenden (bei Garmin bleiben sie erhalten) und einzeln
 oder gesammelt neu von Garmin laden.

@@ -100,10 +100,40 @@ async function vectorTileTemplate(): Promise<string | null> {
 }
 
 export interface PrefetchOptionen {
-  /** Zoom-Zuschlag des Kameraprofils (Wanderungen fliegen näher dran) */
+  /** Zoom-Zuschlag des Kameraprofils (nur ohne `kameraZoom`, Altverhalten) */
   zoomBonus?: number;
+  /**
+   * Basis-Zoom der Verfolgerkamera. Damit landen genau die Kacheln im
+   * Cache, die MapLibre im Flug anfragt — statt fester Stufen daneben.
+   */
+  kameraZoom?: number;
   /** Kachel-Template des aktiven Raster-Kartentyps (Satellit/Topo) */
   rasterTemplate?: string | null;
+}
+
+export interface PrefetchZooms {
+  raster: number[];
+  vektor: number[];
+  dem: number[];
+}
+
+/**
+ * Kachel-Zoomstufen, die MapLibre bei Kamera-Zoom `z` lädt:
+ * - Raster mit 256-px-Kacheln: Stufe z+1 direkt unter der Kamera, z zum
+ *   Horizont hin (geneigte Kamera, LOD).
+ * - Vektor (512 px, OpenFreeMap endet bei z14): z−1 und z.
+ * - Terrain-DEM (256 px, MapLibre lädt es eine Stufe gröber, Quelle endet
+ *   bei z15): z−1 und z−2.
+ */
+export function prefetchZooms(kameraZoom: number): PrefetchZooms {
+  const z = Math.round(kameraZoom);
+  const band = (zs: number[], max: number) =>
+    [...new Set(zs.map((x) => Math.max(0, Math.min(max, x))))];
+  return {
+    raster: band([z, z + 1], 19),
+    vektor: band([z - 1, z], 14),
+    dem: band([z - 2, z - 1], 15),
+  };
 }
 
 function fuelleTemplate(template: string, t: TileCoord): string {
@@ -112,6 +142,10 @@ function fuelleTemplate(template: string, t: TileCoord): string {
     .replace("{x}", String(t.x))
     .replace("{y}", String(t.y));
 }
+
+/** Kachel-Budget je Ebene — schützt vor Riesen-Routen (niedrige Zooms zuerst) */
+const BUDGET_BILD = 420;
+const BUDGET_DEM = 180;
 
 /**
  * Lädt alle Route-Tiles in den HTTP-Cache. Liefert laufend Fortschritt
@@ -125,32 +159,35 @@ export async function prefetchFlyoverTiles(
   const punkte = verduennen(route, 150);
   const bonus = Math.round(opt.zoomBonus ?? 0);
   const raster = opt.rasterTemplate ?? null;
+  const zooms: PrefetchZooms =
+    opt.kameraZoom != null
+      ? prefetchZooms(opt.kameraZoom)
+      : {
+          raster: [13, 14, 15].map((z) => z + bonus),
+          vektor: [12, 13, 14].map((z) => z + bonus),
+          dem: [13, 14, 15].map((z) => Math.min(15, z + bonus)),
+        };
 
-  const urls: string[] = [];
-
+  const bild: string[] = [];
   if (raster) {
-    // Raster-Basemap (256-px-Tiles) liegt eine Stufe über den Vektorzooms.
-    // Sie deckt das Bild, deshalb hat sie beim Budget Vorrang.
-    for (const t of routenTiles(punkte, [13, 14, 15].map((z) => z + bonus), 1)) {
-      urls.push(fuelleTemplate(raster, t));
+    // Raster-Basemap deckt das Bild, die Vektorkarte darunter bleibt aus
+    for (const t of routenTiles(punkte, zooms.raster, 1)) {
+      bild.push(fuelleTemplate(raster, t));
     }
   } else {
-    // Vektor-Basemap (512-px-Tiles): Flyover-Zooms 13.7–15.2 → z12–z14
     const template = await vectorTileTemplate();
     if (template) {
-      for (const t of routenTiles(punkte, [12, 13, 14].map((z) => z + bonus), 1)) {
-        urls.push(fuelleTemplate(template, t));
+      for (const t of routenTiles(punkte, zooms.vektor, 1)) {
+        bild.push(fuelleTemplate(template, t));
       }
     }
   }
 
-  // Terrain-DEM (256-px-Tiles): z13–z15, die Quelle endet bei z15
-  for (const t of routenTiles(punkte, [13, 14, 15].map((z) => Math.min(15, z + bonus)), 1)) {
-    urls.push(fuelleTemplate(TERRARIUM_TILES, t));
-  }
+  const dem = routenTiles(punkte, zooms.dem, 1).map((t) =>
+    fuelleTemplate(TERRARIUM_TILES, t)
+  );
 
-  // Sicherheitsdeckel gegen Riesen-Routen (niedrige Zooms zuerst behalten)
-  const liste = urls.slice(0, 600);
+  const liste = [...bild.slice(0, BUDGET_BILD), ...dem.slice(0, BUDGET_DEM)];
   if (liste.length === 0) {
     onProgress(100);
     return;

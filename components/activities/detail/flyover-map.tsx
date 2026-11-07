@@ -13,6 +13,7 @@ import {
   KARTEN_TYPEN,
   rasterTemplate,
   setzeKartenTyp,
+  setzeRasterLod,
   type KartenTyp,
 } from "@/lib/geo/map-style";
 import { prefetchFlyoverTiles } from "@/lib/geo/tile-prefetch";
@@ -140,6 +141,22 @@ const KAM_TAU_ZOOM_PITCH_S = 1.6;
 const ZOOM_MIN = 7;
 const ZOOM_MAX = 19;
 
+/**
+ * Render-Auflösung: Ein iPhone meldet devicePixelRatio 3 — das sind 2,25×
+ * so viele Pixel wie bei 2, und mit Terrain wird jeder Kachelinhalt noch
+ * einmal in Texturen gerendert. Auf Touch-Geräten 1,5 reicht für ein
+ * scharfes Satellitenbild und hält den Flug flüssig.
+ */
+function flyoverPixelRatio(): number {
+  const dpr = window.devicePixelRatio || 1;
+  const touch = window.matchMedia("(pointer: coarse)").matches;
+  return Math.min(dpr, touch ? 1.5 : 2);
+}
+
+/** Läuferpunkt als DOM-Element (siehe setzeLaeufer) */
+const LAEUFER_KLASSEN =
+  "pointer-events-none absolute left-0 top-0 z-[1] size-4 rounded-full border-[2.5px] border-white bg-[#2ee6c7] shadow-[0_0_0_4px_rgba(46,230,199,0.25),0_1px_4px_rgba(0,0,0,0.5)] will-change-transform";
+
 function clamp(v: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, v));
 }
@@ -173,22 +190,27 @@ export function FlyoverMap({ streams, typ, className, onBereit }: FlyoverMapProp
   /** true während der Schlussfahrt — deren Zoom stammt nicht vom Nutzer */
   const outroRef = useRef(false);
 
+  /* Läuferpunkt + HUD direkt im DOM: kein React-Render pro Frame */
+  const laeuferElRef = useRef<HTMLDivElement>(null);
+  const laeuferPosRef = useRef<[number, number] | null>(null);
+  const hudElRef = useRef<HTMLDivElement>(null);
+  const hudZeitRef = useRef<HTMLSpanElement>(null);
+  const hudKmRef = useRef<HTMLSpanElement>(null);
+  const hudPaceRef = useRef<HTMLSpanElement>(null);
+  const hudEleRef = useRef<HTMLSpanElement>(null);
+  const hudHrRef = useRef<HTMLSpanElement>(null);
+
   const [bereit, setBereit] = useState(false);
   const [ladeProzent, setLadeProzent] = useState(0);
   const [vorgeladen, setVorgeladen] = useState(false);
   const [spielt, setSpielt] = useState(false);
   const [modus, setModus] = useState<"hr" | "pace">("pace");
-  const [kartenTyp, setKartenTyp] = useState<KartenTyp>("karte");
-  const kartenTypRef = useRef<KartenTyp>("karte");
+  // Satellit als Standard — wie beim Strava-Flyover, und ohne Vektorkarte
+  // darunter auch die leichteste Variante für das Handy
+  const [kartenTyp, setKartenTyp] = useState<KartenTyp>("satellit");
+  const kartenTypRef = useRef<KartenTyp>("satellit");
   kartenTypRef.current = kartenTyp;
   const [vollbild, setVollbild] = useState(false);
-  const [hud, setHud] = useState<{
-    zeit: string;
-    km: string;
-    pace: string;
-    ele: number;
-    hr: number | null;
-  } | null>(null);
 
   /* ---- Preprocessing (pure Engine) ---- */
   const profil = useMemo(() => flyoverProfil(typ), [typ]);
@@ -253,6 +275,52 @@ export function FlyoverMap({ streams, typ, className, onBereit }: FlyoverMapProp
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [track, graphDaten]);
 
+  /* ---------- Läuferpunkt + HUD (DOM statt React/GeoJSON) ---------- */
+
+  /* Der Punkt war eine GeoJSON-Quelle mit setData in jedem Frame: das
+     schickt die Geometrie jedes Mal an den Worker, baut den Kachelindex
+     neu und lädt alle Kacheln der Quelle nach — auf dem Handy der teuerste
+     Teil des ganzen Frames. Ein DOM-Punkt per map.project (rechnet die
+     Terrainhöhe aus dem DEM auf der CPU mit) kostet praktisch nichts.
+     Kein maplibregl.Marker: der liest für die Verdeckungsprüfung bis zu
+     zehnmal pro Sekunde Pixel von der GPU zurück. */
+  const positioniereLaeufer = useCallback((map: maplibregl.Map) => {
+    const el = laeuferElRef.current;
+    const pos = laeuferPosRef.current;
+    if (!el || !pos) return;
+    const p = map.project(pos);
+    if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) {
+      el.hidden = true;
+      return;
+    }
+    el.hidden = false;
+    // -8 px = halbe Punktgrösse (size-4), damit die Mitte auf der Strecke liegt
+    el.style.transform = `translate3d(${p.x - 8}px, ${p.y - 8}px, 0)`;
+  }, []);
+
+  const setzeLaeufer = useCallback(
+    (map: maplibregl.Map, pos: [number, number]) => {
+      laeuferPosRef.current = pos;
+      positioniereLaeufer(map);
+    },
+    [positioniereLaeufer]
+  );
+
+  const schreibeHud = useCallback((st: SampledState) => {
+    const el = hudElRef.current;
+    if (!el) return;
+    el.hidden = false;
+    const setze = (ref: React.RefObject<HTMLSpanElement | null>, text: string) => {
+      if (ref.current && ref.current.textContent !== text) ref.current.textContent = text;
+    };
+    setze(hudZeitRef, formatDauer(st.tRel));
+    setze(hudKmRef, `${(st.distCum / 1000).toFixed(2)} km`);
+    setze(hudPaceRef, st.speed > 0.3 ? formatPace(1000 / st.speed) : "–");
+    setze(hudEleRef, `${Math.round(st.ele)} m`);
+    setze(hudHrRef, st.hr != null ? `${Math.round(st.hr)} bpm` : "");
+    if (hudHrRef.current) hudHrRef.current.hidden = st.hr == null;
+  }, []);
+
   /* ---------- Karte initialisieren ---------- */
   useEffect(() => {
     if (!containerRef.current || !track || koords.length < 2) return;
@@ -267,6 +335,9 @@ export function FlyoverMap({ streams, typ, className, onBereit }: FlyoverMapProp
       fitBoundsOptions: { padding: 48 },
       attributionControl: { compact: true },
       maxPitch: 85,
+      pixelRatio: flyoverPixelRatio(),
+      // Abgelaufene Kacheln nicht im Flug neu laden
+      refreshExpiredTiles: false,
     });
     // Nutzer-Zoom (Pinch, Wheel, +/−-Tasten der NavigationControl) auch
     // während des Flyovers erlauben: eigene jumpTo-Aufrufe markieren wir
@@ -278,6 +349,12 @@ export function FlyoverMap({ streams, typ, className, onBereit }: FlyoverMapProp
       const aktuell = map.getZoom();
       zoomOffsetRef.current = clamp(aktuell - (autoZoomRef.current ?? aktuell), -6, 6);
     });
+    // Punkt erst nach dem Zeichnen setzen: jumpTo rechnet die Höhe des
+    // Kartenmittelpunkts mit dem gebrochenen Zoom und bekommt dafür keine
+    // DEM-Kachel (→ 0 m); korrigiert wird sie erst im Render. Ein 'move'-
+    // Handler würde den Punkt deshalb über dem Gelände platzieren. 'render'
+    // läuft nach jedem gezeichneten Frame — Punkt und Bild bleiben synchron.
+    map.on("render", () => positioniereLaeufer(map));
     mapRef.current = map;
     // Debug-Hook: erlaubt Kamera-/Zoom-Messungen von aussen (Verifikation)
     (window as unknown as { __ghqMap?: maplibregl.Map }).__ghqMap = map;
@@ -287,7 +364,12 @@ export function FlyoverMap({ streams, typ, className, onBereit }: FlyoverMapProp
     map.on("load", () => {
       aktiviere3D(map);
       fuegeRasterBasemapsHinzu(map);
-      setzeKartenTyp(map, kartenTypRef.current);
+      setzeKartenTyp(map, kartenTypRef.current, { nurBild: true });
+      try {
+        setzeRasterLod(map, 3, 2.5);
+      } catch {
+        /* rein Optimierung */
+      }
       map.addSource("route", {
         type: "geojson",
         lineMetrics: true,
@@ -305,7 +387,7 @@ export function FlyoverMap({ streams, typ, className, onBereit }: FlyoverMapProp
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
           "line-width": 4,
-          "line-opacity": 0.25,
+          "line-opacity": 0.4,
           "line-gradient": ghostGradient(farbStopsRef.current) as never,
         },
       });
@@ -320,21 +402,7 @@ export function FlyoverMap({ streams, typ, className, onBereit }: FlyoverMapProp
           "line-gradient": progressGradient(farbStopsRef.current, 1e-4) as never,
         },
       });
-      map.addSource("laeufer", {
-        type: "geojson",
-        data: { type: "Feature", properties: {}, geometry: { type: "Point", coordinates: koords[0] } },
-      });
-      map.addLayer({
-        id: "laeufer-punkt",
-        type: "circle",
-        source: "laeufer",
-        paint: {
-          "circle-radius": 7,
-          "circle-color": "#2ee6c7",
-          "circle-stroke-width": 2.5,
-          "circle-stroke-color": "#ffffff",
-        },
-      });
+      setzeLaeufer(map, koords[0]);
       setBereit(true);
     });
 
@@ -347,10 +415,8 @@ export function FlyoverMap({ streams, typ, className, onBereit }: FlyoverMapProp
         if (!abgebrochen) setLadeProzent(Math.min(97, p));
       },
       {
-        // +1: die Zoom-Tabelle oben liegt eine Stufe näher als die
-        // ursprünglichen Prefetch-Zooms — sonst lädt man die falschen Kacheln
-        zoomBonus: profil.zoomBonus + 1,
         rasterTemplate: rasterTemplate(kartenTypRef.current),
+        kameraZoom: kamera.zoomBase,
       }
     );
     const erstesIdle = new Promise<void>((resolve) => map.once("idle", () => resolve()));
@@ -390,7 +456,7 @@ export function FlyoverMap({ streams, typ, className, onBereit }: FlyoverMapProp
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !bereit) return;
-    setzeKartenTyp(map, kartenTyp);
+    setzeKartenTyp(map, kartenTyp, { nurBild: true });
   }, [kartenTyp, bereit]);
 
   /** Gesamtbounds der Strecke — für Reset und Schlussfahrt */
@@ -459,11 +525,8 @@ export function FlyoverMap({ streams, typ, className, onBereit }: FlyoverMapProp
       const map = mapRef.current;
       if (!map || !track) return;
 
-      (map.getSource("laeufer") as maplibregl.GeoJSONSource | undefined)?.setData({
-        type: "Feature",
-        properties: {},
-        geometry: { type: "Point", coordinates: [st.lng, st.lat] },
-      });
+      // Position merken; gesetzt wird der Punkt im nächsten 'render'
+      laeuferPosRef.current = [st.lng, st.lat];
 
       /* Progress-Trail-Gradient (gedrosselt ~20/s) */
       const jetzt = performance.now();
@@ -539,29 +602,36 @@ export function FlyoverMap({ streams, typ, className, onBereit }: FlyoverMapProp
       // zu werden
       const finalZoom = clamp(autoZoom + zoomOffsetRef.current, ZOOM_MIN, ZOOM_MAX);
 
+      // Geländehöhe unter dem Kameraziel explizit mitgeben: jumpTo sucht sie
+      // sonst mit dem gebrochenen Zoom (z. B. 14.27), findet dazu keine
+      // DEM-Kachel und setzt 0 m. Bei sich ständig änderndem Zoom sitzt die
+      // Kamera dann im Berg — das Terrain blieb im Flug schwarz bzw. ruckelte,
+      // erst im Stillstand war das Bild wieder da. Ganzzahliger Zoom trifft
+      // die geladenen DEM-Kacheln (Suche fällt notfalls auf Elternkacheln).
+      const hoehe = map.terrain?.getElevationForLngLatZoom(
+        new maplibregl.LngLat(kamLng, kamLat),
+        Math.floor(finalZoom)
+      );
       map.jumpTo(
         {
           center: [kamLng, kamLat],
           bearing: ((kamBearingRef.current % 360) + 360) % 360,
           pitch,
           zoom: finalZoom,
+          ...(hoehe != null && Number.isFinite(hoehe) ? { elevation: hoehe } : {}),
         },
         { ghqAuto: true }
       );
 
-      /* HUD (gedrosselt ~5/s): REALwerte, nie Videogeschwindigkeit */
+      /* HUD (gedrosselt ~5/s): REALwerte, nie Videogeschwindigkeit.
+         Direkt ins DOM geschrieben — ein setState hier liesse die ganze
+         Flyover-Komponente fünfmal pro Sekunde neu rendern. */
       if (sofort || jetzt - hudDrosselRef.current > 180) {
         hudDrosselRef.current = jetzt;
-        setHud({
-          zeit: formatDauer(st.tRel),
-          km: (st.distCum / 1000).toFixed(2),
-          pace: st.speed > 0.3 ? formatPace(1000 / st.speed) : "–",
-          ele: Math.round(st.ele),
-          hr: st.hr != null ? Math.round(st.hr) : null,
-        });
+        schreibeHud(st);
       }
     },
-    [track, k, kamera]
+    [track, k, kamera, schreibeHud]
   );
 
   /* ---------- Frame-Loop (Wanduhr, nie Frame-Zähler) ---------- */
@@ -670,14 +740,10 @@ export function FlyoverMap({ streams, typ, className, onBereit }: FlyoverMapProp
         "line-gradient",
         progressGradient(farbStopsRef.current, 1e-4) as never
       );
-      (map.getSource("laeufer") as maplibregl.GeoJSONSource | undefined)?.setData({
-        type: "Feature",
-        properties: {},
-        geometry: { type: "Point", coordinates: koords[0] },
-      });
+      setzeLaeufer(map, koords[0]);
     }
-    setHud(null);
-  }, [pause, koords, streckenBounds]);
+    if (hudElRef.current) hudElRef.current.hidden = true;
+  }, [pause, koords, streckenBounds, setzeLaeufer]);
 
   /* Tastatur: Space = Play/Pause, Pfeile = ±1 s Videozeit */
   useEffect(() => {
@@ -732,19 +798,27 @@ export function FlyoverMap({ streams, typ, className, onBereit }: FlyoverMapProp
           style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
         />
 
-        {/* HUD: Realzeit/Realpace + Zeitraffer-Hinweis */}
-        {hud && (
-          <div className="stat-mono absolute left-2 top-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-lg bg-background/85 px-3 py-1.5 text-xs backdrop-blur">
-            <span>{hud.zeit}</span>
-            <span>{hud.km} km</span>
-            <span>{hud.pace}</span>
-            <span>{hud.ele} m</span>
-            {hud.hr != null && <span>{hud.hr} bpm</span>}
-            <span className="text-[10px] text-muted-foreground">
-              {Math.max(1, Math.round(k))}× Zeitraffer
-            </span>
-          </div>
-        )}
+        {/* Läuferpunkt: per transform über der Karte positioniert */}
+        <div ref={laeuferElRef} className={LAEUFER_KLASSEN} hidden />
+
+        {/* HUD: Realzeit/Realpace + Zeitraffer-Hinweis. Inhalt schreibt
+            schreibeHud() direkt — siehe renderZustand. Bewusst ohne
+            backdrop-blur: der würde jeden Kartenframe ein zweites Mal
+            weichzeichnen. */}
+        <div
+          ref={hudElRef}
+          hidden
+          className="stat-mono absolute left-2 top-2 z-[2] flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-lg bg-background/90 px-3 py-1.5 text-xs"
+        >
+          <span ref={hudZeitRef} />
+          <span ref={hudKmRef} />
+          <span ref={hudPaceRef} />
+          <span ref={hudEleRef} />
+          <span ref={hudHrRef} />
+          <span className="text-[10px] text-muted-foreground">
+            {Math.max(1, Math.round(k))}× Zeitraffer
+          </span>
+        </div>
 
         {/* Vollbild — unter der Navigation rechts, gleiche Optik wie diese */}
         <button

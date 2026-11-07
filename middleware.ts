@@ -15,6 +15,9 @@ import { istDemoPfad } from "@/lib/demo/pfade";
  * alle anderen Direktiven bleiben streng (kein externes Skript, kein eval
  * in Prod, kein Framing, connect/img/font auf Allowlist).
  */
+/** Raster-Kartentypen aus lib/geo/map-style.ts (Satellit: Esri, Topo CH: swisstopo) */
+const KARTEN_RASTER = "https://server.arcgisonline.com https://wmts.geo.admin.ch";
+
 const CSP = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -23,9 +26,9 @@ const CSP = [
   "form-action 'self'",
   `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV !== "production" ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://tiles.openfreemap.org https://s3.amazonaws.com",
+  `img-src 'self' data: blob: https://tiles.openfreemap.org https://s3.amazonaws.com ${KARTEN_RASTER}`,
   "font-src 'self' data: https://tiles.openfreemap.org",
-  "connect-src 'self' https://tiles.openfreemap.org https://s3.amazonaws.com https://brouter.de",
+  `connect-src 'self' https://tiles.openfreemap.org https://s3.amazonaws.com ${KARTEN_RASTER} https://brouter.de`,
   "worker-src 'self' blob:",
   "manifest-src 'self'",
   "upgrade-insecure-requests",
