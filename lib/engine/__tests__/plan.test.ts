@@ -155,12 +155,12 @@ describe("Taper ab 05.11. und EP-Einträge", () => {
     expect(z4S).toBeLessThanOrEqual(20 * 60);
   });
 
-  it("11.–15.11.: nur Z2 ≤ 30 Min, Rumpf nur am 12.11., keine Beinkraft", () => {
+  it("11.–15.11.: nur Z2 ≤ 30 Min, Rumpf am 12./13./14.11., keine Beinkraft", () => {
     const tage = w2.einheiten.filter((e) => e.datum >= "2026-11-11" && e.datum <= "2026-11-15");
     const laeufe = tage.filter((e) => e.struktur?.sport === "laufen");
     expect(laeufe.length).toBeGreaterThan(0);
     expect(laeufe.every((e) => e.typ === "lauf_z2" && (minutenAusTitel(e.titel) ?? 99) <= 30)).toBe(true);
-    expect(tage.filter((e) => e.typ === "rumpf").map((e) => e.datum)).toEqual(["2026-11-12"]);
+    expect(tage.filter((e) => e.typ === "rumpf").map((e) => e.datum)).toEqual(["2026-11-12", "2026-11-13", "2026-11-14"]);
     expect(tage.some((e) => e.typ === "kraft")).toBe(false);
     expect(tage.some((e) => /schwer/i.test(e.titel))).toBe(false);
   });
@@ -175,16 +175,81 @@ describe("Taper ab 05.11. und EP-Einträge", () => {
     expect(ep.every((e) => e.struktur == null)).toBe(true);
   });
 
-  it("16./17.11.: Spazieren bzw. max. 20 Min locker", () => {
-    expect(w3.einheiten.filter((e) => e.datum === "2026-11-16").map((e) => e.typ)).toEqual(["ruhe"]);
+  it("16.11.: nur Liegestütze und Rumpf leicht, 17.11.: vollständige Erholung", () => {
+    expect(w3.einheiten.filter((e) => e.datum === "2026-11-16").map((e) => e.typ)).toEqual(["liegestuetze", "rumpf"]);
     const di = w3.einheiten.filter((e) => e.datum === "2026-11-17");
-    expect(di.every((e) => e.typ === "ruhe" || (minutenAusTitel(e.titel) ?? 99) <= 20)).toBe(true);
+    expect(di.map((e) => [e.typ, e.titel])).toEqual([["ruhe", "Vollständige Erholung"]]);
   });
 
   it("nach der EP: Regeneration bis 22.11., danach kein Plan", () => {
     expect(w3.einheiten.filter((e) => e.datum > "2026-11-19").every((e) => e.typ === "ruhe")).toBe(true);
     expect(w4.einheiten).toHaveLength(0);
     expect(w4.hinweise.some((h) => h.includes("Nach der EP"))).toBe(true);
+  });
+
+  describe("Liegestütz-/Rumpf-Fokus 13.–16.11.", () => {
+    const am = (datum: string) => [...w2.einheiten, ...w3.einheiten].filter((e) => e.datum === datum);
+    const vorgabe = (datum: string) => {
+      const ls = am(datum).find((e) => e.typ === "liegestuetze")!;
+      const rs = am(datum).find((e) => e.typ === "rumpf")!;
+      const u = ls.struktur!.uebungen![0];
+      const r = rs.struktur!.uebungen![0];
+      return {
+        liegestuetze: [u.saetze, u.wdh, ls.titel, ls.beschreibung, u.notiz],
+        rumpf: [r.saetze, r.dauerS, rs.titel, rs.beschreibung, r.notiz, rs.struktur!.metronom],
+      };
+    };
+
+    it("Fr 13.11.: Liegestütze 4×8 (90–120 s Pause), Rumpf seitlich 2×25 s pro Seite (90 s Pause)", () => {
+      expect(am("2026-11-13").map((e) => e.typ)).toEqual(["liegestuetze", "rumpf"]);
+      const v = vorgabe("2026-11-13");
+      expect(v.liegestuetze.slice(0, 2)).toEqual([4, 8]);
+      expect(v.liegestuetze[2]).toBe("EP-Liegestütze 4×8 · 90–120 s Pause");
+      expect(v.liegestuetze[3]).toContain("4 Sätze à 8 Wiederholungen, 90–120 s Pause");
+      expect(v.liegestuetze[3]).toContain("nicht bis zum Muskelversagen");
+      expect(v.liegestuetze[4]).toContain("90–120 s Pause");
+      expect(v.rumpf.slice(0, 2)).toEqual([2, 25]);
+      expect(v.rumpf[2]).toBe("Rumpf seitlich 2×25 s pro Seite · 90 s Pause");
+      expect(v.rumpf[3]).toContain("2 Sätze à 25 s pro Seite, 90 s Pause");
+      expect(v.rumpf[5]).toBe(true);
+    });
+
+    it("Sa 14.11.: Liegestütze 5×6 und Rumpf 2×35 s (je 2 Min Pause), dazu Z2 25 Min flach", () => {
+      expect(am("2026-11-14").map((e) => e.typ)).toEqual(["liegestuetze", "rumpf", "lauf_z2"]);
+      const v = vorgabe("2026-11-14");
+      expect(v.liegestuetze.slice(0, 2)).toEqual([5, 6]);
+      expect(v.liegestuetze[3]).toContain("2 Min Pause");
+      expect(v.liegestuetze[3]).toContain("nicht ans Limit");
+      expect(v.rumpf.slice(0, 2)).toEqual([2, 35]);
+      expect(v.rumpf[3]).toContain("2 Min Pause");
+    });
+
+    it("So 15.11.: Regeneration, keine Liegestütze und kein Rumpf", () => {
+      const so = am("2026-11-15");
+      expect(so.map((e) => e.typ)).toEqual(["ruhe"]);
+      expect(so[0].beschreibung).toContain("Keine Liegestütze und keine seitliche Rumpfkraft");
+    });
+
+    it("Mo 16.11.: Liegestütze 3×5 (2 Min Pause), Rumpf 2×20 s (90 s Pause), danach keine Zusatzsätze", () => {
+      const v = vorgabe("2026-11-16");
+      expect(v.liegestuetze.slice(0, 2)).toEqual([3, 5]);
+      expect(v.liegestuetze[3]).toContain("2 Min Pause");
+      expect(v.liegestuetze[3]).toContain("keine zusätzlichen Sätze");
+      expect(v.rumpf.slice(0, 2)).toEqual([2, 20]);
+      expect(v.rumpf[3]).toContain("90 s Pause");
+    });
+
+    it("alle Fokus-Einheiten passen zur Tagesregel, keine ist ein Maximaltest", () => {
+      const fokus = ["2026-11-13", "2026-11-14", "2026-11-16"].flatMap(am);
+      expect(fokus.every((e) => passtZurRegel(e).ok)).toBe(true);
+      expect(fokus.some((e) => /max/i.test(e.titel))).toBe(false);
+    });
+
+    it("Wochenhinweis zum Fokus in beiden betroffenen Wochen", () => {
+      expect(w2.hinweise.some((h) => h.startsWith("Fokus Fr 13.–Mo 16.11."))).toBe(true);
+      expect(w3.hinweise.some((h) => h.startsWith("Fokus Fr 13.–Mo 16.11."))).toBe(true);
+      expect(w1.hinweise.some((h) => h.startsWith("Fokus"))).toBe(false);
+    });
   });
 
   it("Taper-Wochen haben Taper-Hinweise statt Wochenskelett-Hinweisen", () => {

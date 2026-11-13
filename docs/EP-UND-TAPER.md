@@ -28,10 +28,13 @@ Feste EP-Daten, Tagesregeln des Tapers und die Checkliste für die Prüfungstage
   | So 08.11. | locker | Z2, 45 Min | Ganzkörper reduziert, Beine nur leicht |
   | Mo 09.11. | Letzte schwere Beineinheit | kein Lauf | Gym Ganzkörper mit Beinen, **kein Lastlauf** |
   | Di 10.11. | Letzter Zieltempo-Lauf | Z4, 40 Min | 12 Min ein, 3×5 Min Z4, 5 Min aus (15 Min Z4) |
-  | Mi 11.–So 15.11. | Nur Z2 | Z2, 30 Min | Z2 30/25 Min flach (11./14.), GtG submaximal, Do 12.11. Klimmzüge/Liegestütze submaximal + Rumpf leicht, sonst Ruhe; keine Beinkraft, keine neuen Übungen |
-  | Mo 16.11. | Spazieren + Mobilität | kein Lauf | 20 Min Spazieren + Mobilität |
-  | Di 17.11. | Frei oder locker | 20 Min | optional 20 Min locker |
-  | Mi 18.11. | EP – Tag 1 | — | nur der EP-Eintrag |
+  | Mi 11.–Do 12.11. | Nur Z2 | Z2, 30 Min | Z2 30 Min flach + GtG submaximal (11.), Klimmzüge/Liegestütze submaximal + Rumpf leicht (12.); keine Beinkraft, keine neuen Übungen |
+  | Fr 13.11. | Technik und Aktivierung | Z2, 30 Min | EP-Liegestütze 4×8 (90–120 s Pause), Rumpf seitlich 2×25 s pro Seite (90 s Pause) |
+  | Sa 14.11. | Letzter stärkerer Reiz | Z2, 30 Min | EP-Liegestütze 5×6 (2 Min Pause), Rumpf seitlich 2×35 s pro Seite (2 Min Pause), Z2 25 Min flach |
+  | So 15.11. | Regeneration | Z2, 30 Min | keine Liegestütze, kein Rumpf (auch nicht beim GtG), lockere Bewegung |
+  | Mo 16.11. | Letzter Aktivierungsreiz | kein Lauf | EP-Liegestütze 3×5 (2 Min Pause), Rumpf seitlich 2×20 s pro Seite (90 s Pause), danach keine Zusatzsätze |
+  | Di 17.11. | Vollständige Erholung | 20 Min | keine Kraft, keine Leistungstests; höchstens 20 Min ganz locker |
+  | Mi 18.11. | EP – Tag 1 | — | nur der EP-Eintrag; vor dem Start Arme/Schultern/Handgelenke mobilisieren, Rumpf kurz aktivieren |
   | Do 19.11. | EP – Tag 2 | — | nur der EP-Eintrag |
   | Fr 20.–So 22.11. | Regeneration | kein Lauf | Spazieren |
   | ab Mo 23.11. | Nach der EP | — | kein Plan |
@@ -77,7 +80,15 @@ Feste EP-Daten, Tagesregeln des Tapers und die Checkliste für die Prüfungstage
     Gym Ganzkörper mit Beinen, **kein Lastlauf** (die spezifischere Regel).
   - Der Auftrag nennt „Di 05.11."; der 05.11.2026 ist ein Donnerstag. Die
     Regel „Umfang −40 %" gilt Do 05.–So 08.11.
-  - Rumpf in der letzten Woche nur am 12.11. (auch nicht am 10.11.).
+  - Liegestütz-/Rumpf-Fokus 13.–16.11. (Zusatzplan „Grenadier-EP"): die
+    Vorgaben stehen in `FOKUS_VORGABEN` (`lib/engine/plan.ts`), je Tag eine
+    Einheit `liegestuetze` und eine `rumpf` (nur seitlich) mit Sätzen,
+    Wiederholungen bzw. Sekunden pro Seite und Pause in Titel, Beschreibung
+    und Struktur. Klimmzüge und Läufe des Tapers bleiben wie geplant (Sa 14.11.
+    Z2 25 Min flach). Kein Rumpf am 10./11.11. und am 15.11.
+  - Belegte Tage ab dem 09.11. (z. B. Sa 14.11. mit dem Z2-Lauf schon auf der
+    Uhr) bekommen beim Neugenerieren die fehlenden Einheiten der Tagesregel
+    dazu — ohne Typen, die schon da sind, und ohne zweiten Lauf.
   - Nach der EP: 20.–22.11. Regeneration (Spazieren), danach kein Plan, bis
     neue Ziele gesetzt sind. Wird die EP-Woche (16.11.) oder eine spätere Woche
     neu generiert, entfernt das auch alle veralteten `geplant`-Zeilen ohne

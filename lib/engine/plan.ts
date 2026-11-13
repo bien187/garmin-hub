@@ -13,7 +13,8 @@
  *  - ACWR > 1.3 → Umfang deckeln; TSB < −20 → Extra-Ruhetag
  *  - Ab 05.11. (Taper) gilt pro Tag `taperRegelFuerTag` (lib/engine/taper.ts):
  *    05.–08.11. wird der normale Plan abgeschwächt, ab 09.11. kommen die
- *    Einheiten direkt aus der Tagesregel; 18./19.11. sind fixe EP-Einträge.
+ *    Einheiten direkt aus der Tagesregel (13.–16.11. Liegestütz-/Rumpf-Fokus
+ *    aus `FOKUS_VORGABEN`); 18./19.11. sind fixe EP-Einträge.
  */
 
 import { addTage } from "@/lib/format";
@@ -23,6 +24,10 @@ import { MuskelId } from "./muscle";
 import { WorkoutStruktur } from "@/lib/garmin/workout-types";
 import { EP_DATUM, EP_TAG_2, TAPER_START, istEpTag } from "@/lib/ep/konstanten";
 import {
+  FOKUS_AKTIVIERUNG,
+  FOKUS_LETZTER_REIZ,
+  FOKUS_REGENERATION,
+  FOKUS_TECHNIK,
   LETZTE_INTENSITAET,
   LETZTE_BEINEINHEIT,
   LETZTER_ZIELTEMPO_LAUF,
@@ -679,7 +684,7 @@ function epEintrag(datum: string): PlanEinheit {
     typ: "ep",
     titel: tag1 ? "EP – Tag 1" : "EP – Tag 2",
     beschreibung: tag1
-      ? "Eignungsprüfung, Tag 1. Kein Training vor der Prüfung. Wird nicht an die Uhr gesendet."
+      ? "Eignungsprüfung, Tag 1. Kein Training, nur Aufwärmen: Arme, Schultern und Handgelenke locker mobilisieren, Rumpf kurz aktivieren. Wird nicht an die Uhr gesendet."
       : "Eignungsprüfung, Tag 2. Kein zusätzliches Training. Wird nicht an die Uhr gesendet.",
   };
 }
@@ -781,6 +786,89 @@ function schwaecheAb(e: PlanEinheit, regel: TaperRegel, ctx: TaperKontext): Plan
   return neu && passtZurRegel(neu, regel).ok ? neu : null;
 }
 
+/** Vorgabe eines Fokus-Tages (13.–16.11.): EP-Liegestütze und seitliche Rumpfkraft */
+export interface FokusVorgabe {
+  liegestuetze: { saetze: number; wdh: number; pause: string };
+  /** Sekunden pro Seite */
+  rumpfSeitlich: { saetze: number; dauerS: number; pause: string };
+  /** Ausführungshinweis des Tages */
+  ausfuehrung: string;
+}
+
+/**
+ * Liegestütz-/Rumpf-Fokus der letzten Tage (Zusatzplan „Grenadier-EP"):
+ * feste Sätze, Wiederholungen bzw. Haltezeiten und Pausen. So 15.11. ist
+ * Regeneration, Di 17.11. vollständige Erholung — dort steht nichts.
+ */
+export const FOKUS_VORGABEN: Record<string, FokusVorgabe> = {
+  [FOKUS_TECHNIK]: {
+    liegestuetze: { saetze: 4, wdh: 8, pause: "90–120 s" },
+    rumpfSeitlich: { saetze: 2, dauerS: 25, pause: "90 s" },
+    ausfuehrung: "Technik und Aktivierung: saubere, prüfungsgerechte Ausführung — nicht bis zum Muskelversagen.",
+  },
+  [FOKUS_LETZTER_REIZ]: {
+    liegestuetze: { saetze: 5, wdh: 6, pause: "2 Min" },
+    rumpfSeitlich: { saetze: 2, dauerS: 35, pause: "2 Min" },
+    ausfuehrung:
+      "Letzter etwas stärkerer Reiz bei mittlerer Belastung: Satz beenden, sobald die Technik nachlässt — nicht ans Limit.",
+  },
+  [FOKUS_AKTIVIERUNG]: {
+    liegestuetze: { saetze: 3, wdh: 5, pause: "2 Min" },
+    rumpfSeitlich: { saetze: 2, dauerS: 20, pause: "90 s" },
+    ausfuehrung: "Letzter Aktivierungsreiz: leicht und kontrolliert — danach keine zusätzlichen Sätze.",
+  },
+};
+
+function fokusEinheiten(datum: string, v: FokusVorgabe): PlanEinheit[] {
+  const ls = v.liegestuetze;
+  const rs = v.rumpfSeitlich;
+  return [
+    {
+      datum,
+      typ: "liegestuetze",
+      titel: `EP-Liegestütze ${ls.saetze}×${ls.wdh} · ${ls.pause} Pause`,
+      beschreibung:
+        `${ls.saetze} Sätze à ${ls.wdh} Wiederholungen, ${ls.pause} Pause zwischen den Sätzen. ` +
+        `Nur die exakt bewertete Prüfungsbewegung: Start in Bauchlage mit Händen auf dem Rücken, oben abwechselnde Handberührung, voller Bewegungsumfang. ${v.ausfuehrung}`,
+      struktur: {
+        name: `EP-Liegestütze ${ls.saetze}×${ls.wdh}`,
+        sport: "kraft",
+        uebungen: [
+          {
+            name: "EP-Liegestütze (Start Bauchlage, Hände auf Rücken)",
+            saetze: ls.saetze,
+            wdh: ls.wdh,
+            notiz: `${ls.pause} Pause · exakte Prüfungsbewegung, nicht bis zum Versagen`,
+          },
+        ],
+      },
+      erwarteterTrimp: Math.round((ls.saetze * ls.wdh) / 3),
+    },
+    {
+      datum,
+      typ: "rumpf",
+      titel: `Rumpf seitlich ${rs.saetze}×${rs.dauerS} s pro Seite · ${rs.pause} Pause`,
+      beschreibung:
+        `${rs.saetze} Sätze à ${rs.dauerS} s pro Seite, ${rs.pause} Pause zwischen den Sätzen. ` +
+        `EP-Form im Sekundentakt (Metronom 60 bpm). ${v.ausfuehrung}`,
+      struktur: {
+        name: `Rumpf seitlich ${rs.saetze}×${rs.dauerS} s`,
+        sport: "kraft",
+        metronom: true,
+        uebungen: [
+          {
+            name: "Seitliche Rumpfkraft (EP-Form)",
+            saetze: rs.saetze,
+            dauerS: rs.dauerS,
+            notiz: `Pro Seite · ${rs.pause} Pause · Metronom 60 bpm`,
+          },
+        ],
+      },
+      erwarteterTrimp: Math.round((rs.saetze * rs.dauerS) / 6),
+    },
+  ];
+}
+
 /** Ab 09.11.: die Einheiten des Tages kommen direkt aus der Tagesregel */
 function taperVorgabe(datum: string, regel: TaperRegel, ctx: TaperKontext): PlanEinheit[] | null {
   if (datum < LETZTE_BEINEINHEIT) return null; // 05.–08.11.: abschwächen statt ersetzen
@@ -854,27 +942,51 @@ function taperVorgabe(datum: string, regel: TaperRegel, ctx: TaperKontext): Plan
       },
     ];
   }
-  if (datum < "2026-11-16") {
-    const einheiten: PlanEinheit[] = [];
-    const wt = (new Date(datum + "T12:00:00").getDay() + 6) % 7; // Mo=0
-    if (datum === "2026-11-11" || datum === "2026-11-14") {
-      const min = datum === "2026-11-11" ? 30 : 25;
+  if (FOKUS_VORGABEN[datum]) {
+    // Fr 13., Sa 14. und Mo 16.11.: Liegestütz-/Rumpf-Fokus, Sa dazu Z2 flach
+    const einheiten = fokusEinheiten(datum, FOKUS_VORGABEN[datum]);
+    if (datum === FOKUS_LETZTER_REIZ) {
       einheiten.push(
         z2Einheit(
           datum,
-          min,
+          25,
           ctx.zonen,
-          `Z2-Lauf ${min} Min flach`,
+          "Z2-Lauf 25 Min flach",
           `Strikt Z2 (${ctx.zonen.z2.von}–${ctx.zonen.z2.bis} bpm), flache Strecke, kein Bergablauf.`
         )
       );
     }
+    return einheiten;
+  }
+  if (datum === FOKUS_REGENERATION) {
+    return [
+      {
+        datum,
+        typ: "ruhe",
+        titel: "Regeneration — lockere Bewegung",
+        beschreibung:
+          "Keine Liegestütze und keine seitliche Rumpfkraft. Lockere Bewegung wie Spazieren ist in Ordnung — Erholung und Schlaf priorisieren.",
+      },
+    ];
+  }
+  if (datum < FOKUS_TECHNIK) {
+    // Mi 11.11. Z2 + Grease the Groove, Do 12.11. submaximal + Rumpf leicht
+    const einheiten: PlanEinheit[] = [];
     if (datum === "2026-11-11") {
+      einheiten.push(
+        z2Einheit(
+          datum,
+          30,
+          ctx.zonen,
+          "Z2-Lauf 30 Min flach",
+          `Strikt Z2 (${ctx.zonen.z2.von}–${ctx.zonen.z2.bis} bpm), flache Strecke, kein Bergablauf.`
+        )
+      );
       einheiten.push({
         datum,
         typ: "gtg",
         titel: "Grease the Groove submaximal (bis So 15.11.)",
-        beschreibung: `Über den Tag 3–4 × ${klimmzugSub} Klimmzüge und ein paar EP-Liegestütze, weit weg vom Versagen. Keine neuen Übungen.`,
+        beschreibung: `Über den Tag 3–4 × ${klimmzugSub} Klimmzüge, weit weg vom Versagen. Bis Do 12.11. auch ein paar EP-Liegestütze, ab Fr 13.11. nur noch die geplanten Liegestütz-Sätze. Keine neuen Übungen.`,
       });
     }
     if (datum === LETZTER_RUMPF_TAG) {
@@ -898,41 +1010,23 @@ function taperVorgabe(datum: string, regel: TaperRegel, ctx: TaperKontext): Plan
           datum,
           typ: "rumpf",
           titel: `Rumpf leicht (${Math.round(ctx.seitZiel * 0.7)}s/${Math.round(ctx.dorsalZiel * 0.7)}s)`,
-          beschreibung: "Letzter, leichter Rumpftag vor der EP: 2 Sätze, ca. 70 % der Zielzeit, Metronom 60 bpm.",
+          beschreibung: "Leichter Rumpftag: 2 Sätze, ca. 70 % der Zielzeit, Metronom 60 bpm.",
           struktur: rumpfEinheit(Math.round(ctx.seitZiel * 0.7), Math.round(ctx.dorsalZiel * 0.7), 2),
           erwarteterTrimp: 12,
         }
       );
     }
-    if (einheiten.length === 0) {
-      einheiten.push({
-        datum,
-        typ: "ruhe",
-        titel: wt === 6 ? "Ruhetag — Spazieren" : "Ruhetag — Mobilität",
-        beschreibung: "Taper: Erholung ist jetzt Training. Schlaf, Elektrolyte, Kohlenhydrate.",
-      });
-    }
     return einheiten;
   }
-  if (datum === "2026-11-16") {
+  if (datum < EP_DATUM) {
     return [
       {
         datum,
         typ: "ruhe",
-        titel: "Spazieren 20 Min + Mobilität",
-        beschreibung: "20 Min locker spazieren, danach 10–15 Min Mobilität. Sonst nichts.",
+        titel: "Vollständige Erholung",
+        beschreibung:
+          "Keine Kraftübungen und keine Leistungstests. Normal essen und trinken, ausreichend schlafen, Material für die EP bereitlegen. Höchstens 20 Min ganz locker, wenn die Beine danach fragen — sonst frei.",
       },
-    ];
-  }
-  if (datum < EP_DATUM) {
-    return [
-      z2Einheit(
-        datum,
-        20,
-        ctx.zonen,
-        "Optional: Lockerer Lauf 20 Min",
-        "Frei oder max. 20 Min ganz locker — nur, wenn die Beine danach fragen. Früh schlafen."
-      ),
     ];
   }
   if (regel.erlaubt.includes("ruhe")) {
@@ -990,6 +1084,11 @@ export function wendeTaperAn(
   if (ende >= TAPER_START && wochenstart <= EP_TAG_2) {
     hinweise.push(
       "Taper ab Do 05.11.: Jeder Tag folgt einer festen Regel (Begründung beim Tag). Keine Probe-EP, kein Lastlauf, keine neuen Übungen."
+    );
+  }
+  if (wochenstart <= FOKUS_AKTIVIERUNG && ende >= FOKUS_TECHNIK) {
+    hinweise.push(
+      "Fokus Fr 13.–Mo 16.11.: EP-Liegestütze und seitliche Rumpfkraft mit festen Sätzen und Pausen (So 15.11. Pause). Keine Maximaltests, nur die exakt bewertete Prüfungsbewegung im vorgeschriebenen Bewegungsumfang. Bei Schmerzen oder deutlicher Restmüdigkeit auslassen — Ziel ist, am Mittwoch frisch anzutreten."
     );
   }
   if (wochenstart <= EP_TAG_2 && ende >= EP_DATUM) {

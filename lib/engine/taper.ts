@@ -10,6 +10,8 @@
  *  - EP Tag 2 = Do 19.11.2026.
  *  - Mo 09.11. ist die letzte schwere Beineinheit, aber OHNE Lastlauf:
  *    Lastläufe sind im Taper ausgeschlossen (spezifischere Regel).
+ *  - Fr 13.–Mo 16.11. Fokus EP-Liegestütze und seitliche Rumpfkraft mit
+ *    festen Sätzen/Pausen (So 15.11. Pause), Di 17.11. vollständige Erholung.
  *  - 20.–22.11. Regeneration, danach kein Plan, bis neue Ziele gesetzt sind.
  */
 
@@ -44,8 +46,22 @@ export const LETZTE_INTENSITAET = "2026-11-07";
 export const LETZTE_BEINEINHEIT = "2026-11-09";
 /** Di 10.11.: letzter kurzer Lauf mit Zieltempo */
 export const LETZTER_ZIELTEMPO_LAUF = "2026-11-10";
-/** Do 12.11.: einziger (leichter) Rumpftag der letzten Woche vor der EP */
+/** Do 12.11.: leichter Rumpftag (vor dem Liegestütz-/Rumpf-Fokus) */
 export const LETZTER_RUMPF_TAG = "2026-11-12";
+
+/*
+ * Fokus Fr 13.–Mo 16.11.: EP-Liegestütze und seitliche Rumpfkraft mit festen
+ * Sätzen und Pausen (Zusatzplan „Grenadier-EP", README/docs „EP-UND-TAPER").
+ * So 15.11. Regeneration, Di 17.11. vollständige Erholung.
+ */
+/** Fr 13.11.: Technik und Aktivierung */
+export const FOKUS_TECHNIK = "2026-11-13";
+/** Sa 14.11.: letzter etwas stärkerer Reiz */
+export const FOKUS_LETZTER_REIZ = "2026-11-14";
+/** So 15.11.: Regeneration, keine Liegestütze und kein Rumpf */
+export const FOKUS_REGENERATION = "2026-11-15";
+/** Mo 16.11.: letzter, leichter Aktivierungsreiz */
+export const FOKUS_AKTIVIERUNG = "2026-11-16";
 
 export const LAUF_TYPEN: readonly string[] = [
   "lauf_z2",
@@ -148,7 +164,7 @@ export function taperRegelFuerTag(datum: string): TaperRegel | null {
         "Letzter kurzer Lauf mit Zieltempo: max. 20 Min Z4, mit Einlaufen. Ein Reiz fürs Renngefühl, keine Ermüdung.",
     });
   }
-  if (datum < "2026-11-16") {
+  if (datum < FOKUS_TECHNIK) {
     const rumpfTag = datum === LETZTER_RUMPF_TAG;
     return regel({
       label: rumpfTag ? "Nur Z2 · Rumpf leicht" : "Nur Z2",
@@ -162,25 +178,53 @@ export function taperRegelFuerTag(datum: string): TaperRegel | null {
       keineBeinkraft: true,
       begruendung:
         "Nur Z2, max. 30 Min, flach — kein Bergablauf, kein Lastlauf, keine neuen Übungen. Klimmzüge und Liegestütze nur submaximal" +
-        (rumpfTag ? ", Rumpf heute leicht (einziger Rumpftag der Woche)." : ", kein Rumpf."),
+        (rumpfTag ? ", Rumpf heute leicht." : ", kein Rumpf."),
     });
   }
-  if (datum === "2026-11-16") {
+  if (datum === FOKUS_TECHNIK || datum === FOKUS_LETZTER_REIZ) {
+    const technik = datum === FOKUS_TECHNIK;
     return regel({
-      label: "Spazieren + Mobilität",
+      label: technik ? "Technik und Aktivierung" : "Letzter stärkerer Reiz",
+      maxIntensitaet: "z2",
+      erlaubt: ["lauf_z2", "klimmzuege", "liegestuetze", "rumpf", "gtg", "ruhe"],
+      umfangFaktor: 0.5,
+      maxDauerMin: 30,
+      nurSubmaximal: true,
+      keineBeinkraft: true,
+      begruendung: technik
+        ? "Fokus EP-Liegestütze und seitliche Rumpfkraft: saubere, prüfungsgerechte Ausführung, nicht bis zum Muskelversagen. Laufen nur Z2, max. 30 Min flach; keine Beinkraft."
+        : "Letzter etwas stärkerer Reiz für Liegestütze und Rumpf: mittlere Belastung, Satz beenden, sobald die Technik nachlässt — nicht ans Limit. Dazu Z2 flach, keine Beinkraft.",
+    });
+  }
+  if (datum === FOKUS_REGENERATION) {
+    return regel({
+      label: "Regeneration",
+      maxIntensitaet: "z2",
+      erlaubt: ["lauf_z2", "gtg", "ruhe"],
+      umfangFaktor: 0.3,
+      maxDauerMin: 30,
+      nurSubmaximal: true,
+      keineBeinkraft: true,
+      begruendung:
+        "Keine Liegestütze und keine seitliche Rumpfkraft, auch nicht beim Grease the Groove. Lockere Bewegung ist in Ordnung — Erholung und Schlaf priorisieren.",
+    });
+  }
+  if (datum === FOKUS_AKTIVIERUNG) {
+    return regel({
+      label: "Letzter Aktivierungsreiz",
       maxIntensitaet: "locker",
-      erlaubt: ["ruhe"],
+      erlaubt: ["liegestuetze", "rumpf", "ruhe"],
       umfangFaktor: 0.2,
       maxDauerMin: 0,
       nurSubmaximal: true,
       keineBeinkraft: true,
       begruendung:
-        "Zwei Tage vor der EP: 20 Min Spazieren und Mobilität, sonst nichts. Schlaf, Elektrolyte, Kohlenhydrate.",
+        "Zwei Tage vor der EP: letzter, leichter Reiz für Liegestütze und Rumpf — kontrolliert, danach keine zusätzlichen Sätze. Sonst nur Spazieren und Mobilität. Schlaf, Elektrolyte, Kohlenhydrate.",
     });
   }
   if (datum < EP_DATUM) {
     return regel({
-      label: "Frei oder locker",
+      label: "Vollständige Erholung",
       maxIntensitaet: "locker",
       erlaubt: ["lauf_z2", "ruhe"],
       umfangFaktor: 0.2,
@@ -188,7 +232,7 @@ export function taperRegelFuerTag(datum: string): TaperRegel | null {
       nurSubmaximal: true,
       keineBeinkraft: true,
       begruendung:
-        "Vortag der EP: frei oder max. 20 Min locker. Früh schlafen, Material bereitlegen.",
+        "Vortag der EP: keine Kraftübungen und keine Leistungstests. Normal essen und trinken, ausreichend schlafen, Material bereitlegen. Höchstens 20 Min ganz locker, wenn die Beine danach fragen.",
     });
   }
   if (datum === EP_DATUM || datum === EP_TAG_2) {
@@ -202,7 +246,7 @@ export function taperRegelFuerTag(datum: string): TaperRegel | null {
       nurSubmaximal: true,
       keineBeinkraft: true,
       begruendung: tag1
-        ? "Eignungsprüfung Tag 1. Kein Training vor der Prüfung."
+        ? "Eignungsprüfung Tag 1. Kein Training — vor dem Start nur Arme, Schultern und Handgelenke locker mobilisieren und den Rumpf kurz aktivieren, ohne ermüdende Wiederholungen. Prüfungstechnik einhalten und kontrolliert beginnen."
         : "Eignungsprüfung Tag 2. Kein zusätzliches Training — zwischen den Tagen nur erholen.",
     });
   }

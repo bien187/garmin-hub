@@ -64,8 +64,9 @@ export function berechnePhasen(): Phase[] {
       fokus: [
         "05.–08.11.: Umfang −40 %, letzte Intensität am Sa 07.11.",
         "Mo 09.11. letzte schwere Beineinheit, Di 10.11. letzter Zieltempo-Lauf (max. 20 Min Z4)",
-        "11.–15.11.: nur Z2 bis 30 Min flach, Klimmzüge/Liegestütze submaximal",
-        "16./17.11.: Spazieren, Mobilität, frei — Schlaf, Elektrolyte, Kohlenhydrate",
+        "11.–15.11.: nur Z2 bis 30 Min flach, Klimmzüge submaximal",
+        "13./14./16.11.: Fokus EP-Liegestütze und seitliche Rumpfkraft (feste Sätze und Pausen), So 15.11. Pause",
+        "17.11.: vollständige Erholung — Schlaf, Elektrolyte, Kohlenhydrate",
         "Keine Probe-EP, kein Lastlauf, keine neuen Übungen",
       ],
     },

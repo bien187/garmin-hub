@@ -76,6 +76,7 @@ const TYP_FARBEN: Record<string, string> = {
   lauf_z2: "border-l-status-green",
   kraft: "border-l-primary",
   klimmzuege: "border-l-primary",
+  liegestuetze: "border-l-primary",
   rumpf: "border-l-status-yellow",
   gtg: "border-l-muted-foreground",
   ruhe: "border-l-muted",

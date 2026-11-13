@@ -179,3 +179,69 @@ describe("planeBestand — EP-Einträge idempotent", () => {
     expect(r.loeschen).toEqual([]);
   });
 });
+
+describe("planeBestand — Liegestütz-/Rumpf-Fokus ab Fr 13.11.", () => {
+  const woche: PlanInput = { ...basis, wochenstart: "2026-11-09", phaseNr: 4, restwochen: 1 };
+  const heuteFr = "2026-11-13";
+  const generieren = (bestehende: BestandsEintrag[]) => {
+    const plan = generiereWochenplan(woche);
+    const belegt = belegteTage(bestehende);
+    const verteilt = planeVerfuegbarkeit(plan, [], heuteFr, belegt);
+    return planeBestand({ bestehende, neu: verteilt.einheiten, generiert: plan.einheiten, heute: heuteFr, gesperrt: [], belegt });
+  };
+  /** Stand nach dem Neugenerieren: was bleibt + was eingefügt wird */
+  const nachher = (bestehende: BestandsEintrag[], r: ReturnType<typeof planeBestand>) => [
+    ...bestehende.filter((e) => !r.loeschen.includes(e.id)),
+    ...r.einfuegen.map((e) => eintrag(e.datum, e.typ, e.titel)),
+  ];
+
+  /* alter Stand: 13.–15.11. ohne Fokus, der Z2-Lauf am Sa liegt schon auf der Uhr */
+  const alt = [
+    eintrag("2026-11-12", "rumpf", "Rumpf leicht (55s/84s)", "absolviert"),
+    eintrag("2026-11-13", "ruhe", "Ruhetag — Mobilität"),
+    eintrag("2026-11-14", "lauf_z2", "Z2-Lauf 25 Min flach", "gepusht", 11),
+    eintrag("2026-11-15", "ruhe", "Ruhetag — Spazieren"),
+  ];
+  const r = generieren(alt);
+  const typenAm = (es: { datum: string; typ: string }[], datum: string) =>
+    es.filter((e) => e.datum === datum).map((e) => e.typ).sort();
+
+  it("heute (Fr) wird der alte Ruhetag durch Liegestütze und Rumpf ersetzt", () => {
+    expect(r.loeschen).toContain(alt[1].id);
+    expect(typenAm(r.einfuegen, "2026-11-13")).toEqual(["liegestuetze", "rumpf"]);
+  });
+
+  it("Sa: Z2-Lauf bleibt auf der Uhr, Liegestütze und Rumpf kommen trotzdem dazu (kein zweiter Lauf)", () => {
+    expect(r.loeschen).not.toContain(alt[2].id);
+    expect(typenAm(r.einfuegen, "2026-11-14")).toEqual(["liegestuetze", "rumpf"]);
+  });
+
+  it("So: Regeneration statt Ruhetag, keine Liegestütze und kein Rumpf", () => {
+    const so = r.einfuegen.filter((e) => e.datum === "2026-11-15");
+    expect(so.map((e) => e.titel)).toEqual(["Regeneration — lockere Bewegung"]);
+  });
+
+  it("Vergangenes bleibt, nichts vor heute wird eingefügt", () => {
+    expect(r.loeschen).not.toContain(alt[0].id);
+    expect(r.einfuegen.every((e) => e.datum >= heuteFr)).toBe(true);
+  });
+
+  it("erneutes Generieren ist idempotent: nichts doppelt", () => {
+    const einmal = nachher(alt, r);
+    const zweimal = nachher(einmal, generieren(einmal));
+    for (const stand of [einmal, zweimal]) {
+      expect(typenAm(stand, "2026-11-14")).toEqual(["lauf_z2", "liegestuetze", "rumpf"]);
+      const schluessel = stand.map((e) => `${e.datum}/${e.typ}`);
+      expect(new Set(schluessel).size).toBe(schluessel.length);
+    }
+  });
+
+  it("gesperrter Fokus-Tag mit Eintrag auf der Uhr bekommt nichts dazu", () => {
+    const plan = generiereWochenplan(woche);
+    const belegt = belegteTage(alt);
+    const gesperrt = ["2026-11-14"];
+    const verteilt = planeVerfuegbarkeit(plan, gesperrt, heuteFr, belegt);
+    const res = planeBestand({ bestehende: alt, neu: verteilt.einheiten, generiert: plan.einheiten, heute: heuteFr, gesperrt, belegt });
+    expect(res.einfuegen.filter((e) => e.datum === "2026-11-14")).toEqual([]);
+  });
+});

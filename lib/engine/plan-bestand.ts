@@ -16,6 +16,8 @@
  *    dem Taper stehen. Ab dem Taper werden sie immer durch die Taper-Version
  *    des Tages ersetzt — sonst bliebe eine Einheit mit vollem Umfang stehen,
  *    obwohl die Tagesregel z. B. −40 % verlangt.
+ *  - Ab dem 09.11. bekommen belegte Tage ab heute die fehlenden Einheiten der
+ *    Tagesregel dazu (ohne Typen, die schon da sind, ohne zweiten Lauf).
  */
 
 import type { PlanEinheit } from "./plan";
@@ -157,18 +159,17 @@ export function planeBestand(inp: {
     einfuegen.push(ep);
   }
 
-  /* Ersatz auf belegten Tagen, auf denen ein regelwidriger Eintrag wegfällt */
-  const ersatzTage = new Set(
-    entscheide
-      .filter(
-        (d) =>
-          d.aktion === "ersetzen" &&
-          belegt.includes(d.datum) &&
-          !inp.gesperrt.includes(d.datum) &&
-          d.datum >= inp.heute
-      )
-      .map((d) => d.datum)
-  );
+  /* Ersatz auf belegten Tagen, auf denen ein regelwidriger Eintrag wegfällt —
+     und ab dem 09.11. (Einheiten direkt aus der Tagesregel) auf jedem belegten
+     Tag ab heute: Sonst fehlten z. B. Liegestütze und Rumpf am Sa 14.11., nur
+     weil der Z2-Lauf des Tages schon auf der Uhr liegt. */
+  const offen = (datum: string) => !inp.gesperrt.includes(datum) && datum >= inp.heute;
+  const ersatzTage = new Set([
+    ...entscheide
+      .filter((d) => d.aktion === "ersetzen" && belegt.includes(d.datum) && offen(d.datum))
+      .map((d) => d.datum),
+    ...belegt.filter((d) => offen(d) && d >= LETZTE_BEINEINHEIT && taperRegelFuerTag(d) != null),
+  ]);
   for (const datum of ersatzTage) {
     const bleibt = inp.bestehende.filter(
       (e) => e.datum === datum && aktion.get(e.id)?.aktion !== "ersetzen"

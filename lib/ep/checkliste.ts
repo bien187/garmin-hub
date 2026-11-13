@@ -80,7 +80,7 @@ const TAG_1: ChecklistenGruppe[] = [
       { id: "t1-vor-ort-frueh", text: "Früh ankommen" },
       { id: "t1-vor-ort-anmeldung", text: "Anmeldung, Ausweis vorzeigen" },
       { id: "t1-vor-ort-toilette", text: "Toilette" },
-      { id: "t1-vor-ort-aufwaermen", text: "Aufwärmen und Mobilisation" },
+      { id: "t1-vor-ort-aufwaermen", text: "Aufwärmen und Mobilisation", hinweis: "Arme, Schultern und Handgelenke locker mobilisieren, Rumpf kurz aktivieren — keine ermüdenden Wiederholungen. Prüfungstechnik einhalten und kontrolliert beginnen." },
       { id: "t1-vor-ort-wasser", text: "Wasserflasche dabei" },
       { id: "t1-vor-ort-snack", text: "Snack für zwischendurch", hinweis: ERNAEHRUNG.snack },
       { id: "t1-vor-ort-handy", text: "Handy lautlos" },

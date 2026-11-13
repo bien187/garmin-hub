@@ -208,7 +208,8 @@ unten und wird in der App eigens gewarnt.
 
 Ab dem **5. November** gilt ein expliziter **Taper-Plan** mit einer Regel und einer
 Begründung pro Tag: Umfang reduzieren, letzte Intensität am 7. November, nur noch
-lockere Läufe in der letzten Woche. Die beiden **EP-Tage** sind fest im Plan, werden
+lockere Läufe in der letzten Woche und vom 13. bis 16. November ein Fokus auf
+EP-Liegestütze und seitliche Rumpfkraft mit festen Sätzen und Pausen. Die beiden **EP-Tage** sind fest im Plan, werden
 nie überschrieben und nie an die Uhr gesendet. Ein Tipp auf einen EP-Tag öffnet die
 **Checkliste** mit Startzeit, Frühstücksfenster und abhakbaren Punkten.
 Details: [EP-Termin, Taper-Plan und Checkliste](docs/EP-UND-TAPER.md).

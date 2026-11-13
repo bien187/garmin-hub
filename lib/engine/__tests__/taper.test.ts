@@ -34,20 +34,43 @@ describe("taperRegelFuerTag", () => {
     expect(taperRegelFuerTag("2026-11-10")!.keineBeinkraft).toBe(true);
   });
 
-  it("10.11.: max. Z4, 11.–15.11.: nur Z2 ≤ 30 Min, Rumpf nur am 12.11.", () => {
+  it("10.11.: max. Z4, 11.–15.11.: nur Z2 ≤ 30 Min, Rumpf am 12./13./14.11.", () => {
     expect(taperRegelFuerTag("2026-11-10")!.maxIntensitaet).toBe("z4");
     for (const d of ["2026-11-11", "2026-11-12", "2026-11-13", "2026-11-14", "2026-11-15"]) {
       const r = taperRegelFuerTag(d)!;
       expect(r.maxIntensitaet).toBe("z2");
       expect(r.maxDauerMin).toBe(30);
       expect(r.nurSubmaximal).toBe(true);
+      expect(r.keineBeinkraft).toBe(true);
       expect(r.erlaubt).not.toContain("kraft");
-      expect(r.erlaubt.includes("rumpf")).toBe(d === "2026-11-12");
+      expect(r.erlaubt.includes("rumpf")).toBe(["2026-11-12", "2026-11-13", "2026-11-14"].includes(d));
     }
   });
 
-  it("17.11.: frei oder max. 20 Min locker", () => {
+  it("13./14.11.: Liegestütz-/Rumpf-Fokus, 15.11. Regeneration ohne Liegestütze und Rumpf", () => {
+    expect(taperRegelFuerTag("2026-11-13")!.label).toBe("Technik und Aktivierung");
+    expect(taperRegelFuerTag("2026-11-14")!.label).toBe("Letzter stärkerer Reiz");
+    for (const d of ["2026-11-13", "2026-11-14"]) {
+      expect(taperRegelFuerTag(d)!.erlaubt).toEqual(expect.arrayContaining(["liegestuetze", "rumpf"]));
+    }
+    const so = taperRegelFuerTag("2026-11-15")!;
+    expect(so.label).toBe("Regeneration");
+    expect(so.erlaubt).not.toContain("liegestuetze");
+    expect(so.erlaubt).not.toContain("rumpf");
+    expect(so.erlaubt).not.toContain("klimmzuege");
+  });
+
+  it("16.11.: letzter Aktivierungsreiz — Liegestütze und Rumpf, kein Lauf", () => {
+    const r = taperRegelFuerTag("2026-11-16")!;
+    expect(r.label).toBe("Letzter Aktivierungsreiz");
+    expect(r.erlaubt).toEqual(["liegestuetze", "rumpf", "ruhe"]);
+    expect(r.maxDauerMin).toBe(0);
+    expect(passtZurRegel({ datum: "2026-11-16", typ: "lauf_z2", titel: "Z2-Lauf 20 Min" }).ok).toBe(false);
+  });
+
+  it("17.11.: vollständige Erholung, höchstens 20 Min locker, keine Kraft", () => {
     const r = taperRegelFuerTag("2026-11-17")!;
+    expect(r.label).toBe("Vollständige Erholung");
     expect(r.maxIntensitaet).toBe("locker");
     expect(r.maxDauerMin).toBe(20);
     expect(r.erlaubt).toEqual(["lauf_z2", "ruhe"]);
@@ -58,6 +81,7 @@ describe("taperRegelFuerTag", () => {
     expect(t1.erlaubt).toEqual(["ep"]);
     expect(t1.maxIntensitaet).toBe("keine");
     expect(t1.label).toBe("EP – Tag 1");
+    expect(t1.begruendung).toContain("Handgelenke locker mobilisieren");
     expect(taperRegelFuerTag("2026-11-19")!.erlaubt).toEqual(["ep"]);
   });
 
