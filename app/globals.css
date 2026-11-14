@@ -263,8 +263,11 @@ select {
 .nav-bar {
   height: calc(var(--nav-h) + var(--nav-sab));
   padding-bottom: var(--nav-sab);
-  /* gemessene iOS-Viewport-Lücke (siehe useAppHeight) — sonst 0 */
-  bottom: calc(-1 * var(--vp-luecke, 0px));
+}
+/* iOS-26-PWA mit verkürztem Viewport (siehe useAppHeight): der
+   Home-Indikator liegt unterhalb der Seite, keine Freihaltung nötig */
+html[data-vp-luecke] {
+  --nav-sab: 0px;
 }
 
 /* Haupt-Scroll-Container: oben Island-Freihaltung, unten Navbar-Freihaltung */

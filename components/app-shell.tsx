@@ -73,17 +73,17 @@ function useAppHeight() {
       );
       document.documentElement.style.setProperty("--app-h", `${h}px`);
 
-      // iOS-PWA-Bug: Im Standalone-Modus mit `black-translucent` ist das
-      // Layout-Viewport manchmal um die obere Safe-Area (Dynamic Island,
-      // 59 px) kürzer als der Bildschirm. `position: fixed; bottom: 0`
-      // landet dann 59 px über der Unterkante, darunter steht ein totes
-      // Band, das wie eine doppelt so hohe Navbar aussieht. Die Lücke wird
-      // gemessen und die Navbar um genau diesen Betrag nach unten gesetzt.
+      // iOS-26-PWA: Im Standalone-Modus ist das Layout-Viewport um die
+      // obere Safe-Area (Dynamic Island, 59 px) kürzer als der Bildschirm,
+      // und WebKit zeichnet `position: fixed`-Inhalte unterhalb davon gar
+      // nicht (dort sässe im Browser die Adressleiste). Die Navbar kann
+      // also nicht tiefer — aber der Home-Indikator liegt dann ohnehin
+      // ausserhalb der Seite, die Freihaltung unter den Labels entfällt.
       const standalone =
         window.matchMedia("(display-mode: standalone)").matches ||
         (navigator as Navigator & { standalone?: boolean }).standalone ===
           true;
-      let luecke = 0;
+      let luecke = false;
       if (standalone) {
         const hoch = window.innerHeight >= window.innerWidth;
         const bildschirm = hoch
@@ -92,12 +92,9 @@ function useAppHeight() {
         const viewport = document.documentElement.clientHeight || h;
         const diff = Math.round(bildschirm - viewport);
         // Nur plausible Werte (Safe-Area-Grösse), nie bei offener Tastatur
-        if (diff > 0 && diff <= 80) luecke = diff;
+        luecke = diff > 20 && diff <= 80;
       }
-      document.documentElement.style.setProperty(
-        "--vp-luecke",
-        `${luecke}px`
-      );
+      document.documentElement.toggleAttribute("data-vp-luecke", luecke);
     };
     setzen();
     window.addEventListener("resize", setzen);
@@ -213,7 +210,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             eine Lücke — im Dunkelmodus nicht als Lücke erkennbar, sondern
             als zu hohe Navigationsleiste. */}
         {!tastaturOffen && (
-          <nav className="nav-bar fixed inset-x-0 z-40 border-t border-border bg-sidebar/95 backdrop-blur md:hidden">
+          <nav className="nav-bar fixed inset-x-0 bottom-0 z-40 border-t border-border bg-sidebar/95 backdrop-blur md:hidden">
             <div className="relative grid h-full grid-cols-5">
               {/* Aktiv-Indikator: fährt per translateX zur aktiven Zelle (§6 Nr.1) */}
               {aktiverIndex >= 0 && (
