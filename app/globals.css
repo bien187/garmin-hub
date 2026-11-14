@@ -204,13 +204,13 @@
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
   /* Inhaltshöhe der Tab-Bar (ohne Freihaltung unten) */
-  --nav-h: 48px;
+  --nav-h: 44px;
   /* Freihaltung unter der Tab-Bar. iOS meldet 34 px für den Home-Indikator;
      der braucht Luft, aber nicht die vollen 34 — mit ihnen wirkte die
      Leiste massiv, weil unter den Labels ein breites totes Band stand.
      Getroffen wird der Indikator ohnehin nicht: dort steht nur Text, die
      Tap-Flächen liegen darüber. */
-  --nav-sab: min(var(--sab), 20px);
+  --nav-sab: min(var(--sab), 14px);
 }
 
 html {
@@ -263,6 +263,8 @@ select {
 .nav-bar {
   height: calc(var(--nav-h) + var(--nav-sab));
   padding-bottom: var(--nav-sab);
+  /* gemessene iOS-Viewport-Lücke (siehe useAppHeight) — sonst 0 */
+  bottom: calc(-1 * var(--vp-luecke, 0px));
 }
 
 /* Haupt-Scroll-Container: oben Island-Freihaltung, unten Navbar-Freihaltung */

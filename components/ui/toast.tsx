@@ -49,7 +49,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {/* Über der Navbar, Safe-Area-bewusst */}
       <div
         className="pointer-events-none fixed inset-x-0 z-50 flex flex-col items-center gap-2 px-4"
-        style={{ bottom: "calc(var(--nav-h) + var(--sab) + 12px)" }}
+        style={{ bottom: "calc(var(--nav-h) + var(--nav-sab) + 12px - var(--vp-luecke, 0px))" }}
       >
         {toasts.map((t) => (
           <ToastItem key={t.id} toast={t} onClose={() => entfernen(t.id)} />
