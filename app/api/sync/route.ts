@@ -10,13 +10,14 @@ import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 export const maxDuration = 60;
 
 const SyncSchema = z.object({
-  typ: z.enum(["activities", "health", "schlaf", "zonen", "finalize"]),
+  typ: z.enum(["activities", "health", "schlaf", "zonen", "gewicht", "finalize"]),
 });
 
 /**
  * POST /api/sync — führt einen Sync-Chunk aus (Proxy auf die Python-Bridge).
- * Body: { typ: "activities" | "health" | "schlaf" | "zonen" | "finalize" }
+ * Body: { typ: "activities" | "health" | "schlaf" | "zonen" | "gewicht" | "finalize" }
  * "schlaf" = ein Chunk Schlaf-Backfill (Antwort mit fortschritt {erledigt, gesamt}).
+ * "gewicht" = neue Wägungen (Garmin Index S2) + ein Chunk Gewichts-Backfill.
  * Nach "health"/"schlaf" werden die gemeldeten Nächte direkt aufbereitet
  * (Epochen + Zeitreihen). "finalize" stösst die Neuberechnung aller
  * abgeleiteten Daten an.

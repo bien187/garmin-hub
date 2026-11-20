@@ -51,7 +51,7 @@ export function InsightCards() {
           {t}
         </div>
       ))}
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {karten.map((k) => (
           <Card key={k.id} className="py-4">
             <CardContent className="space-y-2 px-4">

@@ -7,7 +7,7 @@ export default async function PlanPage({
 }: {
   searchParams: Promise<{ tab?: string }>;
 }) {
-  // ?tab=benchmarks öffnet direkt die Benchmarks (Link aus der EP-Prognose)
+  // ?tab=generator öffnet direkt den Workout-Generator
   const { tab } = await searchParams;
   // Kein h1 (dupliziert das Tab-Label); die Tabs-Zeile ist der Kopf.
   return <PlanAnsicht start={planStartTab(tab)} />;

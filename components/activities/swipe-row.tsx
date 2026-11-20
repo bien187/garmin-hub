@@ -7,19 +7,22 @@ import { Trash2 } from "lucide-react";
  * Wisch-nach-links-Zeile (§5.1): legt eine 88px-„Löschen"-Aktion frei.
  * Tippen navigiert (Kind bleibt Link), horizontales Wischen enthüllt die
  * Aktion mit Widerstand hinter −88px; `collapsed` kollabiert die Zeile
- * (Höhe 60→0) nach bestätigtem Löschen.
+ * (Höhe → 0) nach bestätigtem Löschen.
  */
 export function SwipeRow({
   children,
   onDelete,
   collapsed = false,
   deaktiviert = false,
+  hoehe = 60,
 }: {
   children: React.ReactNode;
   onDelete: () => void;
   collapsed?: boolean;
   /** Demo: kein Wischen, keine Löschen-Aktion */
   deaktiviert?: boolean;
+  /** Zeilenhöhe in px */
+  hoehe?: number;
 }) {
   const [offset, setOffset] = useState(0); // aktuelle Verschiebung (px, ≤0)
   const startX = useRef(0);
@@ -28,18 +31,18 @@ export function SwipeRow({
   const richtung = useRef<"?" | "h" | "v">("?");
   const REVEAL = 88;
 
-  if (deaktiviert) return <div className="h-15 overflow-hidden">{children}</div>;
+  if (deaktiviert) return <div className="overflow-hidden" style={{ height: hoehe }}>{children}</div>;
 
   return (
     <div
       className="overflow-hidden"
       style={{
-        height: collapsed ? 0 : 60,
+        height: collapsed ? 0 : hoehe,
         opacity: collapsed ? 0 : 1,
         transition: "height var(--dur-base) var(--ease-base), opacity var(--dur-base) var(--ease-base)",
       }}
     >
-      <div className="relative h-15 overflow-hidden">
+      <div className="relative overflow-hidden" style={{ height: hoehe }}>
         {/* Aktion dahinter */}
         <button
           onClick={onDelete}
@@ -52,7 +55,7 @@ export function SwipeRow({
         </button>
         {/* Inhalt darüber, verschiebbar */}
         <div
-          className="h-full bg-background"
+          className="h-full bg-card"
           style={{
             transform: `translateX(${offset}px)`,
             transition:

@@ -60,16 +60,23 @@ export function WorkoutGenerator() {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="flaeche-hero rounded-xl p-4 text-sm shadow-card ring-1 ring-white/[0.06]">
+        <div className="font-semibold">Spontan trainieren</div>
+        <p className="mt-1 text-[13px] leading-snug text-muted-foreground">
+          Lust auf einen Lauf ausserhalb des Plans — zum Beispiel am freien Wochenende? Distanz oder Dauer wählen, der
+          Generator baut ein Workout mit deinen Zonen und Paces und zeigt die Wirkung auf deine Form.
+        </p>
+      </div>
+      <div className="grid gap-4 rounded-xl bg-card p-4 shadow-card ring-1 ring-white/[0.055] sm:grid-cols-2">
         <div>
-          <div className="mb-1 flex rounded-lg bg-muted p-0.5">
+          <div className="mb-2 flex rounded-full bg-surface p-1">
             {(["distanz", "dauer"] as const).map((m) => (
               <button
                 key={m}
                 onClick={() => setModus(m)}
                 className={cn(
-                  "min-h-9 flex-1 rounded-md text-sm",
-                  modus === m ? "bg-background font-medium" : "text-muted-foreground"
+                  "min-h-9 flex-1 rounded-full text-sm transition-colors",
+                  modus === m ? "bg-primary font-semibold text-primary-foreground" : "text-muted-foreground"
                 )}
               >
                 {m === "distanz" ? "Distanz" : "Dauer"}
@@ -99,15 +106,19 @@ export function WorkoutGenerator() {
           )}
         </div>
         <div>
-          <div className="mb-1 text-xs text-muted-foreground">Anstrengung</div>
-          <div className="flex rounded-lg bg-muted p-0.5">
+          <div className="kachel-titel mb-2">Anstrengung</div>
+          <div className="flex rounded-full bg-surface p-1">
             {(["locker", "mittel", "hart"] as const).map((a) => (
               <button
                 key={a}
                 onClick={() => setAnstrengung(a)}
                 className={cn(
-                  "min-h-10 flex-1 rounded-md text-sm capitalize",
-                  anstrengung === a ? "bg-background font-medium" : "text-muted-foreground"
+                  "min-h-9 flex-1 rounded-full text-sm capitalize transition-colors",
+                  anstrengung === a
+                    ? a === "hart"
+                      ? "bg-coral font-semibold text-coral-foreground"
+                      : "bg-primary font-semibold text-primary-foreground"
+                    : "text-muted-foreground"
                 )}
               >
                 {a}
@@ -126,10 +137,14 @@ export function WorkoutGenerator() {
         </div>
       </div>
 
-      <Button onClick={generiere} disabled={demo || laedt} className="w-full sm:w-auto">
+      <button
+        onClick={generiere}
+        disabled={demo || laedt}
+        className="flaeche-lime flex min-h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-transform active:scale-[0.99] disabled:opacity-60 sm:w-auto sm:px-6"
+      >
         <Sparkles className="size-4" />
         {laedt ? "Baut Workout…" : "Workout bauen"}
-      </Button>
+      </button>
       {demo && <DemoDeaktiviert />}
 
       {meldung && (
@@ -155,10 +170,10 @@ export function WorkoutGenerator() {
             {ergebnis.tsbMorgen != null && (
               <div
                 className={cn(
-                  "rounded-lg px-3 py-2 text-sm",
+                  "rounded-xl px-3 py-2 text-sm",
                   ergebnis.tsbMorgen < -10
                     ? "bg-status-orange/10 text-status-orange"
-                    : "bg-muted"
+                    : "bg-surface"
                 )}
               >
                 Nach diesem Lauf: TSB {ergebnis.tsbMorgen > 0 ? "+" : ""}
@@ -175,7 +190,7 @@ export function WorkoutGenerator() {
                   {ergebnis.routenVorschlaege.map((r) => (
                     <div
                       key={r.id}
-                      className="stat-mono flex justify-between rounded-lg bg-muted px-3 py-1.5 text-xs"
+                      className="stat-mono flex justify-between rounded-xl bg-surface px-3 py-2 text-xs"
                     >
                       <span>{r.name}</span>
                       <span>

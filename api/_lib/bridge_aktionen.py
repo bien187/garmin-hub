@@ -13,7 +13,7 @@ from .garmin_client import get_client
 
 
 def sync(body: dict) -> dict:
-    """Ein Sync-Chunk. Body: {"typ": "activities" | "health" | "schlaf" | "zonen"}
+    """Ein Sync-Chunk. Body: {"typ": "activities" | "health" | "schlaf" | "zonen" | "gewicht"}
 
     Antwort: {"ok": true, "typ": ..., "verarbeitet": n, "hasMore": bool}
     health/schlaf zusätzlich "schlafDaten" (Datumsstrings der geschriebenen
@@ -34,6 +34,8 @@ def sync(body: dict) -> dict:
             result = sync_logic.sync_sleep(con, garmin)
         elif typ == "zonen":
             result = sync_logic.sync_hr_zonen(con, garmin)
+        elif typ == "gewicht":
+            result = sync_logic.sync_gewicht(con, garmin)
         else:
             result = sync_logic.sync_activities(con, garmin)
         dbmod.append_sync_log(

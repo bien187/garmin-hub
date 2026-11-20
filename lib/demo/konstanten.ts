@@ -7,7 +7,7 @@ export const DEMO_HINWEIS =
   "Garmin-Hub-Demo. Alle Aktivitäten, Gesundheits- und Schlafwerte sind fiktive Testdaten.";
 
 /** „Heute" des fiktiven Datenstands (muss zu kern.json passen) */
-export const DEMO_HEUTE = "2026-11-05";
+export const DEMO_HEUTE = "2027-03-11";
 
 /**
  * Optionaler Link „Zum Portfolio" (NEXT_PUBLIC_PORTFOLIO_URL, beim Build

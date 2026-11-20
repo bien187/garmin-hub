@@ -79,7 +79,7 @@ for (const [name, geraet] of [
   pruefe((await p.locator('a[href$="/settings"]').count()) === 0, `${name}: kein Link zu Einstellungen`);
   pruefe((await p.getByRole("button", { name: /synchronisieren/i }).count()) === 0, `${name}: kein Sync-Knopf`);
   await p.getByText("Bereitschaft heute").waitFor({ timeout: 20_000 });
-  for (const t of ["EP-Noten · aktueller Stand", "Schlaf letzte Nacht", "Diese Woche", "Letzte Aktivität", "Nächstes Training", "All Time", "Muskelstatus"]) {
+  for (const t of ["Nächstes Training", "Diese Woche", "Fortschritt", "Letzte Aktivitäten", "Schlaf letzte Nacht", "Gewicht", "Muskelstatus", "Gesamtbilanz"]) {
     pruefe(await p.getByText(t, { exact: false }).first().isVisible(), `${name}: Dashboard zeigt „${t}"`);
   }
   pruefe(!(await p.getByText("Noch keine Aktivitäten").count()), `${name}: Dashboard nicht leer`);
@@ -120,8 +120,8 @@ for (const [name, geraet] of [
   // Körper, Karte, Schlaf, Einstellungen
   for (const [pfad, text] of [
     ["/demo/body", /Systemische Ermüdung/i],
-    ["/demo/schlaf/2026-11-05", /Schlaf|Phasen|Tief/i],
-    ["/demo/plan?tab=benchmarks", /Benchmark|Klimmz/i],
+    ["/demo/body", /Smart Weight Tracking/i],
+    ["/demo/schlaf/2027-03-11", /Schlaf|Phasen|Tief/i],
   ]) {
     await oeffne(p, pfad);
     pruefe((await p.getByText(text).count()) > 0, `${name}: ${pfad} zeigt Inhalte`);

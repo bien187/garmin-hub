@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { generiereUndSpeichereWoche } from '@/lib/server/plan-service';
 import { addTage, heuteIso, montagVon } from '@/lib/format';
-import { istGymTag } from '@/lib/engine/verfuegbarkeit';
+import { istSperrbar } from '@/lib/engine/verfuegbarkeit';
 
 export const maxDuration = 60;
 const schema = z.object({wochenstart:z.iso.date().optional(), nichtVerfuegbar:z.array(z.iso.date()).max(7).optional()});
@@ -11,8 +11,8 @@ export async function POST(req: NextRequest) {
   if (!body.success) return NextResponse.json({error:'Ungültige Planungsdaten.'},{status:400});
   const montag = montagVon(body.data.wochenstart ?? heuteIso());
   const sperren = body.data.nichtVerfuegbar;
-  if (sperren?.some(d => d < montag || d > addTage(montag,6) || istGymTag(d))) {
-    return NextResponse.json({error:'Nur freie Tage dieser Woche können gesperrt werden.'},{status:400});
+  if (sperren?.some(d => d < montag || d > addTage(montag,6) || !istSperrbar(d))) {
+    return NextResponse.json({error:'Nur die Lauftage dieser Woche (Di/Mi) können gesperrt werden.'},{status:400});
   }
   try {
     const plan = await generiereUndSpeichereWoche(montag, sperren);

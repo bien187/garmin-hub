@@ -93,7 +93,7 @@ export function PaceHrChart({
       <div className="h-44 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={sichtbar} margin={{ top: 4, right: 8, bottom: 0, left: -6 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <CartesianGrid vertical={false} stroke="var(--border)" />
             <XAxis
               dataKey="bis"
               ticks={achse.ticks}
@@ -125,9 +125,9 @@ export function PaceHrChart({
               connectNulls={false}
               type="monotone"
               dataKey="paceSKm"
-              stroke="var(--primary)"
-              strokeWidth={2}
-              dot={{ r: 3, fill: "var(--primary)", strokeWidth: 0 }}
+              stroke="var(--coral)"
+              strokeWidth={2.5}
+              dot={{ r: 3.5, fill: "var(--coral)", strokeWidth: 0 }}
               activeDot={{ r: 5 }}
             />
           </LineChart>

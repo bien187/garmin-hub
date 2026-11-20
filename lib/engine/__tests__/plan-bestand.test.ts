@@ -4,20 +4,18 @@ import { generiereWochenplan, PlanInput } from "../plan";
 import { planeVerfuegbarkeit } from "../verfuegbarkeit";
 
 const zonen = { z2: { von: 137, bis: 152 }, z4: { von: 168, bis: 183 }, z5: { von: 183, bis: 197 } };
+// Woche Mo 07.12.–So 13.12.2026
 const basis: PlanInput = {
-  wochenstart: "2026-11-02",
-  phaseNr: 3,
-  restwochen: 3,
-  wochenIndex: 16,
-  vorwocheLaufMin: 170,
+  wochenstart: "2026-12-07",
+  blockWoche: 3,
+  vorwocheLaufMin: 130,
   tsb: 0,
   acwr: 1,
   muscleState: {},
-  benchmarks: { klimmzuege: 7 },
+  klimmzugMax: 8,
   readiness: 60,
   paces: null,
   zonen,
-  letztesLastKg: 20,
 };
 
 let n = 0;
@@ -30,218 +28,66 @@ const eintrag = (datum: string, typ: string, titel: string, status = "geplant", 
   garminWorkoutId: garmin,
 });
 
-/* Stand der echten DB (04.11.2026) für die Woche 02.–08.11., alte Logik */
 const bestand = [
-  eintrag("2026-11-02", "kraft", "Gym: Brust/Trizeps", "absolviert"),
-  eintrag("2026-11-04", "lauf_z2", "Z2-Lauf 30 Min", "absolviert", 3),
-  eintrag("2026-11-05", "klimmzuege", "Gym: Rücken/Bizeps + Klimmzüge schwer"),
-  eintrag("2026-11-05", "rumpf", "Rumpf im Sekundentakt (78s/120s)", "gepusht", 4),
-  eintrag("2026-11-06", "lauf_z2", "Z2-Lauf 30 Min", "gepusht", 5),
-  eintrag("2026-11-07", "probe_ep", "Probe-EP: Alle 5 Disziplinen"),
-  eintrag("2026-11-07", "rumpf", "Rumpf im Sekundentakt (78s/120s)", "gepusht", 6),
-  eintrag("2026-11-08", "kraft", "Gym: Ganzkörper + Klimmzug-Volumen"),
+  eintrag("2026-12-07", "kraft", "Gym: Brust/Trizeps + Rumpf", "absolviert"),
+  eintrag("2026-12-08", "intervalle", "Tempo 5×1 km", "gepusht", 3),
+  eintrag("2026-12-09", "lauf_z2", "Z2-Lauf 40 Min"),
+  eintrag("2026-12-10", "kraft", "Gym: Rücken/Bizeps + Beine"),
+  eintrag("2026-12-11", "ruhe", "Ruhetag"),
+  eintrag("2026-12-12", "lauf_z2", "Z2-Lauf 45 Min"), // alter Wochenend-Eintrag
 ];
-const heute = "2026-11-05";
-const id = (datum: string, typ: string) => bestand.find((e) => e.datum === datum && e.typ === typ)!.id;
+const heute = "2026-12-08";
+const id = (datum: string) => bestand.find((e) => e.datum === datum)!.id;
 
 function neuGenerieren(bestehende: BestandsEintrag[], gesperrt: string[] = []) {
   const plan = generiereWochenplan(basis);
   const belegt = belegteTage(bestehende);
   const verteilt = planeVerfuegbarkeit(plan, gesperrt, heute, belegt);
-  return planeBestand({ bestehende, neu: verteilt.einheiten, generiert: plan.einheiten, heute, gesperrt, belegt });
+  return planeBestand({ bestehende, neu: verteilt.einheiten, heute, gesperrt, belegt });
 }
 
 describe("entscheideEintrag", () => {
-  const ctx = { heute, gesperrt: [], belegt: ["2026-11-05", "2026-11-07"] };
-  it("absolviert bleibt, auch wenn er nicht zum Taper passt", () => {
-    expect(entscheideEintrag(eintrag("2026-11-07", "probe_ep", "Probe-EP", "absolviert"), ctx).aktion).toBe("behalten");
+  const ctx = { heute, gesperrt: [], belegt: ["2026-12-07", "2026-12-08"] };
+  it("absolviert und Vergangenes bleibt", () => {
+    expect(entscheideEintrag(bestand[0], ctx).aktion).toBe("behalten");
   });
-  it("gepusht und regelwidrig → Hinweis, nicht löschen", () => {
-    const d = entscheideEintrag(eintrag("2026-11-11", "lauf_z2", "Z2-Lauf 35 Min", "gepusht", 9), ctx);
-    expect(d.aktion).toBe("melden");
-    expect(d.grund).toContain("30 Min");
+  it("auf der Uhr → bleibt", () => {
+    expect(entscheideEintrag(bestand[1], ctx).aktion).toBe("behalten");
   });
-  it("gepusht und regelkonform → bleibt", () => {
-    expect(entscheideEintrag(eintrag("2026-11-06", "lauf_z2", "Z2-Lauf 30 Min", "gepusht", 9), ctx).aktion).toBe("behalten");
+  it("geplant auf freiem Tag → ersetzt", () => {
+    expect(entscheideEintrag(bestand[2], ctx).aktion).toBe("ersetzen");
   });
-  it("geplant und regelwidrig auf belegtem Tag → ersetzt", () => {
-    expect(entscheideEintrag(eintrag("2026-11-07", "probe_ep", "Probe-EP"), ctx).aktion).toBe("ersetzen");
+  it("geplant auf belegtem Tag → bleibt", () => {
+    const e = eintrag("2026-12-08", "kraft", "Zusatz");
+    expect(entscheideEintrag(e, ctx).aktion).toBe("behalten");
   });
-  it("geplant auf belegtem Taper-Tag → durch die Taper-Version ersetzt (Umfang −40 %)", () => {
-    const d = entscheideEintrag(eintrag("2026-11-05", "klimmzuege", "Gym: Rücken/Bizeps + Klimmzüge schwer"), ctx);
-    expect(d.aktion).toBe("ersetzen");
-    expect(d.grund).toContain("Taper-Version");
-  });
-  it("geplant auf belegtem Tag vor dem Taper → bleibt (wie bisher)", () => {
-    const vorher = { heute: "2026-11-02", gesperrt: [], belegt: ["2026-11-03"] };
-    expect(entscheideEintrag(eintrag("2026-11-03", "klimmzuege", "Gym: Klimmzüge schwer"), vorher).aktion).toBe("behalten");
-  });
-  it("geplant auf freiem Tag → ersetzt (wie bisher)", () => {
-    expect(entscheideEintrag(eintrag("2026-11-08", "kraft", "Gym: Ganzkörper"), ctx).aktion).toBe("ersetzen");
-  });
-  it("EP-Eintrag bleibt immer", () => {
-    const ep = eintrag("2026-11-18", "ep", "EP – Tag 1");
-    expect(entscheideEintrag(ep, { heute: "2026-11-16", gesperrt: ["2026-11-18"], belegt: [] }).aktion).toBe("behalten");
-  });
-  it("Vergangenheit bleibt", () => {
-    expect(entscheideEintrag(eintrag("2026-11-03", "intervalle", "EP-Tempo"), ctx).aktion).toBe("behalten");
+  it("geplant auf gesperrtem Tag → ersetzt", () => {
+    expect(entscheideEintrag(bestand[2], { ...ctx, gesperrt: ["2026-12-09"] }).aktion).toBe("ersetzen");
   });
 });
 
-describe("planeBestand — Woche 02.–08.11. aus der echten DB", () => {
+describe("planeBestand", () => {
   const r = neuGenerieren(bestand);
 
-  it("Probe-EP am 07.11. (geplant neben gepushtem Rumpf) wird ersetzt", () => {
-    expect(r.loeschen).toContain(id("2026-11-07", "probe_ep"));
-    const sa = r.einfuegen.filter((e) => e.datum === "2026-11-07");
-    expect(sa.map((e) => e.typ)).toEqual(["intervalle"]); // Rumpf liegt schon auf der Uhr
-    expect(sa[0].titel).toContain("Letzte Intensität");
-  });
-
-  it("gepushte und absolvierte Einträge werden nie gelöscht", () => {
-    for (const e of bestand.filter((b) => b.status !== "geplant")) expect(r.loeschen).not.toContain(e.id);
-  });
-
-  it("Klimmzüge schwer am 05.11. (geplant neben gepushtem Rumpf) → abgeschwächte Taper-Version", () => {
-    expect(r.loeschen).toContain(id("2026-11-05", "klimmzuege"));
-    const ersatz = r.einfuegen.filter((e) => e.datum === "2026-11-05");
-    expect(ersatz.map((e) => e.typ)).toEqual(["klimmzuege"]); // Rumpf liegt schon auf der Uhr
-    expect(ersatz[0].beschreibung).toContain("Taper");
-  });
-
-  it("gepushte Kraft/Rumpf mit vollem Umfang → Hinweis zum Kürzen, keiner für den Z2-Lauf", () => {
-    expect(r.hinweise).toHaveLength(2);
-    expect(r.hinweise.every((h) => h.startsWith("«Rumpf im Sekundentakt"))).toBe(true);
-    expect(r.hinweise[0]).toContain("(Do 5.11.)");
-    expect(r.hinweise[1]).toContain("(Sa 7.11.)");
-    expect(r.hinweise[0]).toContain("−40 %");
-    expect(r.hinweise.some((h) => h.includes("Z2-Lauf"))).toBe(false);
-  });
-
-  it("gepushte Einheit mit Taper-Anpassung in der Beschreibung → kein Hinweis", () => {
-    const angepasst = bestand.map((e) =>
-      e.typ === "rumpf" ? { ...e, beschreibung: "Rumpf. Taper: Sätze ca. −40 %, nichts steigern." } : e
+  it("löscht nur offene, nicht übertragene Einträge ab heute", () => {
+    expect(r.loeschen.sort()).toEqual(
+      [id("2026-12-09"), id("2026-12-10"), id("2026-12-11"), id("2026-12-12")].sort()
     );
-    expect(neuGenerieren(angepasst).hinweise).toEqual([]);
   });
 
-  it("freier Taper-Tag 08.11. wird neu und abgeschwächt geplant", () => {
-    expect(r.loeschen).toContain(id("2026-11-08", "kraft"));
-    expect(r.einfuegen.filter((e) => e.datum === "2026-11-08").every((e) => e.beschreibung.includes("Taper"))).toBe(true);
+  it("plant ab heute neu — ohne belegte Tage, ohne Wochenend-Einheit", () => {
+    const daten = r.einfuegen.map((e) => e.datum);
+    expect(daten).not.toContain("2026-12-07"); // Vergangenheit
+    expect(daten).not.toContain("2026-12-08"); // liegt auf der Uhr
+    expect(daten).toEqual(["2026-12-09", "2026-12-10", "2026-12-11"]);
+    expect(r.einfuegen.some((e) => e.datum >= "2026-12-12")).toBe(false);
   });
 
-  it("keine neuen Einheiten auf Tagen vor heute und keine Probe-EP", () => {
-    expect(r.einfuegen.every((e) => e.datum >= heute)).toBe(true);
-    expect(r.einfuegen.some((e) => e.typ === "probe_ep" || e.typ === "lastlauf")).toBe(false);
-  });
-
-  it("gepushter regelwidriger Eintrag → Hinweis mit «Von der Uhr entfernen»", () => {
-    const mitUhr = [...bestand, eintrag("2026-11-08", "intervalle", "Taper: Kurze Spitzen", "gepusht", 7)];
-    const res = neuGenerieren(mitUhr);
-    const uhr = res.hinweise.filter((h) => h.includes("liegt bereits auf der Uhr"));
-    expect(uhr).toHaveLength(1);
-    expect(uhr[0]).toContain("«Taper: Kurze Spitzen» (So 8.11.)");
-    expect(uhr[0]).toContain("«Von der Uhr entfernen»");
-    expect(res.loeschen).not.toContain(mitUhr[mitUhr.length - 1].id);
-  });
-});
-
-describe("planeBestand — EP-Einträge idempotent", () => {
-  const woche: PlanInput = { ...basis, wochenstart: "2026-11-16", phaseNr: 4, restwochen: 1 };
-  const generieren = (bestehende: BestandsEintrag[], heuteW = "2026-11-16") => {
-    const plan = generiereWochenplan(woche);
-    const belegt = belegteTage(bestehende);
-    const verteilt = planeVerfuegbarkeit(plan, [], heuteW, belegt);
-    return planeBestand({ bestehende, neu: verteilt.einheiten, generiert: plan.einheiten, heute: heuteW, gesperrt: [], belegt });
-  };
-
-  it("erstmalig: je ein EP-Eintrag 18./19.11., veraltete Einheiten dort werden ersetzt", () => {
-    const alt = [eintrag("2026-11-18", "lauf_z2", "Z2-Lauf 35 Min"), eintrag("2026-11-19", "klimmzuege", "Gym: Rücken/Bizeps + Klimmzüge schwer")];
-    const r = generieren(alt);
-    expect(r.loeschen).toEqual(alt.map((e) => e.id));
-    const ep = r.einfuegen.filter((e) => e.typ === "ep");
-    expect(ep.map((e) => e.datum)).toEqual(["2026-11-18", "2026-11-19"]);
-    expect(r.einfuegen.filter((e) => e.datum === "2026-11-18" || e.datum === "2026-11-19")).toHaveLength(2);
-  });
-
-  it("zweiter Lauf: bestehende EP-Einträge bleiben unverändert, nichts doppelt", () => {
-    const ep1 = eintrag("2026-11-18", "ep", "EP – Tag 1");
-    const ep2 = eintrag("2026-11-19", "ep", "EP – Tag 2", "absolviert");
-    const r = generieren([ep1, ep2]);
-    expect(r.loeschen).toEqual([]);
-    expect(r.einfuegen.some((e) => e.typ === "ep")).toBe(false);
-    expect(r.entscheide.every((d) => d.aktion === "behalten")).toBe(true);
-  });
-
-  it("EP-Eintrag wird auch nach dem EP-Tag nie gelöscht", () => {
-    const ep1 = eintrag("2026-11-18", "ep", "EP – Tag 1");
-    const r = generieren([ep1], "2026-11-20");
-    expect(r.loeschen).toEqual([]);
-  });
-});
-
-describe("planeBestand — Liegestütz-/Rumpf-Fokus ab Fr 13.11.", () => {
-  const woche: PlanInput = { ...basis, wochenstart: "2026-11-09", phaseNr: 4, restwochen: 1 };
-  const heuteFr = "2026-11-13";
-  const generieren = (bestehende: BestandsEintrag[]) => {
-    const plan = generiereWochenplan(woche);
-    const belegt = belegteTage(bestehende);
-    const verteilt = planeVerfuegbarkeit(plan, [], heuteFr, belegt);
-    return planeBestand({ bestehende, neu: verteilt.einheiten, generiert: plan.einheiten, heute: heuteFr, gesperrt: [], belegt });
-  };
-  /** Stand nach dem Neugenerieren: was bleibt + was eingefügt wird */
-  const nachher = (bestehende: BestandsEintrag[], r: ReturnType<typeof planeBestand>) => [
-    ...bestehende.filter((e) => !r.loeschen.includes(e.id)),
-    ...r.einfuegen.map((e) => eintrag(e.datum, e.typ, e.titel)),
-  ];
-
-  /* alter Stand: 13.–15.11. ohne Fokus, der Z2-Lauf am Sa liegt schon auf der Uhr */
-  const alt = [
-    eintrag("2026-11-12", "rumpf", "Rumpf leicht (55s/84s)", "absolviert"),
-    eintrag("2026-11-13", "ruhe", "Ruhetag — Mobilität"),
-    eintrag("2026-11-14", "lauf_z2", "Z2-Lauf 25 Min flach", "gepusht", 11),
-    eintrag("2026-11-15", "ruhe", "Ruhetag — Spazieren"),
-  ];
-  const r = generieren(alt);
-  const typenAm = (es: { datum: string; typ: string }[], datum: string) =>
-    es.filter((e) => e.datum === datum).map((e) => e.typ).sort();
-
-  it("heute (Fr) wird der alte Ruhetag durch Liegestütze und Rumpf ersetzt", () => {
-    expect(r.loeschen).toContain(alt[1].id);
-    expect(typenAm(r.einfuegen, "2026-11-13")).toEqual(["liegestuetze", "rumpf"]);
-  });
-
-  it("Sa: Z2-Lauf bleibt auf der Uhr, Liegestütze und Rumpf kommen trotzdem dazu (kein zweiter Lauf)", () => {
-    expect(r.loeschen).not.toContain(alt[2].id);
-    expect(typenAm(r.einfuegen, "2026-11-14")).toEqual(["liegestuetze", "rumpf"]);
-  });
-
-  it("So: Regeneration statt Ruhetag, keine Liegestütze und kein Rumpf", () => {
-    const so = r.einfuegen.filter((e) => e.datum === "2026-11-15");
-    expect(so.map((e) => e.titel)).toEqual(["Regeneration — lockere Bewegung"]);
-  });
-
-  it("Vergangenes bleibt, nichts vor heute wird eingefügt", () => {
-    expect(r.loeschen).not.toContain(alt[0].id);
-    expect(r.einfuegen.every((e) => e.datum >= heuteFr)).toBe(true);
-  });
-
-  it("erneutes Generieren ist idempotent: nichts doppelt", () => {
-    const einmal = nachher(alt, r);
-    const zweimal = nachher(einmal, generieren(einmal));
-    for (const stand of [einmal, zweimal]) {
-      expect(typenAm(stand, "2026-11-14")).toEqual(["lauf_z2", "liegestuetze", "rumpf"]);
-      const schluessel = stand.map((e) => `${e.datum}/${e.typ}`);
-      expect(new Set(schluessel).size).toBe(schluessel.length);
-    }
-  });
-
-  it("gesperrter Fokus-Tag mit Eintrag auf der Uhr bekommt nichts dazu", () => {
-    const plan = generiereWochenplan(woche);
-    const belegt = belegteTage(alt);
-    const gesperrt = ["2026-11-14"];
-    const verteilt = planeVerfuegbarkeit(plan, gesperrt, heuteFr, belegt);
-    const res = planeBestand({ bestehende: alt, neu: verteilt.einheiten, generiert: plan.einheiten, heute: heuteFr, gesperrt, belegt });
-    expect(res.einfuegen.filter((e) => e.datum === "2026-11-14")).toEqual([]);
+  it("ist idempotent: zweimal generieren ergibt denselben Plan", () => {
+    const zweite = neuGenerieren([
+      ...bestand.filter((e) => !r.loeschen.includes(e.id)),
+      ...r.einfuegen.map((e, i) => ({ ...eintrag(e.datum, e.typ, e.titel), id: `neu${i}` })),
+    ]);
+    expect(zweite.einfuegen.map((e) => [e.datum, e.typ])).toEqual(r.einfuegen.map((e) => [e.datum, e.typ]));
   });
 });

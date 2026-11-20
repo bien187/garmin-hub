@@ -1,5 +1,5 @@
 /**
- * Garmin Hub Service Worker (v4)
+ * Garmin Hub Service Worker (v5 — Redesign: neue Icons und Farben)
  *  - App-Shell + statische Assets: cache-first
  *  - Navigationen: network-first mit Cache-Fallback (offline lesbar)
  *  - Safari-sicher: kein skipWaiting (kein Controller-Wechsel mitten in
@@ -8,7 +8,7 @@
  *    bricht letztere mit "Load failed" ab)
  *  - Externe Karten-Tiles werden NICHT gecacht (Speicher)
  */
-const VERSION = "ghq-v4";
+const VERSION = "ghq-v5";
 const SHELL = ["/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {

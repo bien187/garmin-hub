@@ -1,13 +1,12 @@
-import { and, desc, eq, gt, gte, isNull, like, lt, lte, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { getDb, tables } from "@/lib/db";
-import { planeVerfuegbarkeit } from '@/lib/engine/verfuegbarkeit';
+import { planeVerfuegbarkeit, istSperrbar } from '@/lib/engine/verfuegbarkeit';
 import { ladeProfil } from "@/lib/profile";
 import { ladeZonen } from "./zonen-service";
-import { aktuellePhase, restwochen } from "@/lib/ep/phasen";
-import { erzwingeTaperGrenzen, generiereWochenplan, Wochenplan, z2Lauf } from "@/lib/engine/plan";
+import { trainingsblock } from "@/lib/engine/block";
+import { generiereWochenplan, klimmzugMaxAusSaetzen, Wochenplan, z2Lauf } from "@/lib/engine/plan";
 import { belegteTage, planeBestand } from "@/lib/engine/plan-bestand";
-import { EP_TAG_2, istEpTag, REGENERATION_BIS, TAPER_START } from "@/lib/ep/konstanten";
 import { trainingsPaces } from "@/lib/engine/paces";
 import { MuskelId } from "@/lib/engine/muscle";
 import { trimpFuerEinheit } from "@/lib/engine/trimp";
@@ -15,16 +14,13 @@ import {
   berechneAnpassungen,
   type AnpassungsAktivitaet,
 } from "@/lib/engine/plan-anpassung";
-import { addTage, heuteIso, isoDatum, montagVon, tageDiff } from "@/lib/format";
-import { ladeLaufModell } from "./ep-service";
+import { addTage, heuteIso, isoDatum, montagVon } from "@/lib/format";
+import { ladeLaufModell } from "./lauf-modell-service";
 
 import { istKraft, istLauf } from "./compute";
 import { standardSyncToGarmin } from "./plan-sync";
 
 export { standardSyncToGarmin } from "./plan-sync";
-
-/** Trainingsstart für den Wochenindex (Entlastungsrhythmus): fixer Anker */
-const TRAININGS_START_MONTAG = "2026-07-13";
 
 export async function generiereUndSpeichereWoche(
   wochenstart?: string,
@@ -40,14 +36,15 @@ export async function generiereUndSpeichereWoche(
     await db.execute(sql`select pg_advisory_xact_lock(hashtext(${montag}))`);
     const key = 'plan_verfuegbarkeit_' + montag;
     const [settings] = await db.select().from(tables.appSettings).where(eq(tables.appSettings.key, key));
-    // EP-Tage sind fix und lassen sich nicht sperren
-    const gesperrt = (nichtVerfuegbar ?? (settings?.value as string[] | undefined) ?? []).filter(
-      (d) => !istEpTag(d)
-    );
-    const phase = aktuellePhase(montag);
+    // Sperren lassen sich nur die Lauftage (Di/Mi); alles andere ist fix
+    const gesperrt = (nichtVerfuegbar ?? (settings?.value as string[] | undefined) ?? []).filter(istSperrbar);
+    const block = trainingsblock(montag);
 
-    /* Vorwochen-Laufminuten aus Aktivitäten */
+    /* Vorwochen-Laufminuten aus Aktivitäten (Mo–Fr): Die geplanten Läufe
+       steigern sich an ihrem eigenen Umfang. Freiwillige Wochenend-Läufe
+       zählen nicht als Basis — sie fliessen über ACWR/TSB in die Steuerung. */
     const vorwocheVon = addTage(montag, -7);
+    const vorwocheBis = addTage(montag, -3); // Freitag der Vorwoche
     const acts = await db
       .select({
         typ: tables.activities.typ,
@@ -63,7 +60,9 @@ export async function generiereUndSpeichereWoche(
         )
       );
     const vorwocheLaufMin = Math.round(
-      acts.filter((a) => istLauf(a.typ)).reduce((s, a) => s + a.dauerS / 60, 0)
+      acts
+        .filter((a) => istLauf(a.typ) && isoDatum(new Date(a.startZeit)) <= vorwocheBis)
+        .reduce((s, a) => s + a.dauerS / 60, 0)
     );
 
     /* TSB/ACWR von heute */
@@ -85,12 +84,26 @@ export async function generiereUndSpeichereWoche(
       muscleState[r.muskelId as MuskelId] = r.restbelastungProzent;
     }
 
-    /* Letzte Benchmarks */
-    const benchRows = await db
-      .select()
-      .from(tables.epBenchmarks)
-      .orderBy(desc(tables.epBenchmarks.datum));
-    const letzter = (d: string) => benchRows.find((b) => b.disziplin === d)?.wert;
+    /* Klimmzug-Kennwert aus den Garmin-Kraftsätzen der letzten 8 Wochen */
+    const kraftActs = await db
+      .select({ id: tables.activities.id })
+      .from(tables.activities)
+      .where(
+        and(
+          gte(tables.activities.startZeit, new Date(addTage(heute, -56) + "T00:00:00")),
+          isNull(tables.activities.deletedAt)
+        )
+      );
+    const saetze = kraftActs.length
+      ? await db
+          .select({
+            uebungName: tables.strengthSets.uebungName,
+            wdh: tables.strengthSets.wdh,
+            gewichtKg: tables.strengthSets.gewichtKg,
+          })
+          .from(tables.strengthSets)
+          .where(inArray(tables.strengthSets.activityId, kraftActs.map((a) => a.id)))
+      : [];
 
     /* Readiness heute */
     const healthRows = await db
@@ -102,38 +115,20 @@ export async function generiereUndSpeichereWoche(
     const modell = await ladeLaufModell();
     const paces = modell?.fuenfKmS ? trainingsPaces(modell.fuenfKmS) : null;
 
-    /* Letztes Lastlauf-Gewicht aus geplanten Lastläufen */
-    const lastlaeufe = await db
-      .select()
-      .from(tables.plannedWorkouts)
-      .where(and(eq(tables.plannedWorkouts.typ, "lastlauf"), lt(tables.plannedWorkouts.datum, montag)))
-      .orderBy(desc(tables.plannedWorkouts.datum))
-      .limit(1);
-    const kgMatch = lastlaeufe[0]?.titel.match(/(\d{1,2})\s*kg/i);
-    const letztesLastKg = kgMatch ? parseInt(kgMatch[1], 10) : 4;
-
     // Laufzonen wie auf der Uhr: nur so trifft ein „Zone 2"-Plan auch die
     // Zone 2, die die FR 265 später in der Aktivität ausweist.
     const zonen = await ladeZonen("running");
     let plan = generiereWochenplan({
       wochenstart: montag,
-      phaseNr: phase.nr,
-      restwochen: restwochen(montag),
-      wochenIndex: Math.max(0, Math.floor(tageDiff(TRAININGS_START_MONTAG, montag) / 7)),
+      blockWoche: block.woche,
       vorwocheLaufMin,
       tsb,
       acwr,
       muscleState,
-      benchmarks: {
-        klimmzuege: letzter("klimmzuege"),
-        liegestuetze: letzter("liegestuetze"),
-        rumpfSeitlichS: letzter("rumpf_seitlich"),
-        rumpfDorsalS: letzter("rumpf_dorsal"),
-      },
+      klimmzugMax: klimmzugMaxAusSaetzen(saetze),
       readiness: healthRows[0]?.readiness ?? null,
       paces,
       zonen: { z2: zonen.z2, z4: zonen.z4, z5: zonen.z5 },
-      letztesLastKg,
     });
 
     /* Persistieren: bestehende, noch nicht absolvierte Einheiten der Woche ersetzen */
@@ -152,14 +147,9 @@ export async function generiereUndSpeichereWoche(
     if (nichtVerfuegbar && bestehende.some(b => gesperrt.includes(b.datum) && b.datum >= heute && (b.status === 'gepusht' || b.garminWorkoutId != null) && b.status !== 'absolviert')) {
       throw new Error('Bitte die Einheiten dieses Tages zuerst mit «Von der Uhr entfernen» zurückholen, danach den Tag sperren.');
     }
-    const festeHarteTage = bestehende.filter(b => belegt.includes(b.datum) && ['intervalle', 'huegel_intervalle', 'lastlauf', 'langer_lauf', 'probe_ep'].includes(b.typ)).map(b => b.datum);
+    const festeHarteTage = bestehende.filter(b => belegt.includes(b.datum) && ['intervalle', 'huegel_intervalle'].includes(b.typ)).map(b => b.datum);
     const harteTageAb = addTage(montag, Math.max(muscleState.quadrizeps ?? 0, muscleState.waden ?? 0) >= 60 ? 2 : 1);
-    // Vollständige, Taper-konforme Woche (auch für belegte Tage) — Quelle für
-    // Ersatz, wenn auf einem belegten Tag ein regelwidriger Eintrag wegfällt.
-    const generiert = plan.einheiten;
     plan = planeVerfuegbarkeit(plan, gesperrt, heute, belegt, festeHarteTage, harteTageAb);
-    // Nach dem Verschieben erneut gegen die Taper-Tagesregeln prüfen
-    plan = { ...plan, einheiten: erzwingeTaperGrenzen(plan.einheiten, { z2: zonen.z2, z4: zonen.z4, z5: zonen.z5 }) };
     const bestand = planeBestand({
       bestehende: bestehende.map((b) => ({
         id: b.id,
@@ -171,17 +161,13 @@ export async function generiereUndSpeichereWoche(
         beschreibung: b.beschreibung,
       })),
       neu: plan.einheiten,
-      generiert,
       heute,
       gesperrt,
       belegt,
     });
-    plan = { ...plan, einheiten: bestand.einfuegen, hinweise: [...plan.hinweise, ...bestand.hinweise] };
+    plan = { ...plan, einheiten: bestand.einfuegen };
     for (const id of bestand.loeschen) {
-      // Doppelte Absicherung: EP-Einträge werden nie gelöscht
-      await db
-        .delete(tables.plannedWorkouts)
-        .where(and(eq(tables.plannedWorkouts.id, id), ne(tables.plannedWorkouts.typ, "ep")));
+      await db.delete(tables.plannedWorkouts).where(eq(tables.plannedWorkouts.id, id));
     }
     await db.insert(tables.appSettings).values({key, value:gesperrt})
       .onConflictDoUpdate({target:tables.appSettings.key, set:{value:gesperrt}});
@@ -189,7 +175,7 @@ export async function generiereUndSpeichereWoche(
       await db.insert(tables.plannedWorkouts).values({
         id: randomUUID(),
         datum: e.datum,
-        phase: e.datum >= TAPER_START ? 4 : plan.phaseNr,
+        phase: plan.phaseNr,
         typ: e.typ,
         titel: e.titel,
         beschreibung: e.beschreibung,
@@ -198,34 +184,6 @@ export async function generiereUndSpeichereWoche(
         syncToGarmin: standardSyncToGarmin(e.typ),
         status: "geplant",
       });
-    }
-
-    /* Nach der EP gibt es keinen Plan: Wird die EP-Woche (oder später) neu
-       generiert, verschwinden auch veraltete, nie übertragene Einheiten der
-       alten Logik nach der Regeneration samt ihren Wochenhinweisen. */
-    if (wochenende >= EP_TAG_2) {
-      const ab = wochenende > REGENERATION_BIS ? wochenende : REGENERATION_BIS;
-      await db
-        .delete(tables.plannedWorkouts)
-        .where(
-          and(
-            gt(tables.plannedWorkouts.datum, ab),
-            gte(tables.plannedWorkouts.datum, heute),
-            eq(tables.plannedWorkouts.status, "geplant"),
-            isNull(tables.plannedWorkouts.garminWorkoutId),
-            ne(tables.plannedWorkouts.typ, "ep")
-          )
-        );
-      for (const prefix of ["plan_hinweise_", "plan_anpassungen_"]) {
-        await db
-          .delete(tables.appSettings)
-          .where(
-            and(
-              like(tables.appSettings.key, `${prefix}%`),
-              gt(tables.appSettings.key, `${prefix}${ab}`)
-            )
-          );
-      }
     }
 
     /* Hinweise der Woche ablegen */
@@ -391,8 +349,7 @@ export async function passePlanAn(): Promise<ProtokollEintrag[]> {
         erwarteterTrimp: a.neuerTyp === "ruhe" ? 0 : Math.round(minuten * 1.1),
         syncToGarmin: a.neuerTyp !== "ruhe",
       })
-      // EP-Einträge nie anfassen (berechneAnpassungen überspringt sie ohnehin)
-      .where(and(eq(tables.plannedWorkouts.id, a.einheitId), ne(tables.plannedWorkouts.typ, "ep")));
+      .where(eq(tables.plannedWorkouts.id, a.einheitId));
 
     neueEintraege.push({
       einheitId: a.einheitId,

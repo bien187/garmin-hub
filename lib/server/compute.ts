@@ -13,8 +13,6 @@ import { trimpFuerEinheit } from "@/lib/engine/trimp";
 import { berechneFitnessSerie } from "@/lib/engine/fitness";
 import { effizienzIndex } from "@/lib/engine/efficiency";
 import { bestEffort, fuenfKmPrognose } from "@/lib/engine/riegel";
-import { gapAusStreams } from "@/lib/engine/gap";
-import { kalibriereZuschlag, LastlaufMessung } from "@/lib/engine/paces";
 import {
   LastEreignis,
   lastenAusKraft,
@@ -24,20 +22,16 @@ import {
   restErschoepfung,
 } from "@/lib/engine/muscle";
 import { addTage, heuteIso, isoDatum, tageDiff } from "@/lib/format";
+import { istLaufTyp } from "@/lib/engine/plan-typen";
+import { geplanteDauerS, type StrukturLose } from "@/lib/engine/einheit";
 import { bereiteSchlafAuf } from "./sleep-service";
 
-const LAUF_TYPEN = ["running", "trail_running", "street_running", "track_running", "treadmill_running"];
-const KRAFT_TYPEN = ["strength_training", "indoor_cardio", "fitness_equipment"];
+import { istKraft, istLauf } from "@/lib/engine/sport";
 
-export function istLauf(typ: string): boolean {
-  return LAUF_TYPEN.includes(typ) || typ.includes("running");
-}
+export { istKraft, istLauf } from "@/lib/engine/sport";
 
-export function istKraft(typ: string): boolean {
-  return KRAFT_TYPEN.includes(typ) || typ.includes("strength");
-}
-
-function istLastlaufAktivitaet(name: string | null): boolean {
+/** Lauf mit Zusatzlast (Rucksack/Weste) — erkennbar am Aktivitätsnamen */
+export function istLaufMitZusatzlast(name: string | null): boolean {
   const n = (name ?? "").toLowerCase();
   return n.includes("lastlauf") || n.includes("ruck") || n.includes("weste");
 }
@@ -46,7 +40,7 @@ function istLastlaufAktivitaet(name: string | null): boolean {
  * Materialisiert alle abgeleiteten Daten nach einem Sync:
  *  - computed_daily (TRIMP, CTL/ATL/TSB, ACWR, km, Hm, EF)
  *  - muscle_state (letzte 60 Tage)
- *  - Lauf-Modell (5-km-Prognose aus Best Efforts) + Lastlauf-Kalibrierung
+ *  - Lauf-Modell (5-km-Prognose aus Best Efforts)
  *  - Ruhepuls-Update im Profil
  *  - Matching geplanter Einheiten mit Aktivitäten
  */
@@ -297,7 +291,7 @@ export async function recomputeAll(): Promise<void> {
           hmAuf: a.hmAuf ?? 0,
           hmAb: a.hmAb ?? 0,
           distanzM: a.distanzM ?? 0,
-          istLastlauf: istLastlaufAktivitaet(a.name),
+          mitZusatzlast: istLaufMitZusatzlast(a.name),
         }),
       });
     }
@@ -441,7 +435,7 @@ async function berechneLaufModell(
         istLauf(a.typ) &&
         (a.distanzM ?? 0) >= 1000 &&
         isoDatum(new Date(a.startZeit)) >= grenze &&
-        !istLastlaufAktivitaet(a.name)
+        !istLaufMitZusatzlast(a.name)
     )
     .sort((a, b) => (b.distanzM ?? 0) - (a.distanzM ?? 0))
     .slice(0, 20);
@@ -476,38 +470,6 @@ async function berechneLaufModell(
 
   const fuenfKm = fuenfKmPrognose(efforts);
 
-  /* Lastlauf-Kalibrierung: Lastläufe vs. unbelastete GAP-Pace */
-  const lastlaeufe = alleAktivitaeten.filter(
-    (a) => istLauf(a.typ) && istLastlaufAktivitaet(a.name) && (a.distanzM ?? 0) >= 2000
-  );
-  const messungen: LastlaufMessung[] = [];
-  if (fuenfKm != null && lastlaeufe.length > 0) {
-    const lastStreams = await db
-      .select()
-      .from(tables.activityStreams)
-      .where(inArray(tables.activityStreams.activityId, lastlaeufe.map((l) => l.id)));
-    const basisPace = fuenfKm / 5;
-    for (const a of lastlaeufe) {
-      const kg = extrahiereKg(a.name);
-      if (kg == null) continue;
-      const s = lastStreams.find((x) => x.activityId === a.id);
-      let pace: number | null = null;
-      if (s?.zeitS && s.distanzM && s.ele) {
-        pace = gapAusStreams(s.zeitS, s.distanzM, s.ele)?.gapPaceSKm ?? null;
-      }
-      if (pace == null && a.distanzM) {
-        pace = a.dauerS / (a.distanzM / 1000);
-      }
-      if (pace != null) {
-        messungen.push({ zusatzlastKg: kg, paceDifferenzSproKm: pace - basisPace });
-      }
-    }
-  }
-  const kalibriert = kalibriereZuschlag(messungen);
-  if (kalibriert != null) {
-    await speichereProfil({ lastZuschlagSproKmPro10kg: kalibriert });
-  }
-
   await db
     .insert(tables.appSettings)
     .values({
@@ -522,10 +484,8 @@ async function berechneLaufModell(
     });
 }
 
-function extrahiereKg(name: string | null): number | null {
-  const m = (name ?? "").match(/(\d{1,2})\s*kg/i);
-  return m ? parseInt(m[1], 10) : null;
-}
+/** Plan-Typen, die eine Kraft-Aktivität erwarten (inkl. älterer Einträge) */
+const KRAFT_PLAN_TYPEN = ["kraft", "klimmzuege", "liegestuetze", "rumpf"];
 
 /** Geplante Einheiten automatisch abhaken: Typ + Datum + Dauer-Toleranz ±35 % */
 export async function matcheGeplanteEinheiten(): Promise<void> {
@@ -557,14 +517,12 @@ export async function matcheGeplanteEinheiten(): Promise<void> {
       )
     );
 
-  const laufPlanTypen = ["lauf_z2", "intervalle", "huegel_intervalle", "langer_lauf", "lastlauf", "probe_ep"];
-
   for (const p of offene) {
-    // EP-Tage werden nicht automatisch abgehakt oder als verpasst markiert
-    if (p.typ === "ruhe" || p.typ === "gtg" || p.typ === "ep") continue;
+    // Nur echte Trainingseinheiten abhaken — Ruhetage und Hinweise nie
+    const brauchtLauf = istLaufTyp(p.typ);
+    if (!brauchtLauf && !KRAFT_PLAN_TYPEN.includes(p.typ)) continue;
     const kandidaten = aktivitaeten.filter((a) => {
       if (isoDatum(new Date(a.startZeit)) !== p.datum) return false;
-      const brauchtLauf = laufPlanTypen.includes(p.typ);
       return brauchtLauf ? istLauf(a.typ) : istKraft(a.typ);
     });
     if (kandidaten.length === 0) {
@@ -578,7 +536,7 @@ export async function matcheGeplanteEinheiten(): Promise<void> {
       continue;
     }
     // Dauer-Toleranz, wenn erwartete Dauer bekannt
-    const erwartetS = erwarteteDauerS(p.struktur as Record<string, unknown> | null);
+    const erwartetS = geplanteDauerS(p.struktur as StrukturLose | null);
     let bester = kandidaten[0];
     if (erwartetS != null) {
       bester = kandidaten.reduce((b, k) =>
@@ -593,23 +551,4 @@ export async function matcheGeplanteEinheiten(): Promise<void> {
       .set({ status: "absolviert", matchedActivityId: bester.id })
       .where(eq(tables.plannedWorkouts.id, p.id));
   }
-}
-
-function erwarteteDauerS(struktur: Record<string, unknown> | null): number | null {
-  if (!struktur || !Array.isArray(struktur.schritte)) return null;
-  let summe = 0;
-  const addiere = (schritte: unknown[]): void => {
-    for (const s of schritte as Record<string, unknown>[]) {
-      const wdh = typeof s.wiederholungen === "number" ? s.wiederholungen : 1;
-      if (Array.isArray(s.schritte)) {
-        for (let i = 0; i < wdh; i++) addiere(s.schritte);
-      } else if (s.dauerTyp === "zeit" && typeof s.dauerWert === "number") {
-        summe += s.dauerWert;
-      } else if (s.dauerTyp === "distanz" && typeof s.dauerWert === "number") {
-        summe += (s.dauerWert / 1000) * 360; // grobe 6:00/km-Annahme
-      }
-    }
-  };
-  addiere(struktur.schritte);
-  return summe > 0 ? summe : null;
 }

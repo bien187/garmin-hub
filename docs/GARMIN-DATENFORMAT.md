@@ -40,3 +40,29 @@ gegen `dailySleepDTO`: `0` = Tief, `1` = Leicht, `2` = REM, `3` = Wach.
 Nicht vorhanden in den geprüften Nächten: Hauttemperatur (`skinTempDataExists: false`),
 Einschlafdauer (kein eigenes Feld; wird aus dem ersten Nicht-Wach-Segment abgeleitet,
 wenn möglich).
+
+## Gewicht (Weight-Service)
+
+Quelle: `garminconnect` 0.2.25 — `get_weigh_ins(start, ende)` ruft
+`/weight-service/weight/range/{start}/{ende}?includeAll=true` auf,
+`get_daily_weigh_ins(datum)` die Tagesansicht (`dateWeightList`, je Eintrag
+`samplePk`), `get_body_composition(start, ende)` den Zeitraum
+(`dateWeightList`, `totalAverage`). Für diese Endpunkte liegt noch **keine echte
+Fixture** im Repo; der Parser in `api/_lib/sync_logic.py` ist deshalb tolerant:
+
+| Feld | Bedeutung | Einheit / Format | Gespeichert als |
+| --- | --- | --- | --- |
+| `samplePk` | eindeutige ID der Wägung | Zahl | `gewicht_messungen.id` |
+| `timestampGMT` | exakter Messzeitpunkt | ms seit Epoche (UTC) oder ISO-Text | `zeitpunkt` |
+| `date` | Messzeitpunkt in Ortszeit (Ersatz) | ms, lokal verschoben | `zeitpunkt` (als Europe/Zurich gelesen) |
+| `calendarDate` | Kalendertag | `YYYY-MM-DD` | `datum` |
+| `weight` | Gewicht | Gramm | `gewicht_kg` (÷ 1000) |
+| `bmi`, `bodyFat`, `bodyWater` | BMI, Körperfett, Körperwasser | Zahl, % | `bmi`, `koerperfett_proz`, `koerperwasser_proz` |
+| `muscleMass`, `boneMass` | Skelettmuskel- und Knochenmasse | Gramm | `muskelmasse_kg`, `knochenmasse_kg` |
+| `visceralFat`, `metabolicAge`, `physiqueRating` | weitere Index-Werte | Zahl | gleichnamige Spalten |
+| `sourceType` | Quelle, z. B. `INDEX_SCALE`, `MANUAL` | Text | `quelle` |
+
+Die Range-Antwort liefert die Messungen unter
+`dailyWeightSummaries[].allWeightMetrics` (ersatzweise `latestWeight`). Die
+unveränderte Antwort je Messung liegt in `raw`. Echte Antworten lassen sich mit
+`python scripts/garmin/dump_gewicht.py` sichern und gegen den Parser prüfen.

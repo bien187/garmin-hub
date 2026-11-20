@@ -1,13 +1,23 @@
-import { and, asc, desc, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lte, ne, sql } from "drizzle-orm";
 import { getDb, tables } from "@/lib/db";
 import { ladeProfil, PROFIL_DEFAULTS, Profil } from "@/lib/profile";
-import { EpPrognose, aktuellerEpStand } from "@/lib/ep/prognose";
-import { ladeEpPrognose } from "./ep-service";
 import { addTage, heuteIso, isoDatum, montagVon } from "@/lib/format";
+import { PROGRAMM_START, trainingsblock, type Trainingsblock } from "@/lib/engine/block";
+import {
+  wochenFortschritt,
+  wochenTage,
+  wochenVerlauf,
+  wochenwerte,
+  type StatAktivitaet,
+  type VerlaufWoche,
+  type WochenTag,
+  type Wochenwerte,
+} from "@/lib/engine/wochenstatistik";
 import { MuskelId } from "@/lib/engine/muscle";
 import { verlaufSeitTrainingsstart, type PaceWoche } from '@/lib/engine/fortschritt';
 import { recomputeAll } from './compute';
 import { berechneKonsistenz, type Konsistenz } from '@/lib/engine/konsistenz';
+import { gewichtKurzAus, ladeGewicht, type GewichtKurz } from './gewicht-service';
 
 export interface DashboardDaten {
   dbBereit: boolean;
@@ -26,23 +36,51 @@ export interface DashboardDaten {
   fitness: { datum: string; ctl: number; atl: number; tsb: number }[];
   tsbHeute: number | null;
   acwrHeute: number | null;
-  epPrognose: EpPrognose;
   muskelnHeute: Partial<Record<MuskelId, number>>;
-  letzteAktivitaet: {
-    id: number;
-    name: string | null;
-    typ: string;
-    startZeit: string;
-    dauerS: number;
-    distanzM: number | null;
-  } | null;
-  naechsteEinheit: { id: string; datum: string; titel: string; typ: string } | null;
-  woche: { km: number; hm: number };
-  vorwoche: { km: number; hm: number };
+  /** die letzten Aktivitäten, neueste zuerst */
+  letzteAktivitaeten: DashboardAktivitaet[];
+  /** nächste geplante Trainingseinheit ab heute (ohne Ruhetage) */
+  naechsteEinheit: NaechsteEinheit | null;
+  /** Blockwoche der laufenden Woche */
+  block: Trainingsblock;
+  /** Kennzahlen der laufenden Woche (bis heute) und der ganzen Vorwoche */
+  woche: Wochenwerte;
+  vorwoche: Wochenwerte;
+  /** Mo–So der laufenden Woche: Plan + Aktivitäten */
+  wochenTage: WochenTag[];
+  /** erledigte von geplanten Trainingseinheiten der laufenden Woche */
+  wochenFortschritt: { erledigt: number; geplant: number };
+  /** Wochenverlauf der letzten 12 Wochen */
+  verlauf: VerlaufWoche[];
   allTime: AllTimeStats;
   paceFortschritt: { refHr: number | null; wochen: PaceWoche[]; letzteMessung: string | null };
   /** Trainingsstunden der letzten 12 Wochen + Serie (fehlt in älteren Demo-Daten) */
   konsistenz?: Konsistenz;
+  /** Gewichtskarte (Smart Weight Tracking); null ohne Messungen */
+  gewicht: GewichtKurz | null;
+}
+
+export interface DashboardAktivitaet {
+  id: number;
+  name: string | null;
+  typ: string;
+  startZeit: string;
+  dauerS: number;
+  distanzM: number | null;
+  hmAuf: number | null;
+  avgHr: number | null;
+  avgPace: number | null;
+}
+
+export interface NaechsteEinheit {
+  id: string;
+  datum: string;
+  titel: string;
+  typ: string;
+  beschreibung: string | null;
+  struktur: unknown;
+  erwarteterTrimp: number | null;
+  status: string;
 }
 
 /** Summenwerte über die gesamte Historie */
@@ -71,6 +109,16 @@ const ALL_TIME_LEER: AllTimeStats = {
   seit: null,
 };
 
+const WOCHE_LEER: Wochenwerte = {
+  einheiten: 0,
+  dauerS: 0,
+  laeufe: 0,
+  laufKm: 0,
+  laufDauerS: 0,
+  laufPaceSKm: null,
+  avgHr: null,
+};
+
 const LEER: DashboardDaten = {
   dbBereit: false,
   profil: PROFIL_DEFAULTS,
@@ -86,14 +134,18 @@ const LEER: DashboardDaten = {
   fitness: [],
   tsbHeute: null,
   acwrHeute: null,
-  epPrognose: aktuellerEpStand([]),
   muskelnHeute: {},
-  letzteAktivitaet: null,
+  letzteAktivitaeten: [],
   naechsteEinheit: null,
-  woche: { km: 0, hm: 0 },
-  vorwoche: { km: 0, hm: 0 },
+  block: trainingsblock(heuteIso()),
+  woche: WOCHE_LEER,
+  vorwoche: WOCHE_LEER,
+  wochenTage: [],
+  wochenFortschritt: { erledigt: 0, geplant: 0 },
+  verlauf: [],
   allTime: ALL_TIME_LEER,
   paceFortschritt: { refHr: null, wochen: [], letzteMessung: null },
+  gewicht: null,
 };
 
 export async function ladeDashboard(): Promise<DashboardDaten> {
@@ -106,6 +158,7 @@ export async function ladeDashboard(): Promise<DashboardDaten> {
     if (!stand || stand.datum < heute) await recomputeAll();
     const profil = await ladeProfil();
 
+    const montag = montagVon(heute);
     const [
       healthRows,
       fitnessRows,
@@ -115,6 +168,7 @@ export async function ladeDashboard(): Promise<DashboardDaten> {
       summenRows,
       refHrRows,
       dauerRows,
+      wochenPlan,
     ] = await Promise.all([
         db.select().from(tables.dailyHealth).where(eq(tables.dailyHealth.datum, heute)),
         /* Gesamte Historie bis heute: computed_daily beginnt am ersten
@@ -134,23 +188,33 @@ export async function ladeDashboard(): Promise<DashboardDaten> {
             startZeit: tables.activities.startZeit,
             dauerS: tables.activities.dauerS,
             distanzM: tables.activities.distanzM,
+            hmAuf: tables.activities.hmAuf,
+            avgHr: tables.activities.avgHr,
+            avgPace: tables.activities.avgPace,
           })
           .from(tables.activities)
           .where(isNull(tables.activities.deletedAt))
           .orderBy(desc(tables.activities.startZeit))
-          .limit(1),
+          .limit(5),
         db
           .select({
             id: tables.plannedWorkouts.id,
             datum: tables.plannedWorkouts.datum,
             titel: tables.plannedWorkouts.titel,
             typ: tables.plannedWorkouts.typ,
+            beschreibung: tables.plannedWorkouts.beschreibung,
+            struktur: tables.plannedWorkouts.struktur,
+            erwarteterTrimp: tables.plannedWorkouts.erwarteterTrimp,
+            status: tables.plannedWorkouts.status,
           })
           .from(tables.plannedWorkouts)
           .where(
             and(
               gte(tables.plannedWorkouts.datum, heute),
-              inArray(tables.plannedWorkouts.status, ["geplant", "gepusht"])
+              // Erst ab Programmstart: frühere Einträge gehören zum Archiv
+              gte(tables.plannedWorkouts.datum, PROGRAMM_START),
+              inArray(tables.plannedWorkouts.status, ["geplant", "gepusht"]),
+              ne(tables.plannedWorkouts.typ, "ruhe")
             )
           )
           .orderBy(asc(tables.plannedWorkouts.datum))
@@ -174,28 +238,50 @@ export async function ladeDashboard(): Promise<DashboardDaten> {
           .select()
           .from(tables.appSettings)
           .where(eq(tables.appSettings.key, "pace_ref_hr")),
-        /* Dauer je Aktivität für Konsistenz (ganze Historie, damit die
-           Serie über die sichtbaren 12 Wochen hinaus zählt) */
+        /* Kennwerte je Aktivität für Konsistenz, Wochenstatistik und Verlauf
+           (ganze Historie, damit die Serie über 12 Wochen hinaus zählt) */
         db
-          .select({ startZeit: tables.activities.startZeit, dauerS: tables.activities.dauerS })
+          .select({
+            startZeit: tables.activities.startZeit,
+            typ: tables.activities.typ,
+            dauerS: tables.activities.dauerS,
+            distanzM: tables.activities.distanzM,
+            avgHr: tables.activities.avgHr,
+          })
           .from(tables.activities)
           .where(isNull(tables.activities.deletedAt)),
+        /* Plan der laufenden Woche (Wochenstreifen + Fortschritt) */
+        montag >= PROGRAMM_START
+          ? db
+              .select({
+                datum: tables.plannedWorkouts.datum,
+                typ: tables.plannedWorkouts.typ,
+                titel: tables.plannedWorkouts.titel,
+                status: tables.plannedWorkouts.status,
+              })
+              .from(tables.plannedWorkouts)
+              .where(
+                and(
+                  gte(tables.plannedWorkouts.datum, montag),
+                  lte(tables.plannedWorkouts.datum, addTage(montag, 6))
+                )
+              )
+          : Promise.resolve([] as { datum: string; typ: string; titel: string; status: string }[]),
       ]);
 
-    const { prognose } = await ladeEpPrognose();
+    const gewicht = gewichtKurzAus(await ladeGewicht(), heute);
 
     const h = healthRows[0];
     const letzterTag = fitnessRows[fitnessRows.length - 1];
 
-    const montag = montagVon(heute);
     const vorMontag = addTage(montag, -7);
-    const summe = (von: string, bis: string) => {
-      const rows = fitnessRows.filter((r) => r.datum >= von && r.datum <= bis);
-      return {
-        km: Math.round(rows.reduce((s, r) => s + r.laufKm, 0) * 10) / 10,
-        hm: Math.round(rows.reduce((s, r) => s + r.hm, 0)),
-      };
-    };
+    const statAkts: StatAktivitaet[] = dauerRows.map((a) => ({
+      datum: isoDatum(new Date(a.startZeit)),
+      typ: a.typ,
+      dauerS: a.dauerS,
+      distanzM: a.distanzM,
+      avgHr: a.avgHr,
+    }));
 
     const muskelnHeute: Partial<Record<MuskelId, number>> = {};
     for (const m of muskelRows) {
@@ -239,24 +325,22 @@ export async function ladeDashboard(): Promise<DashboardDaten> {
       })),
       tsbHeute: letzterTag ? Math.round(letzterTag.tsb) : null,
       acwrHeute: letzterTag?.acwr != null ? Math.round(letzterTag.acwr * 100) / 100 : null,
-      epPrognose: prognose,
       muskelnHeute,
-      letzteAktivitaet: letzteActs[0]
-        ? { ...letzteActs[0], startZeit: letzteActs[0].startZeit.toISOString() }
-        : null,
+      letzteAktivitaeten: letzteActs.map((a) => ({ ...a, startZeit: a.startZeit.toISOString() })),
       naechsteEinheit: naechste[0] ?? null,
-      woche: summe(montag, heute),
-      vorwoche: summe(vorMontag, addTage(montag, -1)),
+      block: trainingsblock(heute),
+      woche: wochenwerte(statAkts, montag, heute),
+      vorwoche: wochenwerte(statAkts, vorMontag, addTage(montag, -1)),
+      wochenTage: wochenTage(montag, wochenPlan, statAkts),
+      wochenFortschritt: wochenFortschritt(wochenPlan),
+      verlauf: wochenVerlauf(statAkts, heute),
       allTime,
-      konsistenz: berechneKonsistenz(
-        dauerRows.map((a) => ({ datum: isoDatum(new Date(a.startZeit)), dauerS: a.dauerS })),
-        heute,
-        profil.wochenBudgetH ?? null
-      ),
+      konsistenz: berechneKonsistenz(statAkts, heute, profil.wochenBudgetH ?? null),
       paceFortschritt: {
         refHr: typeof refHrWert === "number" ? refHrWert : null,
         ...fortschritt,
       },
+      gewicht,
     };
   } catch {
     return LEER;

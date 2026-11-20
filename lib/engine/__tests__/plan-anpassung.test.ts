@@ -45,7 +45,7 @@ const BASIS = {
 describe("istHarterLauf", () => {
   it("trennt fordernde von lockeren Einheiten", () => {
     expect(istHarterLauf("intervalle")).toBe(true);
-    expect(istHarterLauf("lastlauf")).toBe(true);
+    expect(istHarterLauf("huegel_intervalle")).toBe(true);
     expect(istHarterLauf("langer_lauf")).toBe(true);
     expect(istHarterLauf("lauf_z2")).toBe(false);
     expect(istHarterLauf("kraft")).toBe(false);
@@ -171,41 +171,18 @@ describe("berechneAnpassungen", () => {
   });
 });
 
-describe("Taper und EP", () => {
-  it("EP-Einträge werden nie angepasst — auch nicht bei tiefem TSB", () => {
+describe("Nur Läufe werden angepasst", () => {
+  it("Gym- und Ruhe-Einträge bleiben auch bei tiefem TSB unangetastet", () => {
     const r = berechneAnpassungen({
       ...BASIS,
-      heute: "2026-11-18",
       tsb: -40,
       acwr: 1.8,
-      einheiten: [einheit({ id: "ep1", datum: "2026-11-18", typ: "ep", titel: "EP – Tag 1" })],
-      aktivitaeten: [aktivitaet({ datum: "2026-11-17", trimp: 150 })],
+      einheiten: [
+        einheit({ id: "g", typ: "kraft", titel: "Gym: Rücken/Bizeps + Beine" }),
+        einheit({ id: "r", typ: "ruhe", titel: "Ruhetag" }),
+      ],
+      aktivitaeten: [aktivitaet({ trimp: 150 })],
     });
     expect(r).toEqual([]);
-  });
-
-  it("im Taper wird nie über die Tagesregel hinaus ersetzt (Zieltempo 10.11. → Z2 ≤ 40 Min)", () => {
-    const r = berechneAnpassungen({
-      ...BASIS,
-      heute: "2026-11-10",
-      einheiten: [
-        einheit({ id: "t1", datum: "2026-11-10", titel: "Zieltempo-Lauf 38 Min (3×5 Min Z4)" }),
-      ],
-      aktivitaeten: [aktivitaet({ datum: "2026-11-09", trimp: 120 })],
-    });
-    expect(r).toHaveLength(1);
-    expect(r[0].neuerTyp).toBe("lauf_z2");
-    const min = parseInt(r[0].neuerTitel.match(/(\d+) Min/)![1], 10);
-    expect(min).toBeLessThanOrEqual(40);
-  });
-
-  it("an Tagen ohne erlaubten Lauf wird statt eines Laufs ein Ruhetag daraus", () => {
-    const r = berechneAnpassungen({
-      ...BASIS,
-      heute: "2026-11-16",
-      einheiten: [einheit({ id: "x", datum: "2026-11-16", titel: "Intervalle 5×3 Min Z5" })],
-      aktivitaeten: [aktivitaet({ datum: "2026-11-15", trimp: 120 })],
-    });
-    expect(r[0].neuerTyp).toBe("ruhe");
   });
 });

@@ -1,18 +1,17 @@
 <p align="center">
-  <img src="public/icons/icon-512.png" width="88" height="88" alt="Garmin-Hub-Logo: türkiser Doppelgipfel auf Nachtblau">
+  <img src="public/icons/icon-512.png" width="88" height="88" alt="Garmin-Hub-Logo: Puls-Linie in Navy auf Lime">
 </p>
 
 <h1 align="center">Garmin Hub</h1>
-<p align="center"><strong>Deine Garmin-Daten. Dein Ziel. Ein Plan.</strong></p>
-<p align="center">Eine persönliche Trainings-App für die Vorbereitung auf die Eignungsprüfung der Schweizer Armee-Grenadiere.</p>
+<p align="center"><strong>Personal Fitness &amp; Running Performance</strong></p>
+<p align="center">Dein persönliches Fitness-Cockpit: Garmin-Daten, ein adaptiver Trainingsplan und ein ehrlicher Blick auf deinen Fortschritt.</p>
 
-![Garmin Hub auf dem Desktop: Dashboard mit EP-Countdown, Bereitschaft, aktuellen EP-Noten, Schlaf und Fitness-Kurve](docs/screenshots/desktop-dashboard.png)
+![Garmin Hub auf dem Desktop: Dashboard mit Begrüssung, nächstem Training, Wochenkennzahlen und Fortschritt](docs/screenshots/desktop-dashboard.png)
 
-Garmin Hub holt Aktivitäten, Gesundheits- und Schlafdaten von Garmin Connect und
-wertet sie mit einer regelbasierten Engine aus. Daraus entstehen ein Dashboard, ein
-adaptiver Trainingsplan und der aktuelle Notenstand für die Eignungsprüfung (EP). Die EP
-findet am **Mittwoch, 18. November 2026** (Tag 1) und am **Donnerstag, 19. November
-2026** (Tag 2) statt.
+Garmin Hub holt Aktivitäten, Gesundheits-, Schlaf- und Gewichtsdaten von Garmin
+Connect und wertet sie mit einer regelbasierten Engine aus. Daraus entstehen ein
+Dashboard, ein adaptiver Trainingsplan für **Laufleistung, Ausdauer und allgemeine
+Fitness** und ein Körperbereich mit Smart Weight Tracking.
 
 Die App ist ein **persönliches Single-User-Projekt**. Sie läuft komplett im Free Tier
 von Vercel und Supabase, nutzt keine bezahlten Dienste und keine Sprachmodelle.
@@ -24,38 +23,207 @@ Die Oberfläche ist für das Smartphone gestaltet und lässt sich als PWA instal
 > Risiko und ist nur für das eigene Konto gedacht. Mehr dazu unter
 > [Sicherheit und Datenschutz](#sicherheit-und-datenschutz).
 
+## Ein Blick in die App
+
+<table>
+  <tr>
+    <th>Dashboard</th>
+    <th>Wochenplan</th>
+    <th>Smart Weight Tracking</th>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/mobile-dashboard.png" width="260" alt="Mobiles Dashboard mit Begrüssung, nächstem Training und Wochenkennzahlen"></td>
+    <td><img src="docs/screenshots/mobile-plan.png" width="260" alt="Wochenplan mit Trainingsblock, Fortschrittsring und Einheiten pro Tag"></td>
+    <td><img src="docs/screenshots/mobile-gewicht.png" width="260" alt="Gewichtsdiagramm mit Rohmessungen nach Messqualität und standardisiertem Trend"></td>
+  </tr>
+  <tr>
+    <th>Aktivitäten</th>
+    <th>Aktivitätsdetail</th>
+    <th>Messprotokoll</th>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/mobile-aktivitaeten.png" width="260" alt="Aktivitätsliste mit Sport-Icons, Minikarten und Kennzahlen"></td>
+    <td><img src="docs/screenshots/mobile-aktivitaet.png" width="260" alt="Detail eines Laufs mit Kennzahlen, Karte und Flyover-Steuerung"></td>
+    <td><img src="docs/screenshots/mobile-messprotokoll.png" width="260" alt="Messprotokoll Wie war deine Messung mit Live-Vorschau des Scores"></td>
+  </tr>
+  <tr>
+    <th>Woche &amp; Fortschritt</th>
+    <th>Routen-Builder</th>
+    <th>Schlaf</th>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/mobile-dashboard-woche.png" width="260" alt="Wochenübersicht und 12-Wochen-Fortschritt im Dashboard"></td>
+    <td><img src="docs/screenshots/mobile-karte.png" width="260" alt="Routen-Builder mit Kartentypen und Höhenprofil"></td>
+    <td><img src="docs/screenshots/mobile-schlaf.png" width="260" alt="Schlaf-Detailansicht mit Kopfwerten und Hypnogramm"></td>
+  </tr>
+</table>
+
+Alle Screenshots stammen aus der öffentlichen [Demo](#öffentliche-demo) mit
+**fiktiven** Daten. Echte Garmin-Daten kommen in keiner Aufnahme vor.
+
+## Was Garmin Hub kann
+
+| Bereich | Funktionen |
+| --- | --- |
+| **Dashboard** | Begrüssung mit Trainingsblock und Serie, nächstes Training mit Dauer, Intensität und Zielpace, Wochenkennzahlen (Laufdistanz, Einheiten, Trainingszeit, Ø Pace und Puls), Wochenübersicht Mo–So, 12-Wochen-Fortschritt (Distanz, Laufzeit, Pace, Puls, Umfang), letzte Aktivitäten, Bereitschaft, Schlaf, Gewicht, Form & Fitness (CTL/ATL/TSB), Pace bei gleichem Puls, Muskelstatus, Konsistenz, Korrelations-Insights und Gesamtbilanz. |
+| **Aktivitäten** | Kartenliste mit Sport-Icons, Minikarte, Distanz, Dauer, Pace, Puls und Höhenmetern; Detailseite mit 3D-Flyover, Höhenprofil, Splits, Herzfrequenzzonen, GAP, Effizienz und aerober Entkopplung. Krafttrainings mit Satz-Tabelle und belasteten Muskeln. |
+| **Karte** | Routen-Builder mit Routing per Klick, Undo/Redo, Rückweg, Rundkurs, Höhenprofil, geschätzter Dauer nach eigener Pace, Heatmap, GPX-Export und Senden auf die Uhr. |
+| **Trainingsplan** | Fester Wochenrhythmus (Mo Gym · Di Intervalle · Mi Zone 2 · Do Gym · Fr Ruhe · Sa/So frei), 4-Wochen-Block, Anpassung nach jedem Sync, Lauftage sperren, freies Workout, Senden auf die Uhr und Rückgängig. |
+| **Körper** | Smart Weight Tracking (Garmin Index S2) mit Messqualitäts-Score, standardisiertem Trend und Messprotokoll; Körperzusammensetzung; Body-Map mit 16 Muskelgruppen; systemische Ermüdung (TSB, ACWR, HRV-Trend). |
+| **Schlaf** | Kachel im Dashboard und Detailansicht pro Nacht mit Hypnogramm, Phasen, Herzfrequenz, SpO2, Atemfrequenz je Phase, HRV, Stress, Body Battery, Bewegung, Vergleich mit 7 und 30 Tagen und Empfehlungen. |
+| **Garmin** | Chunkweiser Sync mit Fortschritt (Aktivitäten, Gesundheit, Wägungen, Schlaf), täglicher Cron, verschlüsselte Token, MFA-Eingabe und Herzfrequenzzonen direkt aus dem Garmin-Konto. |
+| **App** | Installierbare PWA, Offline-Fallback auf die zuletzt geladenen Seiten, Dark-first-Design, Login mit einem Passwort. |
+
+### Dashboard — das Fitness-Cockpit
+
+Oben begrüsst dich die App mit dem Stand der Woche und dem aktuellen Trainingsblock;
+daneben steht prominent das **nächste Training** mit Dauer, Intensität, Kerndistanz
+und Zielpace aus der Workout-Struktur. Darunter die **Kennzahlen der Woche** im
+Vergleich zur Vorwoche, die **Wochenübersicht** (erledigt, geplant, freiwillig,
+Ruhetag) und der **Fortschritt der letzten 12 Wochen** mit umschaltbarer Kennzahl.
+Alle Werte stammen aus echten Aktivitäten; fehlt etwas, steht „nicht verfügbar"
+statt einer Null.
+
+Die persönlichen Analysen bleiben erhalten: Bereitschafts-Ampel aus Training
+Readiness, Body Battery, HRV, Schlafscore und Ruhepuls; Form und Fitness
+(CTL/ATL/TSB) mit ACWR; **Pace bei gleichem Puls** als verlässlichster Beleg für
+wachsende Ausdauer; Muskelstatus; Konsistenz mit Serie; Korrelations-Insights ab
+|r| ≥ 0.3 und 15 Wertepaaren — ausdrücklich als Korrelation, nicht als Ursache.
+
+### Adaptiver Trainingsplan
+
+Ziel: **Laufleistung, Ausdauer und allgemeine Fitness verbessern.** Der
+regelbasierte Generator plant jede Woche im festen Rhythmus:
+
+| Montag | Dienstag | Mittwoch | Donnerstag | Freitag | Samstag | Sonntag |
+| --- | --- | --- | --- | --- | --- | --- |
+| Gym: Brust/Trizeps + Rumpf | Intervalle | Lockerer Lauf (Zone 2) | Gym: Rücken/Bizeps + Beine | Ruhetag | frei | frei |
+
+Der Intervall-Schwerpunkt wechselt im **4-Wochen-Block**: VO₂max (5 × 3 Min),
+Hügel (8 × 75 s), Tempo an der Schwelle (5 × 1 km), dann eine Entlastungswoche
+(4 × 60 s, Umfang −30 %). Die bestehenden Regeln der Engine bleiben aktiv: höchstens
++10 % Laufumfang pro Woche, Deckelung bei ACWR > 1.3, Extra-Ruhetag bei TSB < −20,
+Tausch der harten Einheit bei müden Beinen, Hinweise bei tiefer Readiness. Nach
+jedem Sync schwächt `passePlanAn()` offene Läufe ab, wenn die Belastung es verlangt.
+Am Wochenende entsteht nie eine Pflichteinheit — freiwillige Läufe fliessen über
+die Belastungswerte in die Steuerung ein. Details: [Engine](docs/ENGINE.md).
+
+Einheiten gehen über `workout-service` als strukturiertes Workout in den
+Garmin-Kalender. „Läufe an Garmin senden" überträgt die Woche gesammelt mit
+Vorschau und ohne Duplikate; Gym-Einheiten sind standardmässig ausgenommen.
+Ziel-Herzfrequenzen kommen aus den Zonen, die im Garmin-Konto hinterlegt sind.
+Der Workout-Generator baut zusätzlich spontane Läufe — etwa fürs freie Wochenende —
+mit den eigenen Paces und zeigt die Wirkung auf die Form von morgen.
+
+Planwochen vor dem Programmstart (23.11.2026) bleiben in der Datenbank erhalten und
+erscheinen neutral und schreibgeschützt als Archiv.
+
+### Smart Weight Tracking
+
+![Smart Weight Tracking auf dem Desktop: Kennzahlen, Rohmessungen nach Messqualität und standardisierter Trend](docs/screenshots/desktop-gewicht.png)
+
+Die Wägungen der **Garmin Index S2** kommen automatisch mit dem Sync — jede Messung
+mit ihrem Zeitstempel, mehrere pro Tag einzeln, inklusive Körperfett,
+Körperwasser, Muskel- und Knochenmasse und BMI. Weil Gewicht im Tagesverlauf
+schwankt, bewertet ein **Messqualitäts-Score** (0–100), wie gut eine Messung mit
+standardisierten Bedingungen vergleichbar ist: morgens, nüchtern, vor dem
+Frühstück, nach dem Toilettengang, mit Abstand zu Essen, Trinken, Sport und Sauna,
+zur üblichen Zeit. Fehlende Angaben zählen nie als erfüllt.
+
+Die Rohmessungen bleiben unverändert sichtbar. Der **standardisierte Trend** ist ein
+gleitender 7-Tage-Median aus der vergleichbarsten Messung pro Tag — ohne
+aufgefüllte Tage und ohne künstliche Kilogramm-Korrekturen. Fehlende
+Messbedingungen ergänzt das Messprotokoll „Wie war deine Messung?" in wenigen
+Taps. Details: [Smart Weight Tracking](docs/GEWICHT.md).
+
+### Aktivitätsanalyse
+
+![Aktivitätsdetail auf dem Desktop mit Kennzahlen, Karte und Verlauf](docs/screenshots/desktop-aktivitaet.png)
+
+Jede Aktivität hat eine Detailseite mit Dauer, Distanz, Pace, GAP (höhenkorrigiert
+nach Minetti), Herzfrequenz, Aufstieg, Kalorien, aerober Entkopplung und VO₂max. Der
+**3D-Flyover** fährt die Strecke auf MapLibre mit Terrain ab; Geschwindigkeit,
+Scrubber und Live-Werte lassen sich steuern. Die Route ist nach Pace oder
+Herzfrequenz eingefärbt, das Höhenprofil ist mit der Karte verbunden.
+
+Aktivitäten lassen sich lokal ausblenden (bei Garmin bleiben sie erhalten) und
+einzeln oder gesammelt neu von Garmin laden.
+
+### Routen-Builder und Karten
+
+Der Routen-Builder routet per Klick über die freie BRouter-API. Er zeigt Distanz,
+Höhenmeter und eine Dauer auf Basis der eigenen GAP-Pace. Kartentypen: Vektorkarte
+(OpenFreeMap), Satellit (Esri World Imagery) und Topo CH (swisstopo). Gespeicherte
+Routen lassen sich als Course an Garmin senden; GPX-Export dient als Ausweichweg.
+
+### Körper- und Muskelanalyse
+
+Die Body-Map zeigt die geschätzte Rest-Erschöpfung von 16 Muskelgruppen aus Kraft-
+und Laufeinheiten mit muskelspezifischem exponentiellem Abbau. Das Modell ist eine
+Heuristik und in der App so gekennzeichnet. Der Plan-Generator meidet harte
+Einheiten für stark belastete Muskelgruppen. Ein Tipp auf einen Muskel öffnet ein
+Detail mit Rest-Erschöpfung, Zeit bis zur vollen Belastbarkeit, Verlauf über
+14 Tage und den Einheiten, die beigetragen haben.
+
+### Schlaf
+
+![Schlaf-Detailansicht auf dem Desktop mit Kopfwerten, Hypnogramm und Phasenverteilung](docs/screenshots/desktop-schlaf.png)
+
+Die Detailansicht zeigt jede Nacht vollständig: Hypnogramm, Phasenverteilung mit
+Richtwerten, Herzfrequenz, Sauerstoffsättigung mit Schwellen bei 90 und 92 %,
+Atemfrequenz je Schlafphase, HRV gegen das persönliche Garmin-Band, Stress, Body
+Battery sowie Bewegung und Unruhe. Die Analyse vergleicht jede Kernmetrik mit dem
+7- und 30-Tage-Mittel und gibt regelbasierte Empfehlungen fürs Training. Alle Werte
+sind Schätzungen der Uhr und kein medizinischer Befund. Details:
+[Schlaf](docs/SCHLAF.md).
+
+### Garmin-Synchronisation
+
+Der Sync läuft inkrementell und in Chunks, damit er die 60 Sekunden einer
+Vercel-Function nicht überschreitet. Jeder Aufruf verarbeitet höchstens 12
+Aktivitäten, 7 Gesundheitstage, 6 Gewichtsblöcke à 90 Tage oder 15 Schlafnächte
+und meldet `hasMore`. Der Sync-Knopf ruft weiter auf, bis alles da ist, und zeigt
+den Fortschritt. Zwischen den Garmin-Anfragen liegen etwa 350 ms Pause.
+
+Ein **täglicher Cron** (05:00 UTC) synchronisiert Aktivitäten, Herzfrequenzzonen,
+die letzten Gesundheitstage und neue Wägungen. Danach berechnet `recomputeAll()`
+Fitness, Muskelstatus, Laufmodell und Schlafaufbereitung neu; sonntags plant der
+Cron die Folgewoche.
+
+### Offline-Funktionen und PWA
+
+Die App lässt sich auf iOS und Android installieren. Der Service Worker
+([`public/sw.js`](public/sw.js)) cacht die App-Shell und statische Assets; Seiten
+laden zuerst aus dem Netz und fallen offline auf den zuletzt geladenen Stand zurück.
+Kartenkacheln werden bewusst nicht gecacht. Sync, Workout-Push und Routen-Push
+brauchen eine Verbindung.
+
 ## Öffentliche Demo
 
 Unter **`/demo`** (z. B. `https://garmin-hub.vercel.app/demo`) läuft eine Demo ohne
 Login, ohne Garmin-Konto und ohne Datenbank. Sie nutzt dieselben Seiten und
 Komponenten wie die App: Dashboard, Aktivitäten mit Detail und 3D-Flyover, Karte,
-Plan, Körper und Schlaf. Einstellungen und Garmin-Verbindung gibt es in der Demo
-nicht. Ein Banner kennzeichnet alle Werte als fiktiv; mit
-`NEXT_PUBLIC_PORTFOLIO_URL` erscheint daneben ein Link „Zum Portfolio".
+Plan, Körper mit Smart Weight Tracking und Schlaf. Einstellungen und
+Garmin-Verbindung gibt es in der Demo nicht. Ein Banner kennzeichnet alle Werte als
+fiktiv; mit `NEXT_PUBLIC_PORTFOLIO_URL` erscheint daneben ein Link „Zum Portfolio".
 
 **Datenquelle: statischer Snapshot statt Demo-DB.** Die Demo liest ausschliesslich
-JSON-Dateien aus [`public/demo/daten/`](public/demo/daten). Es gibt keine
-Verbindungszeichenfolge, keine Umgebungsvariable und keinen Code-Pfad zu einer
-Datenbank; fehlt der Snapshot, zeigt `/demo` einen Fehler. Ein Rückfall auf
-`DATABASE_URL` ist damit ausgeschlossen (Vitest prüft, dass kein Demo-Modul DB-
-oder Server-Code importiert). Gegenüber einer zweiten Postgres-DB entfallen
-Zugangsdaten, Rechteverwaltung und Seed-Ziel-Risiko, und die Seiten bleiben statisch.
+JSON-Dateien aus [`public/demo/daten/`](public/demo/daten). Es gibt keinen Code-Pfad
+zu einer Datenbank; fehlt der Snapshot, zeigt `/demo` einen Fehler.
 
 **Erzeugung.** `pnpm demo:daten` startet ein In-Memory-Postgres
-([PGlite](https://pglite.dev), nur devDependency, keine Netzwerk-DB) mit den echten
-Migrationen. Es spielt das Training einer erfundenen Person (*Alex Muster*) Woche für
-Woche durch: echte Engine-Neuberechnung, echter Plan-Generator, danach werden die
-geplanten Einheiten „absolviert". Gespeichert werden die Antworten der echten
-Services. Alles ist synthetisch und deterministisch: 155 Aktivitäten (Lauf, Trail,
-Kraft, Wandern, Velo) auf erfundenen Runden um Bern, Gesundheitswerte, 29 Schlafnächte
-im Garmin-Rohformat, Benchmarks und Plan bis zur EP. Die Strecken hat BRouter einmalig
-auf öffentliche Wege gelegt ([`scripts/demo/routen.json`](scripts/demo/routen.json),
-neu mit `node scripts/demo/routen.mjs`).
+([PGlite](https://pglite.dev), nur devDependency) mit den echten Migrationen und
+spielt das Training einer erfundenen Person (*Alex Muster*) Woche für Woche durch:
+echte Engine-Neuberechnung, echter Plan-Generator, danach werden die geplanten
+Einheiten „absolviert", am freien Wochenende kommen freiwillige Läufe und
+Wanderungen dazu, und eine Waage liefert Wägungen mit teils ausgefülltem
+Messprotokoll. Gespeichert werden die Antworten der echten Services. Alles ist
+synthetisch und deterministisch; die Strecken liegen auf öffentlichen Wegen um Bern
+([`scripts/demo/routen.json`](scripts/demo/routen.json)).
 
-**Festes Demo-Heute.** Der Snapshot zeigt Donnerstag, 5. November 2026, 20:15 Uhr
-(Taper-Start, 13 Tage vor der EP). Die Demo stellt die App-Uhr im Browser auf diesen
-Zeitpunkt (`jetztMs()` in `lib/format.ts`), damit Countdown, „letzte Nacht" und
-Wochenplan stimmig bleiben, statt mit der Zeit zu veralten. Das Datum steht im Banner.
+**Festes Demo-Heute.** Der Snapshot zeigt Donnerstag, 11. März 2027, 20:15 Uhr. Die
+Demo stellt die App-Uhr im Browser auf diesen Zeitpunkt (`jetztMs()` in
+`lib/format.ts`), damit Woche, „letzte Nacht" und Plan stimmig bleiben.
 
 **Abgrenzung.**
 
@@ -66,209 +234,8 @@ Wochenplan stimmig bleiben, statt mit der Zeit zu veralten. Das Datum steht im B
 - In der Demo beantwortet [`lib/demo/api.ts`](lib/demo/api.ts) die Lesezugriffe der
   Komponenten im Browser aus dem Snapshot; kein Aufruf erreicht einen geschützten
   Endpunkt. Jede andere Methode als GET wird abgelehnt.
-- Sync, Senden an die Uhr, Plan-Generierung, Benchmarks, Checkliste, Löschen und
-  Routen speichern sind ausgeblendet oder mit „In der Demo deaktiviert." gesperrt.
-  Filter, Zeitraum, Wochenwechsel, Kartentypen, Flyover sowie Routen zeichnen und als
-  GPX laden funktionieren.
-
-## Ein Blick in die App
-
-<table>
-  <tr>
-    <th>Dashboard</th>
-    <th>Aktivitäten</th>
-    <th>Aktivitätsdetail</th>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/mobile-dashboard.png" width="260" alt="Mobiles Dashboard mit EP-Countdown, Bereitschafts-Ampel und aktuellen EP-Noten"></td>
-    <td><img src="docs/screenshots/mobile-aktivitaeten.png" width="260" alt="Aktivitätsliste mit Wochengruppen, Minikarten und Kennzahlen"></td>
-    <td><img src="docs/screenshots/mobile-aktivitaet.png" width="260" alt="Detail eines Laufs mit Kennzahlen, Karte und Flyover-Steuerung"></td>
-  </tr>
-  <tr>
-    <th>Routen-Builder</th>
-    <th>Trainingsplan</th>
-    <th>Körper</th>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/mobile-karte.png" width="260" alt="Routen-Builder mit gezeichneter Runde, Heatmap und Höhenprofil"></td>
-    <td><img src="docs/screenshots/mobile-plan.png" width="260" alt="Wochenplan mit Taper-Begründungen und den beiden EP-Tagen"></td>
-    <td><img src="docs/screenshots/mobile-koerper.png" width="260" alt="Body-Map mit Muskel-Erschöpfung von vorne und hinten"></td>
-  </tr>
-  <tr>
-    <th>EP-Checkliste</th>
-    <th>Probe-EP</th>
-    <th>Schlaf</th>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/mobile-ep-checkliste.png" width="260" alt="Checkliste für EP Tag 1 mit Startzeit, Frühstücksfenster und abhakbaren Punkten"></td>
-    <td><img src="docs/screenshots/mobile-probe-ep.png" width="260" alt="Resultat einer Probe-EP mit Note pro Disziplin und Gesamtschnitt"></td>
-    <td><img src="docs/screenshots/mobile-schlaf.png" width="260" alt="Schlaf-Detailansicht mit Kopfwerten und Hypnogramm"></td>
-  </tr>
-</table>
-
-Alle Screenshots stammen aus der laufenden App. Die Daten sind **fiktiv**: Läufe auf
-erfundenen Runden in Bern, synthetische Gesundheits- und Schlafwerte. Sie wurden mit
-[`scripts/readme/demo-daten.mjs`](scripts/readme/demo-daten.mjs) in einer isolierten
-lokalen Datenbank erzeugt. Echte Garmin-Daten kommen in keiner Aufnahme vor.
-
-## Was Garmin Hub kann
-
-| Bereich | Funktionen |
-| --- | --- |
-| **Dashboard** | EP-Countdown mit Phase, Bereitschafts-Ampel mit Handlungssatz, EP-Noten nach aktuellem Stand, Schlaf der letzten Nacht, Fitness-Kurve (CTL/ATL/TSB), Pace bei gleichem Puls, Muskelstatus, Wochenvergleich, All-Time-Summen und Korrelations-Insights. |
-| **Aktivitäten** | Liste mit Filter und Minikarten, Detailseite mit 3D-Flyover, Höhenprofil, Splits, Herzfrequenzzonen, GAP, Effizienz und aerober Entkopplung. Krafttrainings mit Satz-Tabelle und belasteten Muskeln. |
-| **Karte** | Routen-Builder mit Routing per Klick, Undo/Redo, Rückweg, Rundkurs, Höhenprofil, geschätzter Dauer nach eigener Pace, Heatmap, GPX-Export und Senden auf die Uhr. |
-| **Trainingsplan** | Regelbasierter Wochenplan, Anpassung nach jedem Sync, Verfügbarkeit pro Tag, Workout-Generator, Senden auf die Uhr und Rückgängig. |
-| **Eignungsprüfung** | Notentabellen aller fünf Disziplinen, Benchmarks mit Sofort-Note (erfassen, anpassen, löschen), aktueller Notenstand, Probe-EP-Modus mit 60-bpm-Metronom, Taper-Plan ab 5. November und abhakbare Checkliste für beide EP-Tage. |
-| **Körper** | Body-Map mit 16 Muskelgruppen, Rest-Erschöpfung aus Kraft- und Laufeinheiten und systemische Ermüdung (TSB, ACWR, HRV-Trend). |
-| **Schlaf** | Kachel im Dashboard und Detailansicht pro Nacht mit Hypnogramm, Phasen, Herzfrequenz, SpO2, Atemfrequenz je Phase, HRV, Stress, Body Battery, Bewegung, Vergleich mit 7 und 30 Tagen und Empfehlungen. |
-| **Garmin** | Chunkweiser Sync mit Fortschritt, täglicher Cron, verschlüsselte Token, MFA-Eingabe und Herzfrequenzzonen direkt aus dem Garmin-Konto. |
-| **App** | Installierbare PWA, Offline-Fallback auf die zuletzt geladenen Seiten, Dark-first-Design, Login mit einem Passwort. |
-
-### Dashboard und Trainingsbereitschaft
-
-Der Kopf zeigt die verbleibende Zeit bis zur EP und die aktuelle Trainingsphase. Die
-Bereitschafts-Ampel fasst Training Readiness, Body Battery, HRV, Schlafscore und
-Ruhepuls zusammen und formuliert daraus einen Satz für den Tag. Fitness und
-Pace bei gleichem Puls zeigen den Verlauf seit Trainingsstart; ein Umschalter
-begrenzt die Ansicht auf 90 Tage oder 6 Monate.
-
-Korrelationen zwischen Metriken erscheinen nur ab |r| ≥ 0.3 und mindestens
-15 Wertepaaren. Sie sind ausdrücklich als Korrelation gekennzeichnet, nicht als Ursache.
-
-### Aktivitätsanalyse
-
-![Aktivitätsdetail auf dem Desktop mit Kennzahlen, Karte und Verlauf von Höhe, Herzfrequenz und Pace](docs/screenshots/desktop-aktivitaet.png)
-
-Jede Aktivität hat eine Detailseite mit Dauer, Distanz, Pace, GAP (höhenkorrigiert
-nach Minetti), Herzfrequenz, Aufstieg, Kalorien, aerober Entkopplung und VO₂max. Der
-**3D-Flyover** fährt die Strecke auf MapLibre mit Terrain ab; Geschwindigkeit,
-Scrubber und Live-Werte lassen sich steuern. Die Route ist nach Pace oder Herzfrequenz
-eingefärbt, das Höhenprofil ist mit der Karte verbunden. Standard ist das
-Satellitenbild ohne Vektorkarte darunter; auf Touch-Geräten rendert die Karte mit
-höchstens 1,5-facher Pixeldichte, Läuferpunkt und Live-Werte laufen ohne React-Render.
-
-Aktivitäten lassen sich lokal ausblenden (bei Garmin bleiben sie erhalten) und einzeln
-oder gesammelt neu von Garmin laden.
-
-### Routen-Builder und Karten
-
-Der Routen-Builder routet per Klick über die freie BRouter-API. Er zeigt Distanz,
-Höhenmeter und eine Dauer auf Basis der eigenen GAP-Pace. Kartentypen: Vektorkarte
-(OpenFreeMap), Satellit (Esri World Imagery) und Topo CH (swisstopo). Gespeicherte
-Routen lassen sich als Course an Garmin senden; GPX-Export dient als Ausweichweg.
-
-### Adaptiver Trainingsplan
-
-Ein regelbasierter Generator erstellt den Wochenplan aus Rahmenphase, absolvierten
-Einheiten, TSB, ACWR, Muskelstatus und Benchmarks. Nach jedem Sync schwächt
-`passePlanAn()` offene Einheiten ab, wenn die Belastung es verlangt. Einheiten gehen
-über `workout-service` als strukturiertes Workout in den Garmin-Kalender und erscheinen
-beim nächsten Uhren-Sync auf der Forerunner 265. „Alle an Garmin senden" überträgt
-die Woche gesammelt mit Vorschau und ohne Duplikate; Gym-Einheiten sind standardmässig
-ausgenommen. Bereits gesendete Einheiten lassen sich wieder von der Uhr entfernen.
-Ziel-Herzfrequenzen kommen aus den Zonen, die im Garmin-Konto hinterlegt sind.
-
-Der Workout-Generator „Heute frei Schnauze" baut aus Distanz oder Dauer und
-Anstrengung ein Workout mit den eigenen Paces und zeigt den erwarteten TRIMP sowie die
-Wirkung auf die Form (TSB) von morgen.
-
-<table>
-  <tr>
-    <th>Workout-Generator</th>
-    <th>Benchmarks</th>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/mobile-generator.png" width="260" alt="Workout-Generator mit gebautem Intervall-Workout und TSB-Vorschau"></td>
-    <td><img src="docs/screenshots/mobile-benchmarks.png" width="260" alt="Erfassung von EP-Benchmarks mit Verlauf und Note pro Eintrag"></td>
-  </tr>
-</table>
-
-### Vorbereitung auf die Eignungsprüfung
-
-Alle fünf Disziplinen sind exakt nach der offiziellen **Notentabelle Eignungsprüfung
-EP_AZ SK** hinterlegt ([`lib/ep/disziplinen.ts`](lib/ep/disziplinen.ts)): Marsch 5 km
-mit 20 kg, Klimmzüge, Liegestützen in 60 s, seitliche Rumpfkraft (max. 120 s) und
-dorsale Rumpfkette (max. 150 s). Die Notenanzeige zeigt nur **selbst gemessene Werte**:
-pro Disziplin den zuletzt erfassten Benchmark mit Datum und Note, dazu den Schnitt der
-vorhandenen Disziplinen. Es gibt bewusst keine Prognose aus Trends oder aus dem
-Lauf-Modell. Benchmarks werden im Plan unter **Benchmarks** erfasst, angepasst und
-gelöscht.
-
-| Note | Bewertung | Bedeutung |
-| --- | --- | --- |
-| 5.00–4.50 | sehr gut | erfüllt die Anforderungen deutlich |
-| 4.49–4.00 | gut | erfüllt die Anforderungen |
-| 3.99–3.60 | genügend | erfüllt die Mindestanforderungen knapp |
-| 3.59–1.00 | ungenügend | erfüllt die Mindestanforderungen nicht |
-
-Die EP gilt als **bestanden**, wenn der Durchschnitt aller Disziplinen mindestens
-**genügend (3.60)** ist. Eine 1.0 in einer Disziplin zieht den Schnitt stark nach
-unten und wird in der App eigens gewarnt.
-
-Ab dem **5. November** gilt ein expliziter **Taper-Plan** mit einer Regel und einer
-Begründung pro Tag: Umfang reduzieren, letzte Intensität am 7. November, nur noch
-lockere Läufe in der letzten Woche und vom 13. bis 16. November ein Fokus auf
-EP-Liegestütze und seitliche Rumpfkraft mit festen Sätzen und Pausen. Die beiden **EP-Tage** sind fest im Plan, werden
-nie überschrieben und nie an die Uhr gesendet. Ein Tipp auf einen EP-Tag öffnet die
-**Checkliste** mit Startzeit, Frühstücksfenster und abhakbaren Punkten.
-Details: [EP-Termin, Taper-Plan und Checkliste](docs/EP-UND-TAPER.md).
-
-![Wochenplan auf dem Desktop mit Taper-Begründung pro Tag und den beiden EP-Tagen](docs/screenshots/desktop-plan.png)
-
-### Körper- und Muskelanalyse
-
-Die Body-Map zeigt die geschätzte Rest-Erschöpfung von 16 Muskelgruppen aus Kraft-
-und Laufeinheiten mit muskelspezifischem exponentiellem Abbau. Das Modell ist eine
-Heuristik und in der App so gekennzeichnet. Der Plan-Generator meidet harte Einheiten
-für stark belastete Muskelgruppen. Gym-Einheiten ohne verwertbare Übungsdetails lassen
-sich manuell einem Template zuweisen (Push, Pull, Beine, Ganzkörper, Core).
-
-Ein Tipp auf einen Muskel öffnet ein Detail mit Rest-Erschöpfung, der Zeit bis zur
-vollen Belastbarkeit, einem Verlauf über 14 Tage und den Einheiten, die beigetragen haben.
-
-<img src="docs/screenshots/mobile-muskel-detail.png" width="300" alt="Muskel-Detail für den Quadrizeps mit Rest-Erschöpfung, Verlauf und Beiträgen der letzten Einheiten">
-
-### Schlaf
-
-![Schlaf-Detailansicht auf dem Desktop mit Kopfwerten, Hypnogramm und Phasenverteilung](docs/screenshots/desktop-schlaf.png)
-
-<details>
-  <summary>Herzfrequenz und SpO2 in der Nacht ansehen</summary>
-
-<img src="docs/screenshots/mobile-schlaf-verlauf.png" width="300" alt="Herzfrequenz und Sauerstoffsättigung in der Nacht mit Phasenhintergrund, Minimum, Maximum und Schwellen">
-
-</details>
-
-Die Detailansicht zeigt jede Nacht vollständig: Hypnogramm, Phasenverteilung mit
-Richtwerten, Herzfrequenz, Sauerstoffsättigung mit Schwellen bei 90 und 92 %,
-Atemfrequenz je Schlafphase, HRV gegen das persönliche Garmin-Band, Stress, Body
-Battery sowie Bewegung und Unruhe. Alle Zeitachsen sind synchronisiert. Fehlende Daten
-stehen ausdrücklich als „nicht verfügbar" da.
-
-Die Analyse vergleicht jede Kernmetrik mit dem 7- und 30-Tage-Mittel und gibt
-regelbasierte Empfehlungen für Training und EP. Alle Werte sind Schätzungen der Uhr
-und kein medizinischer Befund. Details: [Schlaf](docs/SCHLAF.md).
-
-### Garmin-Synchronisation
-
-Der Sync läuft inkrementell und in Chunks, damit er die 60 Sekunden einer Vercel-Function
-nicht überschreitet. Jeder Aufruf verarbeitet höchstens 12 Aktivitäten, 7
-Gesundheitstage oder 15 Schlafnächte und meldet `hasMore`. Der Sync-Knopf ruft weiter
-auf, bis alles da ist, und zeigt den Fortschritt. Zwischen den Garmin-Anfragen liegen
-etwa 350 ms Pause.
-
-Ein **täglicher Cron** (05:00 UTC) synchronisiert Aktivitäten, Herzfrequenzzonen und
-die letzten Gesundheitstage. Danach berechnet `recomputeAll()` Fitness, Muskelstatus,
-Laufmodell und Schlafaufbereitung neu.
-
-### Offline-Funktionen und PWA
-
-Die App lässt sich auf iOS und Android installieren. Der Service Worker
-([`public/sw.js`](public/sw.js)) cacht die App-Shell und statische Assets; Seiten
-laden zuerst aus dem Netz und fallen offline auf den zuletzt geladenen Stand zurück.
-Kartenkacheln werden bewusst nicht gecacht. Sync, Workout-Push und Routen-Push
-brauchen eine Verbindung.
+- Sync, Senden an die Uhr, Plan-Generierung, Messprotokoll, Löschen und Routen
+  speichern sind ausgeblendet oder mit „In der Demo deaktiviert." gesperrt.
 
 ## Sicherheit und Datenschutz
 
@@ -287,7 +254,7 @@ Weitere Schutzmassnahmen im Code:
 - Login mit zeitkonstantem Passwortvergleich und signiertem HttpOnly-Cookie (30 Tage, `jose`).
 - Die Bridge akzeptiert nur Anfragen mit `x-internal-key`; der Cron nur mit `Authorization: Bearer $CRON_SECRET`.
 - CSP mit Nonce, HSTS, `X-Frame-Options: DENY`, Referrer- und Permissions-Policy, `noindex`.
-- Schlafdaten gelten als sensibel: Werte erscheinen weder in Logs noch in Fehlermeldungen.
+- Schlaf- und Gewichtsdaten gelten als sensibel: Werte erscheinen weder in Logs noch in Fehlermeldungen.
 
 Für einen eigenen Betrieb sind zusätzlich nötig: starke, zufällige Werte für alle
 Secrets, ein starkes `APP_PASSWORD` und in Vercel die **Deployment Protection** für
@@ -322,13 +289,14 @@ Preview-Deployments, sonst sind Preview-URLs öffentlich erreichbar.
    cp .env.example .env.local
    ```
 
-3. Datenbankschema anwenden. Die drei Migrationen laufen der Reihe nach auf einer
-   leeren Datenbank:
+3. Datenbankschema anwenden. Die vier Migrationen laufen der Reihe nach; alle sind
+   idempotent und rein additiv:
 
    ```sh
    psql "$DATABASE_URL" -f drizzle/0000_init.sql
    psql "$DATABASE_URL" -f drizzle/0001_whole_wasp.sql
    psql "$DATABASE_URL" -f drizzle/0002_schlaf.sql
+   psql "$DATABASE_URL" -f drizzle/0003_gewicht.sql
    ```
 
    Für eine neue, leere Datenbank funktioniert alternativ `pnpm db:push`. Gegen eine
@@ -408,14 +376,15 @@ Migrationen in [`drizzle/`](drizzle). Neue Migrationen entstehen mit
 | Bereich | Tabellen |
 | --- | --- |
 | Garmin-Rohdaten | `activities`, `activity_streams`, `strength_sets`, `daily_health` |
+| Gewicht | `gewicht_messungen` (Wägungen, nur vom Sync geschrieben), `gewicht_bedingungen` (Messprotokoll) |
 | Schlaf | `sleep_nights`, `sleep_epochen`, `sleep_zeitreihen` |
 | Berechnet | `computed_daily`, `muscle_state` |
-| Training | `planned_workouts`, `courses`, `ep_benchmarks` |
+| Training | `planned_workouts`, `courses`; `ep_benchmarks` bleibt als Altbestand bestehen, wird aber nicht mehr genutzt |
 | Betrieb | `garmin_tokens`, `sync_state`, `app_settings`, `rate_limits` |
 
 Beim Erst-Import holt der Sync die komplette Aktivitätshistorie, 365 Tage
-Gesundheitsdaten und 365 Nächte Schlaf. Die Schlafnächte bereitet ein TypeScript-Parser
-nach dem Sync in Phasen und Minuten-Zeitreihen auf.
+Gesundheitsdaten, 5 Jahre Wägungen und 365 Nächte Schlaf. Die Schlafnächte bereitet
+ein TypeScript-Parser nach dem Sync in Phasen und Minuten-Zeitreihen auf.
 
 ## Deployment
 
@@ -430,6 +399,10 @@ nach dem Sync in Phasen und Minuten-Zeitreihen auf.
 4. Deployment Protection für Preview-Deployments aktivieren.
 5. App öffnen, anmelden und den ersten Sync starten.
 
+Bestehende Installationen brauchen für das Smart Weight Tracking einmalig
+`drizzle/0003_gewicht.sql`; bis dahin zeigt die Körper-Seite einen Hinweis, alles
+andere läuft unverändert.
+
 Der Cron steht in [`vercel.json`](vercel.json) (`0 5 * * *` auf `/api/cron/daily`);
 Vercel sendet dabei automatisch `Authorization: Bearer $CRON_SECRET`.
 
@@ -437,15 +410,15 @@ Vercel sendet dabei automatisch `Authorization: Bearer $CRON_SECRET`.
 > Vercel Hobby erlaubt höchstens **12 Serverless Functions** pro Deployment. Next.js
 > bündelt die Routen zu 7 Functions, die Bridge ist eine einzige Function
 > ([`api/bridge/index.py`](api/bridge/index.py)). Neue Bridge-Aktionen gehören in
-> `AKTIONEN` in [`api/_lib/bridge_aktionen.py`](api/_lib/bridge_aktionen.py), nicht in
-> neue Dateien unter `api/`.
+> `AKTIONEN` in [`api/_lib/bridge_aktionen.py`](api/_lib/bridge_aktionen.py), neue
+> Sync-Typen in `sync()` — nie in neue Dateien unter `api/`.
 
 ## Technik
 
 | Ebene | Umsetzung |
 | --- | --- |
 | App | Next.js 15 App Router, React 19, TypeScript strict, Turbopack |
-| Oberfläche | Tailwind CSS 4, shadcn/ui (Radix UI), Lucide, framer-motion |
+| Oberfläche | Tailwind CSS 4, shadcn/ui (Radix UI), Lucide, Geist |
 | Diagramme | Recharts |
 | Karten | MapLibre GL, Turf, OpenFreeMap, AWS Terrain Tiles, BRouter |
 | Daten | PostgreSQL (Supabase), Drizzle ORM, postgres.js, Zod |
@@ -454,11 +427,24 @@ Vercel sendet dabei automatisch `Authorization: Bearer $CRON_SECRET`.
 | Hosting | Vercel Hobby mit Cron, PWA mit Service Worker |
 | Prüfungen | Vitest, ESLint, TypeScript, Playwright für Screenshots und Layout-Checks |
 
+### Design-System
+
+Die Tokens stehen zentral in [`app/globals.css`](app/globals.css): Midnight Navy
+(`#151D2B`) als Fläche, **Lime** (`#B8F36B`, `--primary`) für Fortschritt, aktive
+Elemente und Kennzahlen, **Coral** (`#FF9466`, `--coral`) für Laufen, Intensität und
+Highlights, `#E8EDF3` als helle Fläche im Hellmodus. Ampelfarben (`--status-*`)
+nur für Status. Radien 8 · 12 · 16 · 22 px, dezente Kartenschatten
+(`shadow-card`), Verläufe (`flaeche-hero`, `flaeche-lime`, `flaeche-coral`) und
+Bewegungs-Tokens mit Rücksicht auf `prefers-reduced-motion`. Wiederkehrende Bausteine:
+`Card`, `KachelKopf`/`IconChip`, `Pill`, `Ring`/`Balken`, `SportIcon`/`EinheitIcon`
+und `Logo`.
+
 ## Architektur
 
 ```mermaid
 flowchart LR
   Uhr[Forerunner 265] -->|Bluetooth| GC[Garmin Connect]
+  Waage[Index S2] -->|WLAN| GC
   GC <-->|inoffizielle API, garth-Token| Bridge[Python-Bridge<br>api/bridge]
   Cron[Vercel Cron 05:00 UTC] --> Next
   Knopf[Sync-Knopf] --> Next
@@ -481,15 +467,14 @@ Sync-Strategie](docs/ARCHITEKTUR.md).
 ```text
 app/                  Seiten (Dashboard, Aktivitäten, Karte, Plan, Körper, Schlaf) und API-Routen
 api/bridge/index.py   Python-Bridge zu Garmin Connect (eine Vercel-Function)
-api/_lib/             Garmin-Client, Sync-Logik, Verschlüsselung, Bridge-Aktionen
-components/           UI nach Bereichen (dashboard, activities, map, plan, body, schlaf)
-lib/engine/           Engine: TRIMP, Fitness, GAP, Riegel, Muskeln, Plan, Taper, Schlaf
-lib/ep/               EP-Disziplinen, Notentabellen, Notenstand, Phasen, Checkliste
+api/_lib/             Garmin-Client, Sync-Logik (inkl. Gewicht), Verschlüsselung, Bridge-Aktionen
+components/           UI nach Bereichen (dashboard, activities, map, plan, body, schlaf, ui)
+lib/engine/           Engine: TRIMP, Fitness, GAP, Riegel, Muskeln, Plan, Block, Gewicht, Schlaf
 lib/server/           Datenbankzugriff und Dienste für die Seiten
 lib/db/               Drizzle-Schema und Verbindung
 drizzle/              SQL-Migrationen
-public/               Icons, Manifest und Service Worker
-scripts/              Werkzeuge (Icons, Garmin-Dump, README-Screenshots, Layout-Checks)
+public/               Icons, Manifest, Service Worker und Demo-Datenstand
+scripts/              Werkzeuge (Icons, Demo-Daten, Garmin-Dumps, Screenshots, Layout-Checks)
 tests/fixtures/       Echte Garmin-Antworten ohne Personendaten für Parser-Tests
 docs/                 Weitere Dokumentation und Screenshots
 ```
@@ -502,55 +487,42 @@ npx tsc --noEmit          # Typecheck
 pnpm lint                 # ESLint
 pnpm build                # Produktionsbuild
 pnpm demo:daten           # Demo-Datenstand neu erzeugen (public/demo/daten)
-python scripts/garmin/test_schlaf_sync.py   # Schlaf-Sync der Bridge offline gegen Fixtures
+python scripts/garmin/test_schlaf_sync.py    # Schlaf-Sync der Bridge offline gegen Fixtures
+python3 scripts/garmin/test_gewicht_sync.py  # Gewichts-Sync der Bridge offline
 ```
 
-Stand 5. November 2026: **334 Vitest-Tests** sind grün, dazu Typecheck, Lint (ohne
-Fehler) und Produktionsbuild. Die öffentliche Demo prüft zusätzlich ein
-End-to-End-Skript gegen einen laufenden Server, ohne Login, auf Desktop und 390 px
-(inkl. Statuscodes der geschützten Routen und gefälschtem `x-demo`-Header):
-`GHQ_URL=http://127.0.0.1:3999 node scripts/verify-demo.mjs`. Die Tests decken die Engine ab: TRIMP, CTL/ATL/TSB, GAP,
-Riegel, Notentabellen, Prognose, Muskelabbau, Plan, Taper, Verfügbarkeit,
-EP-Checkliste sowie Schlaf-Parser und Schlaf-Analyse. Parser und Analyse laufen gegen
-echte Garmin-Antworten aus [`tests/fixtures/garmin`](tests/fixtures/garmin), aus denen
-Profil- und Geräte-IDs entfernt sind. Das Python-Testskript braucht die Pakete aus
-`requirements.txt`.
+Die Tests decken die Engine ab: TRIMP, CTL/ATL/TSB, GAP, Riegel, Muskelabbau,
+Trainingsplan im festen Rhythmus, Trainingsblock, Verfügbarkeit, Plan-Anpassung,
+Wochenstatistik, Messqualitäts-Score und Gewichtstrend sowie Schlaf-Parser und
+Schlaf-Analyse. Ein Demo-Test prüft zusätzlich, dass der Datenstand keine Altlasten
+des früheren Programms enthält. Die öffentliche Demo prüft ein End-to-End-Skript
+gegen einen laufenden Server, ohne Login, auf Desktop und 390 px:
+`GHQ_URL=http://127.0.0.1:3999 node scripts/verify-demo.mjs`.
 
 ### Screenshots neu aufnehmen
 
-Die Aufnahmen in `docs/screenshots` entstehen mit fiktiven Daten in einer lokalen
-Datenbank, zum Beispiel einem Docker-Container:
+Die Aufnahmen in `docs/screenshots` entstehen aus der Demo — ohne Datenbank und
+ohne Login:
 
 ```sh
-docker run -d --name ghq-demo-db -e POSTGRES_PASSWORD=demo -e POSTGRES_DB=ghq_demo \
-  -p 127.0.0.1:55432:5432 postgres:16
-export DEMO_DATABASE_URL=postgres://postgres:demo@127.0.0.1:55432/ghq_demo
-for f in drizzle/000*.sql; do psql "$DEMO_DATABASE_URL" -f "$f"; done
-node scripts/readme/demo-daten.mjs
+pnpm build && pnpm start -p 3999
+GHQ_URL=http://127.0.0.1:3999 node scripts/readme/screenshots.mjs
 ```
 
-Danach die App mit `DATABASE_URL=$DEMO_DATABASE_URL` bauen und mit `pnpm start -p 3999`
-starten, das Dashboard einmal öffnen (berechnet Fitness, Muskeln und Schlaf) und die
-Plan-Wochen generieren. Dann:
-
-```sh
-GHQ_URL=http://127.0.0.1:3999 GHQ_PASSWORT=… node scripts/readme/screenshots.mjs
-```
-
-Das Skript speichert 17 Aufnahmen; mit `GHQ_NUR=mobile-plan,desktop-plan` nur ausgewählte.
-Das Seed-Skript schreibt nur in lokale Datenbanken und bricht bei jedem anderen Host ab.
+Mit `GHQ_CHROME=1` nutzt das Skript das lokal installierte Google Chrome, mit
+`GHQ_NUR=mobile-plan,desktop-plan` nur ausgewählte Aufnahmen.
 
 ## Weitere Dokumentation
 
 | Dokument | Inhalt |
 | --- | --- |
 | [ARCHITEKTUR.md](docs/ARCHITEKTUR.md) | Datenfluss, Python-Hosting und Sync-Strategie |
-| [ENGINE.md](docs/ENGINE.md) | Formeln der Analyse-Engine |
-| [EP-UND-TAPER.md](docs/EP-UND-TAPER.md) | EP-Termin, Taper-Regeln pro Tag und EP-Checkliste |
+| [ENGINE.md](docs/ENGINE.md) | Formeln der Analyse-Engine und Regeln des Trainingsplans |
+| [GEWICHT.md](docs/GEWICHT.md) | Smart Weight Tracking: Sync, Messqualität, Trend |
 | [SCHLAF.md](docs/SCHLAF.md) | Schlaf-Datenmodell, Sync, Backfill, Analyse-Regeln und Ansichten |
-| [GARMIN-DATENFORMAT.md](docs/GARMIN-DATENFORMAT.md) | Felder, Zeitformate und Auflösungen der Garmin-Schlafantworten |
+| [GARMIN-DATENFORMAT.md](docs/GARMIN-DATENFORMAT.md) | Felder, Zeitformate und Auflösungen der Garmin-Antworten |
 | [ANNAHMEN.md](docs/ANNAHMEN.md) | Dokumentierte Annahmen und bewusst kurze Zeitfenster |
-| [instructions.md](instructions.md) | Ursprüngliche Spezifikation des Projekts |
+| [instructions.md](instructions.md) | Spezifikation des Projekts |
 | [CLAUDE.md](CLAUDE.md) | Befehle, Konventionen und Hinweise für die Weiterentwicklung |
 
 ## Bekannte Grenzen
@@ -558,10 +530,10 @@ Das Seed-Skript schreibt nur in lokale Datenbanken und bricht bei jedem anderen 
 - **Inoffizielle API.** Ändert Garmin Endpunkte oder Login, kann der Sync ausfallen, bis die Bibliotheken nachziehen. Für Courses dient GPX-Export als Ausweichweg.
 - **Single User.** Ein Konto, ein Passwort, keine Mandantentrennung.
 - **Bridge lokal nur mit Vercel CLI.** `pnpm dev` startet die Python-Bridge nicht.
-- **Schätzungen.** Muskelmodell und Schlafwerte sind Modelle bzw. Uhr-Schätzungen, keine Messungen oder Diagnosen. Die EP-Noten zeigen nur den letzten eigenen Messwert, keinen Ausblick auf den Prüfungstag.
+- **Schätzungen.** Muskelmodell, Schlafwerte und Körperzusammensetzung sind Modelle bzw. Geräte-Schätzungen, keine Messungen oder Diagnosen. Der Messqualitäts-Score bewertet Vergleichbarkeit, nicht Genauigkeit.
 - **Kraft-Workouts.** Das Garmin-Workout-Format bildet nicht jede Satzstruktur ab; Übungen landen als beschriftete Schritte auf der Uhr.
 - **Hellmodus.** Die App ist Dark-first; die Farben für den Hellmodus existieren, ein Umschalter in der Oberfläche fehlt.
 - **Vercel Hobby.** Function-Laufzeit 60 Sekunden, höchstens 12 Functions, nur tägliche Crons.
 
-Garmin Hub ist ein unabhängiges, privates Projekt ohne Verbindung zu Garmin Ltd. oder
-zur Schweizer Armee. „Garmin" und „Forerunner" sind Marken der Garmin Ltd.
+Garmin Hub ist ein unabhängiges, privates Projekt ohne Verbindung zu Garmin Ltd.
+„Garmin", „Forerunner" und „Index" sind Marken der Garmin Ltd.

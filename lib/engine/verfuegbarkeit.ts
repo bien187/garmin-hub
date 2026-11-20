@@ -1,32 +1,52 @@
 import { addTage, tageDiff } from '@/lib/format';
 import type { PlanEinheit, Wochenplan } from './plan';
-import { istEpTag } from '@/lib/ep/konstanten';
-import { istLaufTyp } from './taper';
+import { istLaufTyp } from './plan-typen';
 
-export const GYM_TAGE = [0, 3, 6]; // Montag, Donnerstag, Sonntag
-export function istGymTag(datum: string): boolean {
-  return GYM_TAGE.includes((new Date(datum + 'T12:00:00').getDay() + 6) % 7);
+/** Wochentag-Index Mo = 0 … So = 6 */
+export function wochentagIndex(datum: string): number {
+  return (new Date(datum + 'T12:00:00').getDay() + 6) % 7;
 }
+
+/** Feste Gymtage: Montag und Donnerstag */
+export const GYM_TAGE = [0, 3];
+/** Lauftage mit Pflichteinheiten: Dienstag (Intervalle) und Mittwoch (Zone 2) */
+export const LAUF_TAGE = [1, 2];
+/** Freitag Ruhetag */
+export const RUHE_TAG = 4;
+/** Samstag und Sonntag frei — keine automatisch geplanten Einheiten */
+export const FREIE_TAGE = [5, 6];
+
+export function istGymTag(datum: string): boolean {
+  return GYM_TAGE.includes(wochentagIndex(datum));
+}
+
+/** Nur Lauftage lassen sich sperren; alle anderen Tage sind fix */
+export function istSperrbar(datum: string): boolean {
+  return LAUF_TAGE.includes(wochentagIndex(datum));
+}
+
 const lauf = (e: PlanEinheit) => istLaufTyp(e.typ);
-const hart = (e: PlanEinheit) => lauf(e) && e.typ !== 'lauf_z2';
+const hart = (e: PlanEinheit) => lauf(e) && e.typ !== 'lauf_z2' && e.typ !== 'langer_lauf';
 
 /**
- * Verteilt flexible Einheiten ohne zusätzliche Läufe oder höhere Belastung.
- * EP-Tage (18./19.11.) sind fix: sie lassen sich nicht sperren, und es wird
- * nichts auf sie verschoben.
+ * Verteilt die Läufe der Woche auf die verfügbaren Lauftage (Di/Mi), ohne
+ * zusätzliche Läufe oder höhere Belastung: höchstens ein Lauf pro Tag,
+ * harte Läufe mit Abstand. Gymtage, der Ruhetag (Fr) und das freie
+ * Wochenende bekommen nie verschobene Einheiten.
  */
 export function planeVerfuegbarkeit(plan: Wochenplan, gesperrt: string[], ab: string, belegt: string[] = [], festeHarteTage: string[] = [], harteTageAb = plan.wochenstart): Wochenplan {
-  const sperren = new Set(gesperrt.filter(d => !istGymTag(d) && !istEpTag(d)));
+  const sperren = new Set(gesperrt.filter(istSperrbar));
   const fix = new Set(belegt);
   const einheiten = plan.einheiten.filter(e => e.datum >= ab && !fix.has(e.datum));
   if (!sperren.size) return { ...plan, einheiten };
-  const hinweise = [...plan.hinweise.filter(h => !h.includes('Samstag'))];
+  const hinweise = [...plan.hinweise];
   const ruhetage = new Set(einheiten.filter(e => e.typ === 'ruhe').map(e => e.datum));
   const tage = Array.from({length: 7}, (_, i) => addTage(plan.wochenstart, i))
-    .filter(d => d >= ab && !sperren.has(d) && !fix.has(d) && !istGymTag(d) && !ruhetage.has(d) && !istEpTag(d));
+    .filter(d => d >= ab && !sperren.has(d) && !fix.has(d) && istSperrbar(d) && !ruhetage.has(d));
   const neu = einheiten.filter(e => !lauf(e) && !sperren.has(e.datum));
+  // Wichtigste zuerst: harte Einheit, dann langer Lauf, dann lockerer Lauf
   const laeufe = einheiten.filter(lauf).sort((a,b) => {
-    const rang = (e: PlanEinheit) => ['lastlauf','probe_ep','langer_lauf'].includes(e.typ) ? 0 : hart(e) ? 1 : 2;
+    const rang = (e: PlanEinheit) => hart(e) ? 0 : e.typ === 'langer_lauf' ? 1 : 2;
     return rang(a) - rang(b) || a.datum.localeCompare(b.datum);
   });
   const verteilt: PlanEinheit[] = [];
@@ -36,7 +56,7 @@ export function planeVerfuegbarkeit(plan: Wochenplan, gesperrt: string[], ab: st
     if (ziel) {
       verteilt.push({ ...e, datum: ziel });
       if (ziel !== e.datum) hinweise.push(e.titel + ': von ' + e.datum + ' auf ' + ziel + ' verschoben.');
-    } else hinweise.push(e.titel + ' entfällt diese Woche: kein freier Trainingstag mit ausreichendem Abstand.');
+    } else hinweise.push(e.titel + ' entfällt diese Woche: kein freier Lauftag mit ausreichendem Abstand.');
   }
   neu.push(...verteilt);
   for (const e of einheiten.filter(e => !lauf(e) && e.typ !== 'ruhe' && sperren.has(e.datum))) {
@@ -48,6 +68,6 @@ export function planeVerfuegbarkeit(plan: Wochenplan, gesperrt: string[], ab: st
     if (datum < ab || datum < plan.wochenstart || datum > addTage(plan.wochenstart,6) || fix.has(datum)) continue;
     neu.push({datum, typ:'ruhe', titel:'Kein Training möglich', beschreibung:'Durch deinen Terminplan gesperrt.', erwarteterTrimp:0});
   }
-  hinweise.push('Deine gesperrten Tage gelten auch für Grease the Groove. Gymtage bleiben fix; fehlende Einheiten werden nicht zusätzlich auf Gymtage gepackt.');
+  hinweise.push('Gymtage (Mo/Do), der Ruhetag am Freitag und das freie Wochenende bleiben, wie sie sind — fehlende Läufe werden nicht dorthin verschoben.');
   return {...plan, einheiten: neu.sort((a,b) => a.datum.localeCompare(b.datum)), hinweise};
 }

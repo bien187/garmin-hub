@@ -14,14 +14,11 @@
  *    Ermüdungslage nicht zu verantworten.
  *  - Höchstens eine Anpassung pro Einheit, und einmal angepasste Einheiten
  *    bleiben unangetastet — sonst degradiert jeder Sync die Woche weiter.
- *  - EP-Einträge (typ „ep") werden nie angefasst.
- *  - Im Taper (ab 05.11.) bleibt jeder Ersatz innerhalb der Tagesregel:
- *    ein lockerer Lauf höchstens so lang wie erlaubt, sonst Ruhetag.
  */
 
 import { MuskelId } from "./muscle";
 import { addTage } from "@/lib/format";
-import { istLaufTyp, minutenAusTitel, taperRegelFuerTag } from "./taper";
+import { istLaufTyp, minutenAusTitel } from "./plan-typen";
 
 export interface AnpassungsEinheit {
   id: string;
@@ -72,10 +69,10 @@ export interface Anpassung {
 }
 
 /** Einheiten, die echte Laufbelastung bedeuten */
-const HARTE_LAEUFE = ["intervalle", "huegel_intervalle", "lastlauf", "langer_lauf"];
+const HARTE_LAEUFE = ["intervalle", "huegel_intervalle", "langer_lauf"];
 
 export function istHarterLauf(typ: string): boolean {
-  return HARTE_LAEUFE.includes(typ) || typ === "probe_ep";
+  return HARTE_LAEUFE.includes(typ);
 }
 
 /** Minuten aus dem Titel („Z2-Lauf 50 Min"), auf 20–90 geklemmt — für den Ersatztitel */
@@ -109,7 +106,7 @@ export function berechneAnpassungen(inp: AnpassungsInput): Anpassung[] {
     if (e.datum < inp.heute) continue; // Vergangenes bleibt stehen
     if (e.status !== "geplant" && e.status !== "gepusht") continue;
     if (bereits.has(e.id)) continue;
-    if (e.typ === "ruhe" || e.typ === "gtg" || e.typ === "ep") continue;
+    if (!istLaufTyp(e.typ)) continue; // nur Läufe werden abgeschwächt
 
     const vortag = addTage(e.datum, -1);
     const belastungVortag = belastungAm(vortag);
@@ -127,15 +124,8 @@ export function berechneAnpassungen(inp: AnpassungsInput): Anpassung[] {
       bereitsGepusht: gepusht,
     });
 
-    const regel = taperRegelFuerTag(e.datum);
     const zuLocker = (grund: string): Anpassung => {
-      // Taper: Ersatz nie über die Tagesregel hinaus (Dauer, erlaubte Typen)
-      if (regel && (!regel.erlaubt.includes("lauf_z2") || regel.maxDauerMin < 20)) {
-        return zuRuhe(grund);
-      }
-      const min = regel
-        ? Math.min(regel.maxDauerMin, ersatzMinuten(e.titel, 30))
-        : ersatzMinuten(e.titel, 40);
+      const min = ersatzMinuten(e.titel, 40);
       return {
         einheitId: e.id,
         datum: e.datum,

@@ -77,7 +77,7 @@ function baueFarbStops(track: ProcessedTrack, modus: "hr" | "pace"): FarbStop[] 
   const werte = track.punkte
     .map((p) => (modus === "hr" ? p.hr : p.speed))
     .filter((v): v is number => v != null && v > 0);
-  if (werte.length < 10) return [{ pos: 0, farbe: "#2ee6c7" }, { pos: 1, farbe: "#2ee6c7" }];
+  if (werte.length < 10) return [{ pos: 0, farbe: "#b8f36b" }, { pos: 1, farbe: "#b8f36b" }];
   const sortiert = [...werte].sort((a, b) => a - b);
   const min = sortiert[Math.floor(sortiert.length * 0.05)];
   const max = sortiert[Math.floor(sortiert.length * 0.95)];
@@ -155,7 +155,7 @@ function flyoverPixelRatio(): number {
 
 /** Läuferpunkt als DOM-Element (siehe setzeLaeufer) */
 const LAEUFER_KLASSEN =
-  "pointer-events-none absolute left-0 top-0 z-[1] size-4 rounded-full border-[2.5px] border-white bg-[#2ee6c7] shadow-[0_0_0_4px_rgba(46,230,199,0.25),0_1px_4px_rgba(0,0,0,0.5)] will-change-transform";
+  "pointer-events-none absolute left-0 top-0 z-[1] size-4 rounded-full border-[2.5px] border-white bg-[#b8f36b] shadow-[0_0_0_4px_rgba(184,243,107,0.3),0_1px_4px_rgba(0,0,0,0.5)] will-change-transform";
 
 function clamp(v: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, v));

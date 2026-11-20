@@ -25,11 +25,12 @@ import {
   formatDauer,
   formatDatumLang,
   formatKm,
-  formatNote,
   formatPace,
   isoDatum,
 } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { SportIcon } from "@/components/sport-icon";
+import { sportName } from "@/lib/engine/sport";
 
 interface DetailDaten {
   aktivitaet: {
@@ -71,10 +72,10 @@ interface DetailDaten {
 }
 
 const ZONEN_FARBEN: Record<string, string> = {
-  Z1: "var(--chart-5)",
-  Z2: "var(--status-green)",
+  Z1: "var(--chart-3)",
+  Z2: "var(--primary)",
   Z3: "var(--status-yellow)",
-  Z4: "var(--status-orange)",
+  Z4: "var(--coral)",
   Z5: "var(--status-red)",
 };
 
@@ -182,19 +183,22 @@ export function ActivityDetail({ id }: { id: string }) {
         : lastenAusTemplate("ganzkoerper", 55);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4 p-4 md:p-6">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-[10px] font-medium uppercase tracking-[0.06em] text-dim-foreground">
-            {formatDatumLang(isoDatum(new Date(a.startZeit)))} · {a.typ}
+    <div className="mx-auto max-w-4xl space-y-4 p-4 md:p-6 lg:p-8">
+      <div className="flaeche-hero gh-auf flex items-start justify-between gap-3 rounded-xl p-4 shadow-card ring-1 ring-white/[0.06] md:p-5">
+        <div className="flex min-w-0 items-start gap-3">
+          <SportIcon typ={a.typ} groesse="lg" />
+          <div className="min-w-0">
+          <div className="text-[11px] font-medium text-muted-foreground">
+            {formatDatumLang(isoDatum(new Date(a.startZeit)))} · {sportName(a.typ)}
           </div>
-          <h1 className="stat-display text-xl uppercase tracking-[0.03em]">
-            {a.name ?? a.typ}
+          <h1 className="text-[22px] leading-tight font-semibold tracking-tight md:text-[26px]">
+            {a.name ?? sportName(a.typ)}
           </h1>
           <div className="stat-mono mt-0.5 text-[10px] text-dim-foreground">
             {a.syncedAt
               ? `zuletzt synchronisiert · ${new Date(a.syncedAt).toLocaleString("de-CH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
               : "noch nicht einzeln aktualisiert"}
+          </div>
           </div>
         </div>
         {/* Aktualisieren/Löschen gibt es in der Demo nicht */}
@@ -204,14 +208,14 @@ export function ActivityDetail({ id }: { id: string }) {
             aria-label="Von Garmin aktualisieren"
             disabled={aktualisiert}
             onClick={aktualisieren}
-            className="flex size-11 items-center justify-center rounded-lg"
+            className="flex size-11 items-center justify-center rounded-full bg-white/[0.06] transition-colors hover:bg-white/[0.12]"
           >
             <RefreshCw className={cn("size-4.5", aktualisiert && "gh-spin")} />
           </button>
           <button
             aria-label="Aktivität löschen"
             onClick={() => setLoeschenOffen(true)}
-            className="flex size-11 items-center justify-center rounded-lg text-status-red"
+            className="flex size-11 items-center justify-center rounded-full bg-status-red/10 text-status-red transition-colors hover:bg-status-red/20"
           >
             <Trash2 className="size-4.5" />
           </button>
@@ -264,7 +268,7 @@ export function ActivityDetail({ id }: { id: string }) {
             farbe={m.entkopplung < 0.05 ? "text-status-green" : "text-status-orange"}
           />
         )}
-        {a.vo2maxWert != null && <Stat label="VO₂max" wert={formatNote(a.vo2maxWert)} />}
+        {a.vo2maxWert != null && <Stat label="VO₂max" wert={a.vo2maxWert.toFixed(1)} />}
       </div>
 
       {/* 3D-Flyover — nur wenn die Aktivität überhaupt eine Strecke hat.
@@ -280,7 +284,7 @@ export function ActivityDetail({ id }: { id: string }) {
       {hatStrecke && !istKraftTyp && (
         <Card>
           <CardHeader className="pb-1">
-            <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            <CardTitle className="kachel-titel">
               Verlauf {flyover ? "· Höhe · Herzfrequenz · Pace" : "· Höhenprofil"}
             </CardTitle>
           </CardHeader>
@@ -305,7 +309,7 @@ export function ActivityDetail({ id }: { id: string }) {
       {m.zonenZeit && zonenGesamt > 0 && (
         <Card>
           <CardHeader className="pb-1">
-            <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            <CardTitle className="kachel-titel">
               Herzfrequenz-Zonen
             </CardTitle>
           </CardHeader>
@@ -320,9 +324,9 @@ export function ActivityDetail({ id }: { id: string }) {
                       {grenze.von}–{grenze.bis}
                     </span>
                   )}
-                  <div className="h-4 flex-1 overflow-hidden rounded bg-muted">
+                  <div className="h-4 flex-1 overflow-hidden rounded-full bg-surface">
                     <div
-                      className="h-full rounded"
+                      className="h-full rounded-full"
                       style={{
                         width: `${(z.sekunden / zonenGesamt) * 100}%`,
                         background: ZONEN_FARBEN[z.zone],
@@ -348,7 +352,7 @@ export function ActivityDetail({ id }: { id: string }) {
       {m.splits.length > 0 && (
         <Card>
           <CardHeader className="pb-1">
-            <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            <CardTitle className="kachel-titel">
               Splits
             </CardTitle>
           </CardHeader>
@@ -374,7 +378,7 @@ export function ActivityDetail({ id }: { id: string }) {
                       </td>
                       <td className="py-1 pl-3">
                         <div
-                          className="h-2 rounded bg-primary/70"
+                          className="flaeche-coral h-2 rounded-full"
                           style={{ width: `${Math.max(8, (schnellste / s.paceSKm) * 100)}%` }}
                         />
                       </td>
@@ -391,7 +395,7 @@ export function ActivityDetail({ id }: { id: string }) {
       {istKraftTyp && (
         <Card>
           <CardHeader className="pb-1">
-            <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            <CardTitle className="kachel-titel">
               Muskel-Template
             </CardTitle>
           </CardHeader>
@@ -401,14 +405,14 @@ export function ActivityDetail({ id }: { id: string }) {
                 ? "Überschreibt die aus den Sätzen abgeleitete Belastung."
                 : "Keine Übungsdetails von Garmin — weise die Belastung manuell zu."}
             </p>
-            <div className="flex flex-wrap gap-1 rounded-lg bg-muted p-0.5">
+            <div className="flex flex-wrap gap-1 rounded-2xl bg-surface p-1">
               <button
                 disabled={demo}
                 onClick={() => setzeTemplate(null)}
                 className={cn(
-                  "min-h-11 rounded-md px-3 text-[13px]",
+                  "min-h-10 rounded-full px-3.5 text-[13px] font-medium transition-colors",
                   a.manualMuscleTemplate == null
-                    ? "bg-background font-semibold"
+                    ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground"
                 )}
               >
@@ -420,9 +424,9 @@ export function ActivityDetail({ id }: { id: string }) {
                   disabled={demo}
                   onClick={() => setzeTemplate(t.id)}
                   className={cn(
-                    "min-h-11 rounded-md px-3 text-[13px]",
+                    "min-h-10 rounded-full px-3.5 text-[13px] font-medium transition-colors",
                     a.manualMuscleTemplate === t.id
-                      ? "bg-background font-semibold"
+                      ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground"
                   )}
                 >
@@ -437,10 +441,10 @@ export function ActivityDetail({ id }: { id: string }) {
 
       {/* Krafttraining: Sätze + belastete Muskeln */}
       {istKraftTyp && daten.saetze.length > 0 && (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <Card>
             <CardHeader className="pb-1">
-              <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+              <CardTitle className="kachel-titel">
                 Sätze
               </CardTitle>
             </CardHeader>
@@ -471,7 +475,7 @@ export function ActivityDetail({ id }: { id: string }) {
           </Card>
           <Card>
             <CardHeader className="pb-1">
-              <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+              <CardTitle className="kachel-titel">
                 Belastete Muskeln
               </CardTitle>
             </CardHeader>
@@ -484,7 +488,7 @@ export function ActivityDetail({ id }: { id: string }) {
                   .map(([id, last]) => (
                     <span
                       key={id}
-                      className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                      className="rounded-full bg-surface px-2 py-0.5 text-[10px] text-muted-foreground"
                     >
                       {MUSKEL_NAME[id as MuskelId]} {Math.round(last ?? 0)}
                     </span>
@@ -511,10 +515,10 @@ function Stat({
 }) {
   return (
     <div
-      className={`rounded-md p-2.5 ${hebe ? "bg-primary/10 ring-1 ring-primary/25" : "bg-muted"}`}
+      className={`rounded-2xl p-3 ${hebe ? "bg-primary/10 ring-1 ring-primary/25" : "bg-surface"}`}
     >
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className={`stat-display text-[17px] leading-tight ${farbe ?? ""}`}>{wert}</div>
+      <div className="text-[10px] tracking-wider text-muted-foreground uppercase">{label}</div>
+      <div className={`stat-display mt-0.5 text-xl leading-tight ${farbe ?? ""}`}>{wert}</div>
     </div>
   );
 }

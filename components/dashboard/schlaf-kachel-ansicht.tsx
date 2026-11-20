@@ -1,6 +1,7 @@
 import { AppLink as Link } from "@/components/basis-pfad";
 import { ArrowDownRight, ArrowRight, ArrowUpRight, Minus, Moon } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { KachelKopf } from "@/components/ui/kachel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HypnogrammMini } from "@/components/schlaf/hypnogramm-mini";
 import { PhasenBalken } from "@/components/schlaf/phasen-balken";
@@ -9,14 +10,10 @@ import { formatDauer } from "@/lib/engine/schlaf";
 import { formatDatumLang } from "@/lib/format";
 import type { SchlafDetail } from "@/lib/server/sleep-service";
 
-const TITEL = "text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground";
-
 function Rahmen({ children, titel = "Schlaf letzte Nacht" }: { children: React.ReactNode; titel?: string }) {
   return (
-    <Card className="h-full">
-      <CardHeader className="pb-2">
-        <CardTitle className={TITEL}>{titel}</CardTitle>
-      </CardHeader>
+    <Card className="gh-auf h-full">
+      <KachelKopf icon={Moon} ton="violett" titel={titel} />
       <CardContent>{children}</CardContent>
     </Card>
   );
@@ -62,16 +59,14 @@ export function SchlafKachelAnsicht({ detail, heute }: { detail: SchlafDetail | 
       className="group block h-full rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       aria-label={`Schlaf-Details für die Nacht auf ${formatDatumLang(detail.datum)}`}
     >
-      <Card className="h-full transition-colors group-hover:border-primary/40">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between gap-2">
-            <CardTitle className={TITEL}>
-              Schlaf letzte Nacht
-              {nichtHeute && <span className="ml-1 normal-case tracking-normal text-dim-foreground">· {formatDatumLang(detail.datum)}</span>}
-            </CardTitle>
-            <ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-          </div>
-        </CardHeader>
+      <Card className="gh-auf karte-hover h-full">
+        <KachelKopf
+          icon={Moon}
+          ton="violett"
+          titel="Schlaf letzte Nacht"
+          untertitel={nichtHeute ? formatDatumLang(detail.datum) : undefined}
+          aktion={<ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />}
+        />
         <CardContent className="space-y-3">
           <div className="flex items-end justify-between gap-3">
             <div>

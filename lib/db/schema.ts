@@ -3,6 +3,7 @@ import {
   boolean,
   date,
   doublePrecision,
+  index,
   integer,
   jsonb,
   pgTable,
@@ -120,8 +121,8 @@ export const muscleState = pgTable(
 export const plannedWorkouts = pgTable("planned_workouts", {
   id: text("id").primaryKey(), // uuid
   datum: date("datum").notNull(),
-  phase: integer("phase").notNull(),
-  typ: text("typ").notNull(), // lauf_z2, intervalle, langer_lauf, lastlauf, huegel, kraft, klimmzuege, rumpf, liegestuetze, ruhe, probe_ep, ep (fixer EP-Tag)
+  phase: integer("phase").notNull(), // Woche im 4-Wochen-Block (1–4); ältere Einträge: frühere Phase
+  typ: text("typ").notNull(), // lauf_z2, intervalle, huegel_intervalle, langer_lauf, kraft, klimmzuege, ruhe (ältere Einträge auch weitere Typen)
   titel: text("titel").notNull(),
   beschreibung: text("beschreibung"),
   struktur: jsonb("struktur"), // WorkoutStruktur (lib/garmin/workout-json.ts)
@@ -147,11 +148,15 @@ export const courses = pgTable("courses", {
   erstelltAm: timestamp("erstellt_am", { withTimezone: true }).notNull().defaultNow(),
 });
 
-/** Manuell erfasste EP-Testresultate */
+/**
+ * Manuell erfasste Testresultate des früheren Programms. Wird nicht mehr
+ * gelesen oder geschrieben; die Tabelle bleibt bestehen (keine destruktive
+ * Migration, historische Daten bleiben erhalten).
+ */
 export const epBenchmarks = pgTable("ep_benchmarks", {
   id: text("id").primaryKey(), // uuid
   datum: date("datum").notNull(),
-  disziplin: text("disziplin").notNull(), // lastlauf | klimmzuege | liegestuetze | rumpf_seitlich | rumpf_dorsal
+  disziplin: text("disziplin").notNull(),
   wert: doublePrecision("wert").notNull(), // Sekunden bzw. Wiederholungen
   notiz: text("notiz"),
 });
@@ -246,3 +251,49 @@ export const sleepZeitreihen = pgTable(
   },
   (t) => [primaryKey({ columns: [t.datum, t.metrik] })]
 );
+
+/**
+ * Gewichtsmessungen (Garmin Index S2 und andere Quellen) — eine Zeile pro
+ * Wägung, Schlüssel = Garmin-samplePk. Werte unverändert aus Garmin
+ * (Massen in kg umgerechnet), `raw` = Garmin-Antwort zur Messung.
+ * Schreibt nur der Sync (api/_lib/sync_logic.py, sync_gewicht).
+ */
+export const gewichtMessungen = pgTable(
+  "gewicht_messungen",
+  {
+    id: text("id").primaryKey(),
+    zeitpunkt: timestamp("zeitpunkt", { withTimezone: true }).notNull(),
+    datum: date("datum").notNull(), // Kalendertag laut Garmin (Ortszeit)
+    gewichtKg: doublePrecision("gewicht_kg").notNull(),
+    bmi: doublePrecision("bmi"),
+    koerperfettProz: doublePrecision("koerperfett_proz"),
+    koerperwasserProz: doublePrecision("koerperwasser_proz"),
+    muskelmasseKg: doublePrecision("muskelmasse_kg"),
+    knochenmasseKg: doublePrecision("knochenmasse_kg"),
+    viszeralfett: doublePrecision("viszeralfett"),
+    stoffwechselalter: doublePrecision("stoffwechselalter"),
+    physiqueRating: doublePrecision("physique_rating"),
+    quelle: text("quelle"), // sourceType, z. B. INDEX_SCALE
+    raw: jsonb("raw"),
+    syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("gewicht_messungen_datum_idx").on(t.datum)]
+);
+
+/**
+ * Manuell ergänzte Messbedingungen je Wägung („Wie war deine Messung?").
+ * Eigene Tabelle: der Garmin-Sync fasst sie nie an. null = keine Angabe.
+ */
+export const gewichtBedingungen = pgTable("gewicht_bedingungen", {
+  messungId: text("messung_id")
+    .primaryKey()
+    .references(() => gewichtMessungen.id, { onDelete: "cascade" }),
+  nuechtern: boolean("nuechtern"),
+  vorFruehstueck: boolean("vor_fruehstueck"),
+  nachToilette: boolean("nach_toilette"),
+  mahlzeitVorMin: integer("mahlzeit_vor_min"),
+  fluessigkeitVorMin: integer("fluessigkeit_vor_min"),
+  trainingVorMin: integer("training_vor_min"),
+  badSauna: boolean("bad_sauna"),
+  aktualisiertAm: timestamp("aktualisiert_am", { withTimezone: true }).notNull().defaultNow(),
+});

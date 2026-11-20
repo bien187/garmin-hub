@@ -11,13 +11,13 @@ export async function ladeProfil(): Promise<Profil> {
     .select()
     .from(tables.appSettings)
     .where(eq(tables.appSettings.key, "profil"));
-  // Ein früher gespeichertes `epDatum` wird bewusst verworfen: der
-  // EP-Termin ist fix (lib/ep/konstanten.ts) und nicht mehr Teil des Profils.
-  const { epDatum: _veraltet, ...gespeichert } = (rows[0]?.value ?? {}) as Partial<Profil> & {
-    epDatum?: unknown;
-  };
-  void _veraltet;
-  return { ...PROFIL_DEFAULTS, ...gespeichert };
+  // Nur bekannte Felder übernehmen: Altfelder früherer Versionen, die noch
+  // im gespeicherten JSON stehen, fallen so stillschweigend weg.
+  const gespeichert = (rows[0]?.value ?? {}) as Record<string, unknown>;
+  const bekannt = Object.fromEntries(
+    Object.entries(gespeichert).filter(([k]) => k in PROFIL_DEFAULTS)
+  ) as Partial<Profil>;
+  return { ...PROFIL_DEFAULTS, ...bekannt };
 }
 
 export async function speichereProfil(patch: Partial<Profil>): Promise<Profil> {

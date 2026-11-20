@@ -1065,3 +1065,221 @@ def resync_activity(con, garmin, activity_id) -> dict:
         except Exception:
             pass
     return {"ok": True}
+
+
+# ------------------------------------------------------------------ Gewicht
+#
+# Garmin Index S2 (und manuelle Einträge): jede Wägung wird mit ihrem
+# Zeitstempel und ihrer Garmin-ID (samplePk) einzeln gespeichert — mehrere
+# Messungen pro Tag bleiben getrennt erhalten. Die Werte werden 1:1
+# übernommen (nur Einheiten: Garmin liefert Gramm, gespeichert wird kg),
+# die unveränderte Garmin-Antwort zur Messung liegt in `raw`.
+# Abruf über garminconnect.get_weigh_ins(start, ende) (includeAll=true).
+# Datenschutz: Gewichtswerte werden nirgends geloggt und tauchen in keiner
+# Fehlermeldung auf.
+
+GEWICHT_CHUNK_TAGE = 90
+GEWICHT_BACKFILL_TAGE = 5 * 365
+GEWICHT_NACHLAUF_TAGE = 14
+GEWICHT_CHUNKS_PRO_AUFRUF = 6
+
+
+def _gewicht_eintraege(antwort):
+    """Alle Einzelmessungen aus einer Weigh-in-Antwort (tolerant gegenüber Formen).
+
+    Unterstützt die Range-Antwort (dailyWeightSummaries[].allWeightMetrics),
+    die Tagesansicht (dateWeightList) und eine blanke Liste.
+    """
+    if isinstance(antwort, list):
+        return [e for e in antwort if isinstance(e, dict)]
+    if not isinstance(antwort, dict):
+        return []
+    out = []
+    for s in antwort.get("dailyWeightSummaries") or []:
+        if not isinstance(s, dict):
+            continue
+        alle = s.get("allWeightMetrics")
+        if isinstance(alle, list) and alle:
+            out.extend(e for e in alle if isinstance(e, dict))
+        elif isinstance(s.get("latestWeight"), dict):
+            out.append(s["latestWeight"])
+    for e in antwort.get("dateWeightList") or []:
+        if isinstance(e, dict):
+            out.append(e)
+    return out
+
+
+def _gramm_zu_kg(v):
+    """Garmin liefert Massen in Gramm; Werte < 1000 sind bereits kg."""
+    n = _num(v)
+    if n is None or n <= 0:
+        return None
+    return n / 1000.0 if n >= 1000 else n
+
+
+def _gewicht_zeitpunkt(e):
+    """Exakter Messzeitpunkt als UTC-datetime (timestampGMT, sonst date als Zürcher Ortszeit)."""
+    ts = e.get("timestampGMT")
+    if isinstance(ts, (int, float)) and not isinstance(ts, bool) and ts > 0:
+        return dt.datetime.fromtimestamp(ts / 1000.0, tz=dt.timezone.utc)
+    if isinstance(ts, str) and ts:
+        try:
+            d = dt.datetime.fromisoformat(ts.replace("Z", ""))
+            return d.replace(tzinfo=dt.timezone.utc)
+        except ValueError:
+            pass
+    lokal = e.get("date")
+    if isinstance(lokal, (int, float)) and not isinstance(lokal, bool) and lokal > 0:
+        # `date` ist die Ortszeit der Messung als Epoche → als Zürcher Zeit lesen
+        from zoneinfo import ZoneInfo
+
+        naiv = dt.datetime.fromtimestamp(lokal / 1000.0, tz=dt.timezone.utc).replace(tzinfo=None)
+        return naiv.replace(tzinfo=ZoneInfo("Europe/Zurich")).astimezone(dt.timezone.utc)
+    return None
+
+
+def _gewicht_zeile(e):
+    """Eine Messung → Spaltenwerte, oder None ohne Gewicht/Zeitpunkt."""
+    kg = _gramm_zu_kg(e.get("weight"))
+    zeitpunkt = _gewicht_zeitpunkt(e)
+    if kg is None or zeitpunkt is None:
+        return None
+    datum = e.get("calendarDate")
+    if not (isinstance(datum, str) and len(datum) == 10):
+        from zoneinfo import ZoneInfo
+
+        datum = zeitpunkt.astimezone(ZoneInfo("Europe/Zurich")).date().isoformat()
+    pk = e.get("samplePk")
+    ident = str(pk) if pk not in (None, "") else f"{int(zeitpunkt.timestamp() * 1000)}-{round(kg * 1000)}"
+    return {
+        "id": ident,
+        "zeitpunkt": zeitpunkt.isoformat(),
+        "datum": datum,
+        "kg": kg,
+        "bmi": _num(e.get("bmi")),
+        "fett": _num(e.get("bodyFat")),
+        "wasser": _num(e.get("bodyWater")),
+        "muskel": _gramm_zu_kg(e.get("muscleMass")),
+        "knochen": _gramm_zu_kg(e.get("boneMass")),
+        "visz": _num(e.get("visceralFat")),
+        "alter": _num(e.get("metabolicAge")),
+        "physique": _num(e.get("physiqueRating")),
+        "quelle": e.get("sourceType") if isinstance(e.get("sourceType"), str) else None,
+        "raw": json.dumps(e),
+    }
+
+
+def _gewicht_speichern(con, eintraege) -> int:
+    """Upsert pro Garmin-ID; liefert die Zahl gespeicherter Messungen.
+
+    Eine fehlerhafte Einzelmessung wird übersprungen; ein fehlendes Schema
+    bricht ab (Migration nicht angewendet).
+    """
+    n = 0
+    for e in eintraege:
+        z = _gewicht_zeile(e)
+        if not z:
+            continue
+        try:
+            _gewicht_upsert(con, z)
+        except Exception as fehler:  # noqa: BLE001
+            if _ist_schema_fehler(fehler):
+                raise
+            continue
+        n += 1
+    return n
+
+
+def _gewicht_upsert(con, z):
+    con.run(
+        """
+        INSERT INTO gewicht_messungen (id, zeitpunkt, datum, gewicht_kg, bmi,
+            koerperfett_proz, koerperwasser_proz, muskelmasse_kg, knochenmasse_kg,
+            viszeralfett, stoffwechselalter, physique_rating, quelle, raw, synced_at)
+        VALUES (:id, CAST(:zeitpunkt AS timestamptz), CAST(:datum AS date), :kg, :bmi,
+            :fett, :wasser, :muskel, :knochen, :visz, :alter, :physique, :quelle,
+            CAST(:raw AS jsonb), now())
+        ON CONFLICT (id) DO UPDATE SET
+            zeitpunkt = excluded.zeitpunkt, datum = excluded.datum,
+            gewicht_kg = excluded.gewicht_kg, bmi = excluded.bmi,
+            koerperfett_proz = excluded.koerperfett_proz,
+            koerperwasser_proz = excluded.koerperwasser_proz,
+            muskelmasse_kg = excluded.muskelmasse_kg,
+            knochenmasse_kg = excluded.knochenmasse_kg,
+            viszeralfett = excluded.viszeralfett,
+            stoffwechselalter = excluded.stoffwechselalter,
+            physique_rating = excluded.physique_rating,
+            quelle = excluded.quelle, raw = excluded.raw, synced_at = now()
+        """,
+        **z,
+    )
+
+
+def _gewicht_chunk(con, garmin, von, bis, state) -> int:
+    """Ein Zeitraum (ein Garmin-Request). Fehlertexte ohne Werte."""
+    try:
+        antwort = garmin.get_weigh_ins(von.isoformat(), bis.isoformat())
+    except Exception as e:  # noqa: BLE001
+        if _ist_abbruch_fehler(e):
+            dbmod.set_sync_state(con, "gewicht", state)
+            raise RuntimeError(
+                f"Garmin hat den Gewichts-Abruf abgelehnt ({type(e).__name__}); "
+                "später erneut synchronisieren."
+            ) from None
+        state.setdefault("fehlgeschlagen", []).append(von.isoformat())
+        state["fehlgeschlagen"] = state["fehlgeschlagen"][-20:]
+        _pause()
+        return 0
+    _pause()
+    try:
+        return _gewicht_speichern(con, _gewicht_eintraege(antwort))
+    except Exception as e:  # noqa: BLE001
+        if _ist_schema_fehler(e):
+            dbmod.set_sync_state(con, "gewicht", state)
+            raise RuntimeError(
+                "Gewichts-Tabellen fehlen — Migration drizzle/0003_gewicht.sql anwenden "
+                f"({type(e).__name__})"
+            ) from None
+        raise RuntimeError(f"Gewicht konnte nicht gespeichert werden ({type(e).__name__})") from None
+
+
+def sync_gewicht(con, garmin, heute=None) -> dict:
+    """Ein Chunk Gewicht: erst die letzten 14 Tage (neue Messungen), dann
+    rückwärts der Backfill in 90-Tage-Blöcken bis heute − 5 Jahre."""
+    start_ts = time.monotonic()
+    heute = heute or dt.date.today()
+    state = dbmod.get_sync_state(con, "gewicht") or {}
+    # Neue Messungen der letzten 14 Tage: einmal pro Sync-Lauf, nicht bei
+    # jedem Backfill-Chunk desselben Laufs erneut (Garmin schonen)
+    verarbeitet = 0
+    jetzt = time.time()
+    if jetzt - float(state.get("nachlaufTs") or 0) > 120:
+        verarbeitet = _gewicht_chunk(
+            con, garmin, heute - dt.timedelta(days=GEWICHT_NACHLAUF_TAGE), heute, state
+        )
+        state["nachlaufTs"] = jetzt
+    grenze = heute - dt.timedelta(days=GEWICHT_BACKFILL_TAGE)
+    chunks = 0
+    while not state.get("backfillDone") and chunks < GEWICHT_CHUNKS_PRO_AUFRUF:
+        if time.monotonic() - start_ts > ZEIT_BUDGET_S:
+            break
+        bis = dt.date.fromisoformat(state["bis"]) if state.get("bis") else heute - dt.timedelta(
+            days=GEWICHT_NACHLAUF_TAGE + 1
+        )
+        if bis < grenze:
+            state["backfillDone"] = True
+            break
+        von = max(grenze, bis - dt.timedelta(days=GEWICHT_CHUNK_TAGE - 1))
+        verarbeitet += _gewicht_chunk(con, garmin, von, bis, state)
+        state["bis"] = (von - dt.timedelta(days=1)).isoformat()
+        if von <= grenze:
+            state["backfillDone"] = True
+        dbmod.set_sync_state(con, "gewicht", state)
+        chunks += 1
+    state["lastSyncAt"] = dt.datetime.utcnow().isoformat() + "Z"
+    dbmod.set_sync_state(con, "gewicht", state)
+    return {
+        "verarbeitet": verarbeitet,
+        "hasMore": not state.get("backfillDone"),
+        "state": {k: v for k, v in state.items() if k != "fehlgeschlagen"},
+    }

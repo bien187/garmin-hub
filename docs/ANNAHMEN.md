@@ -4,31 +4,32 @@ Dokumentationspflichtige Annahmen und bewusst kurz gehaltene Zeitfenster.
 
 ## Getroffene Annahmen (dokumentationspflichtig laut Auftrag)
 
-- **EP-Datum:** fix Mi 18.11.2026 (Tag 1) und Do 19.11.2026 (Tag 2) in
-  `lib/ep/konstanten.ts`, nicht mehr editierbar — Details unter
-  „EP-Termin und Taper-Plan".
-- **Notentabellen:** exakt nach der offiziellen „Notentabelle Eignungsprüfung
-  EP_AZ SK" als Stufen ohne Interpolation (`lib/ep/disziplinen.ts`). Bestanden
-  ist die EP bei einem Schnitt von mindestens 3.60 („genügend"). Eine 1.0 gilt
-  laut Tabelle nicht als Ausschluss und wird nur als Warnung angezeigt.
-  Bruchteile: Zeiten zählen bis einschliesslich der Grenze (30:00.4 ist schon
-  über 30:00), Haltezeiten und Wiederholungen ab der Grenze (69.9 s = 69 s).
-- **EP-Notenanzeige ohne Prognose:** Das Dashboard zeigt seit dem 5.11.2026 nur
-  den zuletzt erfassten Wert je Disziplin (`aktuellerEpStand` in
-  `lib/ep/prognose.ts`): kein Trend, kein Lauf-Modell, keine Altersgrenze. Die
-  frühere Trend-Prognose (`berechneEpPrognose`, gedämpft auf ±20 %, mit
-  Lauf-Modell für den Marsch) bleibt im Code, wird aber nicht mehr angezeigt.
+- **Programmstart:** Der 4-Wochen-Block (`lib/engine/block.ts`) zählt ab
+  Mo, 23.11.2026 (`PROGRAMM_START`). Planwochen davor stammen aus dem
+  früheren Programm: Ihre Einträge bleiben unverändert in der DB, die
+  Plan-Ansicht zeigt sie neutral (Art + Dauer) und schreibgeschützt
+  (`lib/engine/plan-archiv.ts`); deren alte Wochenhinweise werden nicht mehr
+  angezeigt. Die Tabelle `ep_benchmarks` bleibt bestehen, wird aber weder
+  gelesen noch geschrieben.
+- **Klimmzug-Kennwert:** meiste Wiederholungen eines Klimmzug-Satzes ohne
+  Zusatzgewicht aus den Garmin-Kraftsätzen der letzten 8 Wochen
+  (`klimmzugMaxAusSaetzen`). Ohne Wert gibt der Plan keine Zahl vor, sondern
+  „2–3 Wiederholungen vor dem Versagen aufhören".
 - **Health-Backfill:** 365 Tage (in `api/_lib/sync_logic.py` änderbar).
 - **Course-Push:** Das JSON-Schema von `POST /course-service/course` ist
   inoffiziell; sollte Garmin es ändern, dient der GPX-Export als Fallback
   (manueller Import in Garmin Connect Web).
 - **Kraft-Workout-Push:** Das Workout-Format bildet keine vollständige
   Satzstruktur für alle Übungen ab — Übungen landen als beschriftete
-  Schritte auf der Uhr; Rumpf-Einheiten nutzen zusätzlich das In-App-
-  Metronom.
-- **Muskelmodell:** Heuristik (im UI gekennzeichnet); Lastläufe werden über
-  den Aktivitätsnamen erkannt („Lastlauf", „Ruck", „Weste" bzw. „… kg").
-- **Wochenindex** für den Entlastungsrhythmus zählt ab Mo, 13.07.2026.
+  Schritte auf der Uhr. Gym-Einheiten gehen standardmässig nicht an die Uhr.
+- **Muskelmodell:** Heuristik (im UI gekennzeichnet); Läufe mit Zusatzlast
+  (Rucksack/Weste) werden über den Aktivitätsnamen erkannt und belasten
+  zusätzlich Rumpf und Rücken.
+- **Gewicht:** Feldnamen der Weight-Service-Antworten folgen
+  `garminconnect` 0.2.25 (`get_weigh_ins`) — der Parser ist tolerant und
+  speichert die Rohantwort je Messung in `raw`. Mit
+  `scripts/garmin/dump_gewicht.py` lassen sich echte Antworten als Fixture
+  sichern und prüfen (siehe [GEWICHT.md](GEWICHT.md)).
 - **Flyover-Kamera:** MapLibre besitzt keine FreeCamera-API (Mapbox-only);
   der Verfolger-Effekt ist mit `jumpTo` + geglättetem Bearing entlang eines
   `bezier-spline`-Kamerapfads umgesetzt.
@@ -75,8 +76,6 @@ Dokumentationspflichtige Annahmen und bewusst kurz gehaltene Zeitfenster.
   (ältere Zeilen bleiben per Upsert erhalten).
 - **Bewusst bei kurzen Fenstern geblieben**, weil sie aktuelle Zustände
   statt Verläufe zeigen:
-  - EP-Noten: zeigen den zuletzt erfassten Wert, unabhängig vom Alter
-    (siehe „EP-Notenanzeige ohne Prognose").
   - ACWR 7:28 und Wochenvergleich (diese Woche vs. Vorwoche).
   - Körper-Tab (`app/api/body/route.ts`): Muskel-Sparklines 14 Tage
     (Erschöpfung klingt mit τ = 30–48 h ab, ältere Werte sind 0) und

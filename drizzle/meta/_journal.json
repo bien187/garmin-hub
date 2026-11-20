@@ -22,6 +22,13 @@
       "when": 1793835997713,
       "tag": "0002_schlaf",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795176305149,
+      "tag": "0003_gewicht",
+      "breakpoints": true
     }
   ]
 }

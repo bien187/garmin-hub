@@ -2,7 +2,7 @@
 
 import { FormEvent, Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Mountain } from "lucide-react";
+import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -40,12 +40,12 @@ function LoginForm() {
         placeholder="Passwort"
         value={passwort}
         onChange={(e) => setPasswort(e.target.value)}
-        className="h-12 text-center"
+        className="h-12 rounded-xl text-center"
       />
       {fehler && (
         <p className="text-center text-sm text-status-red">{fehler}</p>
       )}
-      <Button type="submit" className="h-12 w-full" disabled={laden || !passwort}>
+      <Button type="submit" className="flaeche-lime h-12 w-full rounded-xl font-semibold" disabled={laden || !passwort}>
         {laden ? "Anmelden…" : "Anmelden"}
       </Button>
     </form>
@@ -54,15 +54,11 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center gap-8 px-6">
-      <div className="flex flex-col items-center gap-3">
-        <Mountain className="size-12 text-primary" strokeWidth={2.5} />
-        <h1 className="stat-display text-3xl uppercase tracking-wider">
-          Garmin Hub
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Bereit ist, wer vorbereitet ist.
-        </p>
+    <div className="flaeche-hero flex min-h-dvh flex-col items-center justify-center gap-8 px-6">
+      <div className="flex flex-col items-center gap-3 text-center">
+        <Logo className="size-16" />
+        <h1 className="text-3xl font-semibold tracking-tight">Garmin Hub</h1>
+        <p className="text-sm text-muted-foreground">Personal Fitness &amp; Running Performance</p>
       </div>
       <Suspense>
         <LoginForm />

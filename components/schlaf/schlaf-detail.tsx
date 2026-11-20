@@ -54,7 +54,7 @@ interface Detail {
 
 type Zustand = { status: "laden" } | { status: "fehler" } | { status: "leer" } | { status: "ok"; detail: Detail };
 
-const TITEL = "text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground";
+const TITEL = "kachel-titel";
 const ACHSE = { fontSize: 10, fill: "var(--muted-foreground)" };
 const CHART_H = "h-44"; // 176 px auf dem Handy
 
@@ -864,7 +864,7 @@ function AnalyseKarte({ d }: { d: Detail | null }) {
               )}
             </section>
             <section>
-              <h3 className="mb-1 font-semibold">Was das für Training und EP bedeutet</h3>
+              <h3 className="mb-1 font-semibold">Was das für dein Training bedeutet</h3>
               <ul className="list-disc space-y-1 pl-5">
                 {a.empfehlungen.map((t, i) => (
                   <li key={i}>{t}</li>

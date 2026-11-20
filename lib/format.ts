@@ -111,8 +111,42 @@ export function formatZeit(d: Date): string {
   return d.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" });
 }
 
-/** Note auf 1 Dezimale, Schweizer Stil */
-export function formatNote(n: number | null | undefined): string {
-  if (n == null || !isFinite(n)) return "–";
-  return n.toFixed(1);
+/** Pace ohne Einheit („5:12") — null/ungültig → „–" */
+export function formatPaceKurz(sProKm: number | null | undefined): string {
+  if (!sProKm || !isFinite(sProKm) || sProKm <= 0) return "–";
+  const m = Math.floor(sProKm / 60);
+  const s = Math.round(sProKm % 60);
+  return s === 60 ? `${m + 1}:00` : `${m}:${String(s).padStart(2, "0")}`;
+}
+
+/** Sekunden → „3:45" (Stunden:Minuten) für Trainingszeiten */
+export function formatStundenMinuten(s: number): string {
+  const min = Math.round(s / 60);
+  return `${Math.floor(min / 60)}:${String(min % 60).padStart(2, "0")}`;
+}
+
+/** „Heute", „Morgen", „Gestern" oder „Mi, 25. Nov." relativ zu `heute` */
+export function relativerTag(datum: string, heute: string): string {
+  const diff = tageDiff(heute, datum);
+  if (diff === 0) return "Heute";
+  if (diff === 1) return "Morgen";
+  if (diff === -1) return "Gestern";
+  const d = new Date(datum + "T12:00:00");
+  return d.toLocaleDateString("de-CH", { weekday: "short", day: "numeric", month: "short" });
+}
+
+/** Stunde (0–23) eines Zeitpunkts in Europe/Zurich */
+export function stundeZuerich(ms: number): number {
+  const teil = new Intl.DateTimeFormat("de-CH", { timeZone: "Europe/Zurich", hour: "numeric", hourCycle: "h23" })
+    .formatToParts(new Date(ms))
+    .find((p) => p.type === "hour");
+  return teil ? Number(teil.value) : new Date(ms).getHours();
+}
+
+/** Begrüssung nach Tageszeit */
+export function tageszeitGruss(stunde: number): string {
+  if (stunde >= 5 && stunde < 11) return "Guten Morgen";
+  if (stunde >= 11 && stunde < 17) return "Hallo";
+  if (stunde >= 17 && stunde < 23) return "Guten Abend";
+  return "Hallo, Nachteule";
 }

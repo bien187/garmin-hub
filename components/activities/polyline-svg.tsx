@@ -1,28 +1,32 @@
 import { Dumbbell } from "lucide-react";
 import { decodePolyline } from "@/lib/geo/polyline";
+import { cn } from "@/lib/utils";
 
 /** Statische Mini-Karte einer Aktivität als SVG-Pfad (kein Karten-Request) */
 export function PolylineSvg({
   encoded,
   className,
   strokeWidth = 2.5,
+  farbe = "var(--coral)",
 }: {
   encoded: string | null;
   className?: string;
   strokeWidth?: number;
+  /** Linienfarbe (Standard: Coral = Laufen) */
+  farbe?: string;
 }) {
   if (!encoded) {
     // Kraft/ohne GPS: gleiche Fläche mit Hantel-Icon (kein Text)
     return (
       <div
-        className={`flex items-center justify-center rounded-lg bg-card text-dim-foreground ${className ?? ""}`}
+        className={cn("flex items-center justify-center rounded-lg bg-card text-dim-foreground", className)}
       >
         <Dumbbell className="size-4.5" />
       </div>
     );
   }
   const punkte = decodePolyline(encoded);
-  if (punkte.length < 2) return <div className={`rounded-lg bg-card ${className ?? ""}`} />;
+  if (punkte.length < 2) return <div className={cn("rounded-lg bg-card", className)} />;
 
   const lats = punkte.map((p) => p[0]);
   const lngs = punkte.map((p) => p[1]);
@@ -47,11 +51,11 @@ export function PolylineSvg({
     .join("");
 
   return (
-    <svg viewBox="0 0 100 100" className={`rounded-lg bg-card ${className ?? ""}`}>
+    <svg viewBox="0 0 100 100" className={cn("rounded-lg bg-card", className)}>
       <path
         d={d}
         fill="none"
-        stroke="var(--primary)"
+        stroke={farbe}
         strokeWidth={strokeWidth}
         strokeLinejoin="round"
         strokeLinecap="round"

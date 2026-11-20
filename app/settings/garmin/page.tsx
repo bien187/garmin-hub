@@ -6,7 +6,7 @@ export const metadata = { title: "Garmin-Verbindung" };
 export default function GarminSettingsPage() {
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4 md:p-6">
-      <h1 className="stat-display text-2xl uppercase tracking-wide">
+      <h1 className="text-[26px] leading-tight font-semibold tracking-tight">
         Garmin-Verbindung
       </h1>
       <GarminCard />

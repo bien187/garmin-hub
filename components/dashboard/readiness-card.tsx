@@ -118,17 +118,17 @@ export function ReadinessCard({ daten }: { daten: ReadinessDaten }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2.5">
-        <span className={cn("size-3 shrink-0 rounded-full", ampelFarbe(gesamt))} />
-        <p className="text-sm">{satz}</p>
+        <span className={cn("size-3 shrink-0 rounded-full shadow-[0_0_10px_currentColor]", ampelFarbe(gesamt))} />
+        <p className="text-sm leading-snug">{satz}</p>
       </div>
       <div className="grid grid-cols-5 gap-1.5">
         {einzel.map((e) => (
           <div
             key={e.label}
-            className="flex flex-col items-center gap-1 rounded-lg bg-muted px-1 py-2"
+            className="flex flex-col items-center gap-1 rounded-xl bg-surface px-1 py-2.5"
           >
             <span className={cn("size-1.5 rounded-full", ampelFarbe(e.ampel))} />
-            <span className="stat-display text-lg leading-none">{e.wert}</span>
+            <span className="stat-display text-xl leading-none">{e.wert}</span>
             <span className="text-center text-[9px] leading-tight text-muted-foreground">
               {e.label}
             </span>

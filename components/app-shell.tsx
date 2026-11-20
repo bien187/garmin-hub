@@ -3,26 +3,19 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import {
-  Activity,
-  CalendarRange,
-  LayoutDashboard,
-  Map as MapIcon,
-  PersonStanding,
-  Settings,
-  Mountain,
-} from "lucide-react";
+import { CalendarCheck2, Footprints, Gauge, HeartPulse, Route, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ToastProvider } from "@/components/ui/toast";
+import { Logo } from "@/components/logo";
 import { BasisPfadProvider } from "@/components/basis-pfad";
 import { DEMO_BASIS, istDemoPfad, mitBasis, ohneBasis } from "@/lib/demo/pfade";
 
 const TABS = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/activities", label: "Aktivitäten", icon: Activity },
-  { href: "/map", label: "Karte", icon: MapIcon },
-  { href: "/plan", label: "Plan", icon: CalendarRange },
-  { href: "/body", label: "Körper", icon: PersonStanding },
+  { href: "/", label: "Dashboard", icon: Gauge },
+  { href: "/activities", label: "Aktivitäten", icon: Footprints },
+  { href: "/map", label: "Karte", icon: Route },
+  { href: "/plan", label: "Plan", icon: CalendarCheck2 },
+  { href: "/body", label: "Körper", icon: HeartPulse },
 ] as const;
 
 function isActive(pathname: string, href: string) {
@@ -140,58 +133,82 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       style={{ height: "var(--app-h, 100dvh)" }}
     >
       {/* Sidebar (Desktop) */}
-      <aside className="hidden md:flex md:w-56 md:flex-col md:border-r md:border-sidebar-border md:bg-sidebar fixed inset-y-0 z-40">
-        <Link href={ziel("/")} className="flex items-center gap-2.5 px-5 py-5">
-          <Mountain className="size-6 text-primary" strokeWidth={2.5} />
-          <span className="stat-display text-xl tracking-wide uppercase">
-            Garmin Hub
-          </span>
-          {demo && (
-            <span className="rounded border border-primary/40 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-primary">
-              Demo
+      <aside className="fixed inset-y-0 z-40 hidden md:flex md:w-60 md:flex-col md:border-r md:border-sidebar-border md:bg-sidebar">
+        <Link href={ziel("/")} className="flex items-center gap-3 px-5 pt-6 pb-7">
+          <Logo className="size-9" />
+          <span className="min-w-0">
+            <span className="flex items-center gap-1.5 text-[15px] font-semibold tracking-tight">
+              Garmin Hub
+              {demo && (
+                <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.08em] text-primary">
+                  Demo
+                </span>
+              )}
             </span>
-          )}
+            <span className="block text-[11px] leading-tight text-muted-foreground">
+              Personal Fitness &amp; Running Performance
+            </span>
+          </span>
         </Link>
         <nav className="flex flex-1 flex-col gap-1 px-3">
-          {TABS.map(({ href, label, icon: Icon }) => (
-            <Link
-              key={href}
-              href={ziel(href)}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                isActive(pathname, href)
-                  ? "bg-sidebar-accent text-primary"
-                  : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
-              )}
-            >
-              <Icon className="size-5" />
-              {label}
-            </Link>
-          ))}
+          {TABS.map(({ href, label, icon: Icon }) => {
+            const aktiv = isActive(pathname, href);
+            return (
+              <Link
+                key={href}
+                href={ziel(href)}
+                aria-current={aktiv ? "page" : undefined}
+                className={cn(
+                  "group flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors",
+                  aktiv
+                    ? "bg-primary/10 text-foreground"
+                    : "text-muted-foreground hover:bg-surface hover:text-foreground"
+                )}
+              >
+                <span
+                  className={cn(
+                    "flex size-8 items-center justify-center rounded-lg transition-colors",
+                    aktiv ? "bg-primary text-primary-foreground" : "bg-surface text-muted-foreground group-hover:text-foreground"
+                  )}
+                >
+                  <Icon className="size-4.5" strokeWidth={aktiv ? 2.4 : 2} />
+                </span>
+                {label}
+              </Link>
+            );
+          })}
         </nav>
         {/* Einstellungen/Garmin-Verbindung gibt es in der Demo nicht */}
         {!demo && (
-        <div className="px-3 pb-4">
-          <Link
-            href={ziel("/settings")}
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-              isActive(pathname, "/settings")
-                ? "bg-sidebar-accent text-primary"
-                : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
-            )}
-          >
-            <Settings className="size-5" />
-            Einstellungen
-          </Link>
-        </div>
+          <div className="px-3 pb-5">
+            <Link
+              href={ziel("/settings")}
+              aria-current={isActive(pathname, "/settings") ? "page" : undefined}
+              className={cn(
+                "group flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors",
+                isActive(pathname, "/settings")
+                  ? "bg-primary/10 text-foreground"
+                  : "text-muted-foreground hover:bg-surface hover:text-foreground"
+              )}
+            >
+              <span
+                className={cn(
+                  "flex size-8 items-center justify-center rounded-lg",
+                  isActive(pathname, "/settings") ? "bg-primary text-primary-foreground" : "bg-surface"
+                )}
+              >
+                <Settings className="size-4.5" />
+              </span>
+              Einstellungen
+            </Link>
+          </div>
         )}
       </aside>
 
       {/* Content-Spalte: Scrollbereich (flex-1) + Navbar (shrink-0) im Flow.
           Da der Rahmen `fixed inset-0` exakt den Viewport füllt, sitzt die
           Navbar als letztes Flex-Kind bündig an der physischen Unterkante. */}
-      <main className="flex min-w-0 flex-1 flex-col md:ml-56">
+      <main className="flex min-w-0 flex-1 flex-col md:ml-60">
         {fullBleed ? (
           <div className="min-h-0 flex-1">{children}</div>
         ) : (
@@ -210,18 +227,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             eine Lücke — im Dunkelmodus nicht als Lücke erkennbar, sondern
             als zu hohe Navigationsleiste. */}
         {!tastaturOffen && (
-          <nav className="nav-bar fixed inset-x-0 bottom-0 z-40 border-t border-border bg-sidebar/95 backdrop-blur md:hidden">
+          <nav className="nav-bar fixed inset-x-0 bottom-0 z-40 border-t border-border bg-sidebar/90 backdrop-blur-xl md:hidden">
             <div className="relative grid h-full grid-cols-5">
-              {/* Aktiv-Indikator: fährt per translateX zur aktiven Zelle (§6 Nr.1) */}
+              {/* Aktiv-Indikator: fährt per translateX zur aktiven Zelle */}
               {aktiverIndex >= 0 && (
                 <div
-                  className="pointer-events-none absolute top-0 left-0 h-0.5 w-1/5"
+                  className="pointer-events-none absolute top-0 left-0 h-[3px] w-1/5"
                   style={{
                     transform: `translateX(${aktiverIndex * 100}%)`,
                     transition: "transform var(--dur-base) var(--ease-base)",
                   }}
                 >
-                  <div className="mx-auto h-full w-8 rounded-full bg-primary" />
+                  <div className="mx-auto h-full w-7 rounded-b-full bg-primary shadow-[0_0_12px_rgb(184_243_107/60%)]" />
                 </div>
               )}
               {TABS.map(({ href, label, icon: Icon }) => {
@@ -230,12 +247,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <Link
                     key={href}
                     href={ziel(href)}
+                    aria-current={active ? "page" : undefined}
                     className={cn(
-                      "flex h-full flex-col items-center justify-center gap-0.5 text-[9px] font-medium leading-none",
+                      "flex h-full flex-col items-center justify-center gap-1 text-[10px] font-medium leading-none transition-colors",
                       active ? "text-primary" : "text-muted-foreground"
                     )}
                   >
-                    <Icon className="size-4.5" strokeWidth={active ? 2.5 : 2} />
+                    <Icon className="size-[19px]" strokeWidth={active ? 2.4 : 1.9} />
                     {label}
                   </Link>
                 );

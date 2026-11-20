@@ -8,9 +8,7 @@ export default function SettingsPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-4 p-4 md:p-6">
       <div className="flex items-center justify-between">
-        <h1 className="stat-display text-2xl uppercase tracking-wide">
-          Einstellungen
-        </h1>
+        <h1 className="text-[26px] leading-tight font-semibold tracking-tight md:text-[30px]">Einstellungen</h1>
         <LogoutButton />
       </div>
       <GarminCard />

@@ -111,7 +111,7 @@ Alle Werte sind Uhr-Schätzungen; Richtwerte sind keine Diagnose.
 | Baseline | 7- und 30-Tage-Mittel OHNE den betrachteten Tag, nur Nächte mit Wert; unter ±3 % = „gleich"; Bewertung je Metrik (HRV hoch = gut, Ruhepuls hoch = schlecht, Atemfrequenz neutral). Für die Vergleichsnächte zählen Garmins Nachtwerte (`avgOvernightHrv`, `averageRespirationValue`, `lowestSpO2Value`, `restingHeartRate`) |
 | Regel-Bewertung | Eigene, transparente Punkte (Dauer 40, Effizienz 20, Tiefschlaf 15, REM 15, Wachphasen 10), separat vom Garmin-Score, nie als Ersatz |
 | Datenqualität | Rohpunkte / erwartete Punkte (Bettzeit ÷ nominale Auflösung), ≥ 80 % gut, sonst lückenhaft, 0 % = nicht verfügbar |
-| Empfehlungen (max. 3) | EP-Tag bzw. Taper-Phase → Schlaf hat Vorrang; < 7 h in drei Nächten in Folge → harte Einheit verschieben; HRV unter dem Bereich → Intensität senken; Tiefschlaf < 75 % des 30-Tage-Mittels (≥ 5 Nächte) → kein Lastlauf, keine schwere Beineinheit |
+| Empfehlungen (max. 3) | < 7 h in drei Nächten in Folge → harte Einheit verschieben; HRV unter dem Bereich → Intensität senken; Tiefschlaf < 75 % des 30-Tage-Mittels (≥ 5 Nächte) → keine harte Einheit, keine schwere Beineinheit |
 | Warnhinweis | SpO2 ≥ 2× bzw. ≥ 5 Min unter 90 %, oder Atemfrequenz ≥ 30-Tage-Mittel + 3 Atemzüge/min bei ≥ 60 % der Nacht (≥ 5 Vergleichsnächte). Text: kein medizinischer Befund, bei Beschwerden ärztlich abklären |
 
 ## Schlaf-Kachel im Dashboard
@@ -129,7 +129,7 @@ Suspense-Grenze mit Skeleton, damit das Dashboard nicht wartet. Ohne Daten:
 97ea34f wieder entfernt; die Kachel ist deshalb fest neben der Fitness-Kurve
 eingeordnet. Phasenfarben: neue Tokens `--schlaf-tief/-leicht/-rem/-wach`
 (dunkel und hell) in `app/globals.css`, Blau-Familie, getrennt vom Akzent
-`--primary`, vom EP-Token und von den Ampelfarben.
+`--primary` und von den Ampelfarben.
 
 ## Schlaf-Detailansicht (`/schlaf/<datum>`)
 
@@ -144,7 +144,7 @@ SpO2 (Linien bei 92/90 %, Minimum, Zeit unter den Schwellen, Warnhinweis) ·
 Atemfrequenz (Verlauf mit Phasenhintergrund, Balken je Schlafphase) · HRV
 (Band laut Garmin) · Stress · Body Battery · Bewegung und unruhige Momente ·
 Vergleich 7/30 Tage · Analyse (Zusammenfassung, Auffälligkeiten, „Was das für
-Training und EP bedeutet", Regel-Bewertung) · Datenqualität · Hinweis
+dein Training bedeutet", Regel-Bewertung) · Datenqualität · Hinweis
 „Uhr-Schätzungen, keine medizinische Messung".
 
 Alle Zeit-Charts liegen auf demselben Minutenraster über die Bettzeit

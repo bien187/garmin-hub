@@ -4,10 +4,10 @@ import { randomUUID } from "node:crypto";
 import { getDb, tables } from "@/lib/db";
 import { ladeProfil } from "@/lib/profile";
 import { ladeZonen } from "@/lib/server/zonen-service";
-import { ladeLaufModell } from "@/lib/server/ep-service";
+import { ladeLaufModell } from "@/lib/server/lauf-modell-service";
 import { trainingsPaces } from "@/lib/engine/paces";
 import { banisterTrimp } from "@/lib/engine/trimp";
-import { aktuellePhase } from "@/lib/ep/phasen";
+import { trainingsblock } from "@/lib/engine/block";
 import { heuteIso } from "@/lib/format";
 import { WorkoutSchritt, WorkoutStruktur } from "@/lib/garmin/workout-types";
 
@@ -157,11 +157,10 @@ export async function POST(req: NextRequest) {
   let planId: string | null = null;
   if (wunsch.speichern) {
     planId = randomUUID();
-    const profilPhase = aktuellePhase(heuteIso());
     await db.insert(tables.plannedWorkouts).values({
       id: planId,
       datum: heuteIso(),
-      phase: profilPhase.nr,
+      phase: trainingsblock(heuteIso()).woche,
       typ: wunsch.anstrengung === "hart" ? "intervalle" : "lauf_z2",
       titel: name,
       beschreibung: `Frei-Schnauze-Workout (${wunsch.anstrengung}${wunsch.mitHm ? ", mit Hm" : ""})`,

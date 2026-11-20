@@ -11,6 +11,7 @@ type SyncPhase =
   | "zonen"
   | "activities"
   | "health"
+  | "gewicht"
   | "schlaf"
   | "finalize"
   | "fehler";
@@ -18,7 +19,8 @@ type SyncPhase =
 /**
  * „Jetzt synchronisieren": ruft die Chunk-API in einer Schleife auf,
  * bis hasMore=false, dann finalize (Engine-Neuberechnung).
- * Nach „health" läuft der Schlaf-Backfill („schlaf") mit Fortschritt x/y;
+ * Nach „health" folgen die Wägungen der Waage („gewicht") und der
+ * Schlaf-Backfill („schlaf") mit Fortschritt x/y;
  * ist er einmal durch, antwortet die Bridge sofort mit hasMore=false.
  * Zusätzlich Pull-to-Refresh auf Mobile (Overscroll am Seitenanfang).
  */
@@ -39,7 +41,7 @@ export function SyncButton({ kompakt = false }: { kompakt?: boolean }) {
     setSchlaf(null);
     let schlafFehler: string | null = null;
     try {
-      for (const typ of ["zonen", "activities", "health", "schlaf"] as const) {
+      for (const typ of ["zonen", "activities", "health", "gewicht", "schlaf"] as const) {
         setPhase(typ);
         let hasMore = true;
         let schutz = 0;
@@ -55,9 +57,10 @@ export function SyncButton({ kompakt = false }: { kompakt?: boolean }) {
               data.code === "mfa_required"
                 ? "Garmin verlangt einen MFA-Code — unter Einstellungen eingeben."
                 : (data.error ?? "Sync fehlgeschlagen");
-            // Schlaf-Backfill blockiert die Berechnung nicht; Rest beim nächsten Sync
-            if (typ === "schlaf" && data.code !== "mfa_required") {
-              schlafFehler = `Schlaf-Historie: ${meldung}`;
+            // Schlaf- und Gewichts-Backfill blockieren die Berechnung nicht;
+            // der Rest folgt beim nächsten Sync
+            if ((typ === "schlaf" || typ === "gewicht") && data.code !== "mfa_required") {
+              schlafFehler = `${typ === "schlaf" ? "Schlaf-Historie" : "Gewicht"}: ${meldung}`;
               break;
             }
             throw new Error(meldung);
@@ -135,6 +138,8 @@ export function SyncButton({ kompakt = false }: { kompakt?: boolean }) {
         ? `Läufe ${chunks}`
         : phase === "health"
           ? `Gesundheit ${chunks}`
+          : phase === "gewicht"
+            ? "Gewicht"
           : phase === "schlaf"
             ? schlaf && schlaf.gesamt > 0
               ? `Schlaf-Historie ${schlaf.erledigt}/${schlaf.gesamt}`
@@ -152,7 +157,7 @@ export function SyncButton({ kompakt = false }: { kompakt?: boolean }) {
           disabled={laeuft}
           aria-label="Synchronisieren"
           className={cn(
-            "flex min-h-11 items-center gap-1.5 rounded-lg bg-muted px-2.5",
+            "flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full bg-white/[0.07] px-3 ring-1 ring-white/10 backdrop-blur transition-colors hover:bg-white/[0.12]",
             phase === "fehler" && "text-status-red"
           )}
         >

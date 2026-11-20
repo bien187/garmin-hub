@@ -28,15 +28,6 @@ export async function POST(req: NextRequest) {
   if (typeof body.gewichtKg === "number" && body.gewichtKg > 40 && body.gewichtKg < 160) {
     patch.gewichtKg = body.gewichtKg;
   }
-  // epDatum wird nicht mehr angenommen (fixer Termin, lib/ep/konstanten.ts)
-  if (
-    typeof body.lastZuschlagSproKmPro10kg === "number" &&
-    body.lastZuschlagSproKmPro10kg >= 3 &&
-    body.lastZuschlagSproKmPro10kg <= 20
-  ) {
-    patch.lastZuschlagSproKmPro10kg = body.lastZuschlagSproKmPro10kg;
-  }
-
   if (typeof body.wochenBudgetH === "number" && body.wochenBudgetH > 0 && body.wochenBudgetH <= 40) {
     patch.wochenBudgetH = Math.round(body.wochenBudgetH * 10) / 10;
   }

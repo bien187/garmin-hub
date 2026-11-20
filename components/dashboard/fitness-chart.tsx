@@ -48,25 +48,34 @@ export function FitnessChart({ daten }: { daten: FitnessPunkt[] }) {
   }
   return (
     <div className="space-y-2">
-      <ZeitraumUmschalter wert={aktiv} verfuegbar={verfuegbar} onChange={setZeitraum} className="ml-auto" />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-3 text-[11px] text-muted-foreground">
+          <span className="flex items-center gap-1.5"><span className="h-0.5 w-3 rounded bg-primary" /> Fitness (CTL)</span>
+          <span className="flex items-center gap-1.5"><span className="h-0.5 w-3 rounded bg-chart-3" /> Ermüdung (ATL)</span>
+          <span className="flex items-center gap-1.5"><span className="h-0.5 w-3 rounded bg-coral" /> Form (TSB)</span>
+        </div>
+        <ZeitraumUmschalter wert={aktiv} verfuegbar={verfuegbar} onChange={setZeitraum} />
+      </div>
       <div className="h-56 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={sichtbar} margin={{ top: 4, right: 4, bottom: 0, left: -18 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <CartesianGrid vertical={false} stroke="var(--border)" />
             <XAxis
               dataKey="datum"
               ticks={achse.ticks}
               tickFormatter={achse.format}
-              tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+              tick={{ fontSize: 10, fill: "var(--dim-foreground)" }}
+              tickLine={false}
+              axisLine={false}
               interval={achse.modus === "monat" ? "preserveStart" : "preserveStartEnd"}
               minTickGap={achse.modus === "monat" ? 6 : 40}
             />
-            <YAxis tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} />
+            <YAxis tick={{ fontSize: 10, fill: "var(--dim-foreground)" }} tickLine={false} axisLine={false} />
             <Tooltip
               contentStyle={{
                 background: "var(--popover)",
                 border: "1px solid var(--border)",
-                borderRadius: 8,
+                borderRadius: 12,
                 fontSize: 12,
               }}
               labelFormatter={(l) => formatDatum(String(l))}
@@ -81,7 +90,7 @@ export function FitnessChart({ daten }: { daten: FitnessPunkt[] }) {
               dataKey="ctl"
               stroke="var(--primary)"
               fill="var(--primary)"
-              fillOpacity={0.12}
+              fillOpacity={0.14}
               strokeWidth={2}
             />
             <Line type="monotone" dataKey="atl" stroke="var(--chart-3)" dot={false} strokeWidth={1.5} />

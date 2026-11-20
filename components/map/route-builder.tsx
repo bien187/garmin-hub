@@ -310,7 +310,7 @@ export function RouteBuilder() {
         type: "line",
         source: "builder-route",
         layout: { "line-cap": "round", "line-join": "round" },
-        paint: { "line-width": 4.5, "line-color": "#2ee6c7" },
+        paint: { "line-width": 4.5, "line-color": "#b8f36b" },
       });
       map.addSource("gespeicherte", {
         type: "geojson",
@@ -586,7 +586,7 @@ export function RouteBuilder() {
       </div>
 
       {/* Statuszeile + Aktionen unten */}
-      <div className="absolute inset-x-2 bottom-2 z-10 space-y-1.5 md:inset-x-auto md:left-2 md:w-95">
+      <div className="karte-panel-unten absolute inset-x-2 z-10 space-y-1.5 md:inset-x-auto md:left-2 md:w-95">
         {meldung && (
           <div
             className="cursor-pointer rounded-lg bg-background/90 px-3 py-2 text-xs backdrop-blur"
@@ -660,7 +660,7 @@ export function RouteBuilder() {
               size="sm"
               variant="secondary"
               disabled={anzahlWegpunkte < 2}
-              onClick={() => gpxDownload("grenadier-route", zustandRef.current.segmente.flat())}
+              onClick={() => gpxDownload("garmin-hub-route", zustandRef.current.segmente.flat())}
             >
               <Download className="size-4" /> GPX
             </Button>

@@ -7,14 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { zonenAusProfil, type ZonenSatz } from "@/lib/hr-zonen";
 import { cn } from "@/lib/utils";
-import { formatDatumNumerisch } from "@/lib/format";
-import { EP_DATUM, EP_TAG_2 } from "@/lib/ep/konstanten";
 
 interface ProfilForm {
   hfMax: number;
   ruhepuls: number;
   gewichtKg: number;
-  lastZuschlagSproKmPro10kg: number;
   wochenBudgetH: number;
 }
 
@@ -84,7 +81,7 @@ export function ProfileForm() {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+        <CardTitle className="kachel-titel">
           Profil & Zonen
         </CardTitle>
       </CardHeader>
@@ -108,24 +105,11 @@ export function ProfileForm() {
             onChange={(v) => setForm({ ...form, gewichtKg: v })}
           />
           <Feld
-            label="Last-Zuschlag s/km/10kg"
-            hinweis="wird auto-kalibriert"
-            wert={form.lastZuschlagSproKmPro10kg}
-            onChange={(v) => setForm({ ...form, lastZuschlagSproKmPro10kg: v })}
-          />
-          <Feld
             label="Wochen-Budget (h)"
             hinweis="Trainingszeit pro Woche (Konsistenz)"
             wert={form.wochenBudgetH}
             onChange={(v) => setForm({ ...form, wochenBudgetH: v })}
           />
-        </div>
-        <div>
-          <div className="text-xs text-muted-foreground">EP-Termin</div>
-          <div className="mt-1 text-sm">
-            EP: {formatDatumNumerisch(EP_DATUM)} (fix)
-            <span className="text-muted-foreground"> · Tag 2: {formatDatumNumerisch(EP_TAG_2)}</span>
-          </div>
         </div>
         <div className="space-y-1.5">
           <div className="flex flex-wrap items-center justify-between gap-2">

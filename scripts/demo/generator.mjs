@@ -34,9 +34,19 @@ const klemme = (v, a, b) => Math.max(a, Math.min(b, v));
 /* -------------------------------------------------------------- Zeit */
 
 /** Lokale Zürcher Zeit → UTC-Date (Sommerzeit bis 25.10.2026) */
+/** Letzter Sonntag eines Monats (UTC-Datum als ISO) */
+function letzterSonntag(jahr, monat) {
+  const d = new Date(Date.UTC(jahr, monat, 0)); // letzter Tag des Monats (monat 1-basiert)
+  d.setUTCDate(d.getUTCDate() - d.getUTCDay());
+  return d.toISOString().slice(0, 10);
+}
+
+/** Ortszeit Zürich → Date (Sommerzeit vom letzten März- bis letzten Oktobersonntag) */
 export function zuerich(iso, stunde, minute = 0) {
-  const offset = iso < "2026-10-25" ? 2 : 1;
-  return new Date(Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10), stunde - offset, minute));
+  const jahr = +iso.slice(0, 4);
+  const sommer = iso >= letzterSonntag(jahr, 3) && iso < letzterSonntag(jahr, 10);
+  const offset = sommer ? 2 : 1;
+  return new Date(Date.UTC(jahr, +iso.slice(5, 7) - 1, +iso.slice(8, 10), stunde - offset, minute));
 }
 export function addTage(iso, n) {
   const d = new Date(iso + "T12:00:00Z");

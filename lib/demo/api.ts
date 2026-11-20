@@ -8,10 +8,9 @@
  *   Code-Pfad zu echten Endpunkten oder zu DATABASE_URL. Unbekannte Pfade
  *   antworten mit 404.
  */
-import { aktuellePhase } from "@/lib/ep/phasen";
-import { istEpTag } from "@/lib/ep/konstanten";
-import { checklisteFuer, leseZustand } from "@/lib/ep/checkliste";
+import { PROGRAMM_START, trainingsblock } from "@/lib/engine/block";
 import type { DashboardDaten } from "@/lib/server/dashboard-service";
+import type { GewichtDaten } from "@/lib/server/gewicht-service";
 import type { SchlafDetail } from "@/lib/server/sleep-service";
 import { addTage, montagVon } from "@/lib/format";
 
@@ -46,14 +45,6 @@ export interface DemoPlanEinheit {
   matchedActivityId: number | null;
 }
 
-export interface DemoBenchmark {
-  id: string;
-  datum: string;
-  disziplin: string;
-  wert: number;
-  notiz: string | null;
-}
-
 /** Inhalt von public/demo/daten/kern.json (scripts/demo/aufnahme.aufnahme.ts) */
 export interface DemoKern {
   heute: string;
@@ -68,8 +59,8 @@ export interface DemoKern {
   polylines: string[];
   aktivitaeten: DemoAktivitaet[];
   lastSync: string;
-  benchmarks: DemoBenchmark[];
-  benchmarkPrognose: unknown;
+  /** Smart Weight Tracking (Antwort von ladeGewicht) */
+  gewicht: GewichtDaten;
   plan: {
     einheiten: DemoPlanEinheit[];
     hinweise: Record<string, string[]>;
@@ -102,7 +93,7 @@ export class DemoApi {
   }
 
   async beantworte(methode: string, url: URL): Promise<DemoAntwort> {
-    // Nur lesend — Sync, Push, Plan-Generierung, Benchmarks, Löschen … sind aus
+    // Nur lesend — Sync, Push, Plan-Generierung, Messprotokoll, Löschen … sind aus
     if (methode.toUpperCase() !== "GET") return fehler(403, IN_DER_DEMO_DEAKTIVIERT);
 
     const [a, b, c] = url.pathname.replace(/^\/api\//, "").split("/").filter(Boolean);
@@ -120,12 +111,10 @@ export class DemoApi {
         return ok(this.kern.model);
       case "courses":
         return b ? fehler(404, IN_DER_DEMO_DEAKTIVIERT) : ok({ courses: this.kern.courses });
-      case "benchmarks":
-        return ok({ benchmarks: this.kern.benchmarks, prognose: this.kern.benchmarkPrognose });
       case "plan":
         return b ? fehler(404, IN_DER_DEMO_DEAKTIVIERT) : this.planWoche(q);
-      case "ep-checkliste":
-        return this.checkliste(q);
+      case "gewicht":
+        return b ? fehler(404, IN_DER_DEMO_DEAKTIVIERT) : ok(this.kern.gewicht);
       case "schlaf":
         return this.schlaf(b);
       default:
@@ -160,18 +149,13 @@ export class DemoApi {
     const p = this.kern.plan;
     return ok({
       montag,
-      phase: aktuellePhase(montag),
+      block: trainingsblock(montag),
+      archiv: montag < PROGRAMM_START,
       einheiten: p.einheiten.filter((e) => e.datum >= montag && e.datum <= sonntag),
       hinweise: p.hinweise[montag] ?? [],
       anpassungen: p.anpassungen[montag] ?? [],
       nichtVerfuegbar: p.verfuegbarkeit[montag] ?? [],
     });
-  }
-
-  private checkliste(q: URLSearchParams): DemoAntwort {
-    const datum = q.get("datum") ?? "";
-    if (!isoDatum(datum) || !istEpTag(datum)) return fehler(400, "Nur für die EP-Tage verfügbar.");
-    return ok({ datum, ...leseZustand(checklisteFuer(datum) ?? [], undefined) });
   }
 
   private async schlaf(datum: string | undefined): Promise<DemoAntwort> {

@@ -21,7 +21,7 @@ Garmin-Uhr ──BT──> Garmin Connect Cloud
 ```
 
 Die Webapp rendert nie direkt gegen Garmin. Nur drei Aktionen sprechen live
-mit Garmin: Sync, Workout-Push, Course-Push.
+mit Garmin: Sync (inkl. Wägungen der Waage), Workout-Push, Course-Push.
 
 **Entscheidung Python-Hosting:** Die Python-Functions liegen im selben
 Vercel-Projekt im Root-Ordner `api/bridge/` (Vercel unterstützt gemischte
@@ -48,8 +48,10 @@ Fortschritt pro Datentyp; ein Aufruf verarbeitet ≤ 12 Aktivitäten bzw.
 40-s-Zeitbudget) und liefert `hasMore`. Frontend/Cron loopen, bis alles da
 ist — so überlebt auch der Erst-Import der kompletten Historie die
 Vercel-Timeouts. Vorab läuft der Typ `zonen` (ein einzelner Request für die
-HF-Zonen), nach `health` der Schlaf-Backfill `schlaf` (siehe „Schlaf:
-Datenmodell, Sync und Backfill"). Nach dem Sync materialisiert `recomputeAll()` alle abgeleiteten
+HF-Zonen), nach `health` die Wägungen `gewicht` (neue Messungen der letzten
+14 Tage plus ein Backfill in 90-Tage-Blöcken bis 5 Jahre zurück, Cursor in
+`sync_state.gewicht`, siehe [GEWICHT.md](GEWICHT.md)) und der
+Schlaf-Backfill `schlaf` (siehe „Schlaf: Datenmodell, Sync und Backfill"). Nach dem Sync materialisiert `recomputeAll()` alle abgeleiteten
 Werte (`computed_daily` inkl. Pace bei Referenzpuls, `muscle_state`,
 Lauf-Modell, Workout-Matching).
 

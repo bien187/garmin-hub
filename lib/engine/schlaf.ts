@@ -6,8 +6,7 @@
  * Daten bleiben `null` und werden im UI als „nicht verfügbar" gezeigt.
  */
 
-import { addTage, tageDiff } from "@/lib/format";
-import { EP_DATUM, EP_TAG_2, TAPER_START } from "@/lib/ep/konstanten";
+import { addTage } from "@/lib/format";
 import {
   PHASE,
   type HrvBaseline,
@@ -189,7 +188,6 @@ export interface SchlafAnalyse {
   warnungen: string[];
   hinweise: string[];
   fazit: string;
-  phaseKontext: { taper: boolean; epTag: 1 | 2 | null; tageBisEp: number | null };
 }
 
 /* ------------------------------------------------------------------ */
@@ -677,17 +675,8 @@ export function regelBewertung(
 /* Empfehlungen, Warnungen, Fazit                                      */
 /* ------------------------------------------------------------------ */
 
-const HARTE_TYPEN = ["intervalle", "huegel_intervalle", "lastlauf", "langer_lauf", "probe_ep"];
-const BEIN_TYPEN = ["lastlauf", "kraft", "huegel_intervalle", "langer_lauf"];
-
-export function phaseKontext(datum: string): SchlafAnalyse["phaseKontext"] {
-  const tageBisEp = tageDiff(datum, EP_DATUM);
-  return {
-    taper: datum >= TAPER_START && datum <= EP_TAG_2,
-    epTag: datum === EP_DATUM ? 1 : datum === EP_TAG_2 ? 2 : null,
-    tageBisEp: tageBisEp >= 0 ? tageBisEp : null,
-  };
-}
+const HARTE_TYPEN = ["intervalle", "huegel_intervalle", "langer_lauf"];
+const BEIN_TYPEN = ["kraft", "huegel_intervalle", "langer_lauf"];
 
 /** Schwellen der Warnhinweise (bewusst konservativ, kein Befund) */
 export const WARN = {
@@ -725,7 +714,7 @@ export function warnungen(a: Pick<SchlafAnalyse, "spo2" | "atem" | "vergleich">,
 }
 
 export function empfehlungen(
-  a: Pick<SchlafAnalyse, "zusammenfassung" | "hrv" | "phaseKontext">,
+  a: Pick<SchlafAnalyse, "zusammenfassung" | "hrv">,
   heute: SchlafKernwerte,
   historie: SchlafKernwerte[],
   kontext: SchlafKontext
@@ -734,22 +723,6 @@ export function empfehlungen(
   const geplant = kontext.geplant ?? [];
   const hart = geplant.find((g) => HARTE_TYPEN.includes(g.typ));
   const bein = geplant.find((g) => BEIN_TYPEN.includes(g.typ));
-  const { taper, epTag, tageBisEp } = a.phaseKontext;
-
-  if (epTag) {
-    out.push(
-      epTag === 1
-        ? "Heute ist EP Tag 1: Nach dem Aufstehen nichts Neues ausprobieren, Frühstück wie in der Checkliste, ruhig ankommen. Eine kürzere Nacht vor einer Prüfung ist normal und kostet kaum Leistung."
-        : "Heute ist EP Tag 2: Locker aufwärmen, gewohnt essen und trinken. Die Nacht nach Tag 1 ist oft unruhig — das ist normal."
-    );
-  } else if (taper) {
-    out.push(
-      tageBisEp != null && tageBisEp <= 3
-        ? `Noch ${tageBisEp} ${tageBisEp === 1 ? "Tag" : "Tage"} bis zur EP: Schlaf hat jetzt Vorrang vor jedem Training. Fester Rhythmus, früh ins Bett, Bildschirm abends weg.`
-        : "Taper-Phase: Schlaf ist jetzt der wichtigste Erholungsfaktor. Ziel sind 8 h im Bett und ein fester Rhythmus bis zur EP."
-    );
-  }
-
   // < 7 h in den letzten drei Nächten (heute + zwei Vornächte, alle mit Wert)
   const vornaechte = historie
     .filter((h) => h.datum < heute.datum && h.datum >= addTage(heute.datum, -2))
@@ -776,7 +749,7 @@ export function empfehlungen(
   const m30 = mittel(tief30);
   if (heute.tiefS != null && m30 != null && tief30.length >= 5 && heute.tiefS < 0.75 * m30) {
     out.push(
-      `Deutlich weniger Tiefschlaf als im 30-Tage-Mittel (${Math.round(heute.tiefS / 60)} statt ${Math.round(m30 / 60)} Min): heute keinen Lastlauf${bein ? ` und «${bein.titel}» nur moderat` : " und keine schwere Beineinheit"}.`
+      `Deutlich weniger Tiefschlaf als im 30-Tage-Mittel (${Math.round(heute.tiefS / 60)} statt ${Math.round(m30 / 60)} Min): heute keine harte Einheit${bein ? ` und «${bein.titel}» nur moderat` : " und keine schwere Beineinheit"}.`
     );
   }
 
@@ -871,7 +844,6 @@ export function analysiereSchlaf(
     garminScore: nacht.garminScore,
     regelBewertung: regelBewertung(z, phasen),
     datenqualitaet: datenqualitaet(nacht),
-    phaseKontext: phaseKontext(nacht.datum),
   };
   const warn = warnungen(teil, werteVon(nacht.zeitreihen.atemfrequenz));
   const analyse: SchlafAnalyse = {

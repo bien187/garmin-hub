@@ -8,7 +8,7 @@ import {
   lastenAusLauf,
   lastenAusTemplate,
 } from "@/lib/engine/muscle";
-import { istKraft, istLauf } from "./compute";
+import { istKraft, istLauf, istLaufMitZusatzlast } from "./compute";
 
 export interface MuskelBeitrag {
   activityId: number;
@@ -88,7 +88,7 @@ export async function ladeMuskelBeitraege(tage = 7): Promise<MuskelBeitrag[]> {
         hmAuf: a.hmAuf ?? 0,
         hmAb: a.hmAb ?? 0,
         distanzM: a.distanzM ?? 0,
-        istLastlauf: (a.name ?? "").toLowerCase().includes("lastlauf"),
+        mitZusatzlast: istLaufMitZusatzlast(a.name),
       });
     }
     if (Object.keys(lasten).length > 0) {

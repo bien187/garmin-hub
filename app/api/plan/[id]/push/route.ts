@@ -6,7 +6,6 @@ import { baueGarminWorkoutJson } from "@/lib/garmin/workout-json";
 import { WorkoutStruktur } from "@/lib/garmin/workout-types";
 import { requireSession } from "@/lib/api";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
-import { istFixerEpEintrag } from "@/lib/server/plan-sync";
 
 export const maxDuration = 60;
 
@@ -28,14 +27,6 @@ export async function POST(
     .where(eq(tables.plannedWorkouts.id, id));
   if (!einheit) {
     return NextResponse.json({ error: "Einheit nicht gefunden" }, { status: 404 });
-  }
-  // EP-Tage gehen nie an die Uhr — gilt auch für das Sammel-Senden, das
-  // diese Route pro Einheit aufruft.
-  if (istFixerEpEintrag(einheit)) {
-    return NextResponse.json(
-      { error: "EP-Tage werden nicht an die Uhr gesendet." },
-      { status: 400 }
-    );
   }
   if (!einheit.struktur) {
     return NextResponse.json(

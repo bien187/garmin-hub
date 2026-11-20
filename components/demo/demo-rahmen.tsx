@@ -24,7 +24,7 @@ export function useDemo(): DemoApi {
  *  1. lädt den fiktiven Datenstand (public/demo/daten/kern.json),
  *  2. leitet /api-Aufrufe der App-Komponenten an die Demo-API im Browser um
  *     (kein Request erreicht einen echten Endpunkt),
- *  3. stellt die App-Uhr auf den Demo-Stand (Do 05.11.2026, Abend).
+ *  3. stellt die App-Uhr auf den Demo-Stand (Do 11.03.2027, Abend).
  * Erst danach werden die Seiten gerendert — deshalb rendert der Server hier
  * nur ein Skelett und nie Demo- oder echte Daten.
  * Beim Verlassen werden fetch und Uhr wiederhergestellt.

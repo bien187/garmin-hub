@@ -8,8 +8,11 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Activity, HeartPulse } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { KachelKopf } from "@/components/ui/kachel";
 import { BodyMap } from "./body-map";
+import { GewichtBereich } from "./gewicht-bereich";
 import { MiniSparkline } from "@/components/dashboard/fitness-chart";
 import {
   erschoepfungFarbe,
@@ -56,10 +59,29 @@ export function BodyTab() {
       .sort((a, b) => (b.lasten[ausgewaehlt] ?? 0) - (a.lasten[ausgewaehlt] ?? 0));
   }, [daten, ausgewaehlt]);
 
+  const kopf = (
+    <header className="gh-auf space-y-3">
+      <div>
+        <h1 className="text-[26px] leading-tight font-semibold tracking-tight md:text-[30px]">Körper</h1>
+        <p className="text-sm text-muted-foreground">Gewicht, Körperzusammensetzung, Erholung und Muskelstatus.</p>
+      </div>
+      <nav aria-label="Bereiche" className="flex gap-2">
+        <a href="#gewicht" className="inline-flex min-h-9 items-center rounded-full bg-surface px-3.5 text-[13px] font-medium">
+          Gewicht
+        </a>
+        <a href="#muskeln" className="inline-flex min-h-9 items-center rounded-full bg-surface px-3.5 text-[13px] font-medium">
+          Muskeln &amp; Erholung
+        </a>
+      </nav>
+    </header>
+  );
+
   if (!daten) {
     return (
-      <div className="space-y-3">
-        <div className="h-105 animate-pulse rounded-xl bg-muted" />
+      <div className="space-y-4">
+        {kopf}
+        <GewichtBereich />
+        <div className="h-105 animate-pulse rounded-xl bg-surface" />
       </div>
     );
   }
@@ -71,8 +93,13 @@ export function BodyTab() {
 
   return (
     <div className="space-y-4">
-      {/* Map ist das Hero-Element — ohne Karten-Hülle, direkt auf dem Grund */}
-      <div>
+      {kopf}
+      <GewichtBereich />
+
+      {/* Muskelstatus: Body-Map als Hero der Karte */}
+      <Card id="muskeln" className="gh-auf scroll-mt-4">
+        <KachelKopf icon={Activity} ton="lime" titel="Muskelstatus" untertitel="Rest-Erschöpfung · tippe auf einen Muskel" />
+        <div className="px-(--card-spacing)">
         <BodyMap
           werte={daten.heute as Partial<Record<MuskelId, number>>}
           onSelect={setAusgewaehlt}
@@ -107,17 +134,14 @@ export function BodyTab() {
         <p className="mt-2 text-center text-[10px] text-dim-foreground">
           Modellbasierte Schätzung aus Kraft- und Laufeinheiten — kein Messwert.
         </p>
-      </div>
+        </div>
+      </Card>
 
       {/* Systemische Ermüdung */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-            Systemische Ermüdung
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-3 gap-3">
-          <div className="rounded-lg bg-muted p-3">
+      <Card className="gh-auf">
+        <KachelKopf icon={HeartPulse} ton="coral" titel="Systemische Ermüdung" untertitel="Form, Belastungsverhältnis und HRV" />
+        <div className="grid grid-cols-3 gap-2 px-(--card-spacing)">
+          <div className="rounded-2xl bg-surface p-3">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">TSB</div>
             <div
               className={cn(
@@ -140,7 +164,7 @@ export function BodyTab() {
                     : "ermüdet"}
             </div>
           </div>
-          <div className="rounded-lg bg-muted p-3">
+          <div className="rounded-2xl bg-surface p-3">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">ACWR</div>
             <div
               className={cn(
@@ -164,7 +188,7 @@ export function BodyTab() {
                       : "zu wenig Daten"}
             </div>
           </div>
-          <div className="rounded-lg bg-muted p-3">
+          <div className="rounded-2xl bg-surface p-3">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
               HRV 7 Tage
             </div>
@@ -177,7 +201,7 @@ export function BodyTab() {
               <div className="stat-display text-xl">–</div>
             )}
           </div>
-        </CardContent>
+        </div>
       </Card>
 
       {/* Bottom-Sheet pro Muskel — nicht-modal, damit der Körper sichtbar
@@ -239,7 +263,7 @@ export function BodyTab() {
                     {beitraegeFuer.map((b) => (
                       <div
                         key={b.activityId}
-                        className="flex items-center justify-between rounded-lg bg-muted px-3 py-2 text-sm"
+                        className="flex items-center justify-between rounded-xl bg-surface px-3 py-2 text-sm"
                       >
                         <div className="min-w-0">
                           <div className="truncate">{b.name ?? b.typ}</div>

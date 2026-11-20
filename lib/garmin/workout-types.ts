@@ -46,6 +46,4 @@ export interface WorkoutStruktur {
   sport: "laufen" | "kraft";
   schritte?: WorkoutSchritt[];
   uebungen?: KraftUebung[];
-  /** Für Rumpf-Einheiten: Metronom in der App nutzen */
-  metronom?: boolean;
 }

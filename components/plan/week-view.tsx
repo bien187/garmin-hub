@@ -2,16 +2,20 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  Archive,
   Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   CircleDashed,
+  Clock3,
   Flag,
+  Flame,
   Info,
   RefreshCw,
   Send,
-  Trophy,
+  Sun,
+  Target,
   Watch,
   X,
 } from "lucide-react";
@@ -19,13 +23,15 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { SheetShell } from "@/components/ui/sheet-confirm";
 import { useToast } from "@/components/ui/toast";
+import { Pill } from "@/components/ui/pill";
+import { Ring } from "@/components/ui/fortschritt";
+import { EinheitIcon, einheitRand } from "@/components/sport-icon";
 import { DemoDeaktiviert, useIstDemo } from "@/components/basis-pfad";
-import { Metronome } from "./metronome";
-import { EpCheckliste } from "./ep-checkliste";
-import { addTage, formatDatum, formatDatumLang, heuteIso, montagVon } from "@/lib/format";
+import { addTage, formatDatum, heuteIso, montagVon } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { taperRegelFuerTag } from "@/lib/engine/taper";
-import { istEpTag, REGENERATION_BIS, TAPER_START } from "@/lib/ep/konstanten";
+import { geplanteDauerS, intensitaet, strukturZeilen, type StrukturLose } from "@/lib/engine/einheit";
+import { istSperrbar, wochentagIndex, FREIE_TAGE, GYM_TAGE, RUHE_TAG } from "@/lib/engine/verfuegbarkeit";
+import type { Trainingsblock } from "@/lib/engine/block";
 
 interface PlanEinheit {
   id: string;
@@ -33,7 +39,7 @@ interface PlanEinheit {
   typ: string;
   titel: string;
   beschreibung: string | null;
-  struktur: { sport?: string; metronom?: boolean } | null;
+  struktur: StrukturLose | null;
   status: string;
   garminWorkoutId: number | null;
   syncToGarmin: boolean;
@@ -42,8 +48,7 @@ interface PlanEinheit {
 
 /** Kann diese Einheit überhaupt als Garmin-Workout übertragen werden? */
 function istPushbar(e: PlanEinheit): boolean {
-  // EP-Tage gehen nie an die Uhr (serverseitig ebenfalls abgelehnt)
-  return e.struktur != null && e.typ !== "ruhe" && e.typ !== "gtg" && e.typ !== "ep";
+  return e.struktur != null && e.typ !== "ruhe" && e.typ !== "gtg";
 }
 
 /** Ein automatischer Eingriff der laufenden Plan-Anpassung */
@@ -58,50 +63,52 @@ interface PlanAnpassung {
 
 interface PlanDaten {
   montag: string;
-  phase: { nr: number; name: string; fokus: string[] };
+  block: Trainingsblock;
+  /** Woche vor dem Programmstart: neutral und schreibgeschützt */
+  archiv: boolean;
   einheiten: PlanEinheit[];
   hinweise: string[];
   anpassungen?: PlanAnpassung[];
   nichtVerfuegbar: string[];
 }
 
-const WOCHENTAGE = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+const WOCHENTAGE = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
+const KURZ = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 
-const TYP_FARBEN: Record<string, string> = {
-  intervalle: "border-l-status-red",
-  huegel_intervalle: "border-l-status-red",
-  lastlauf: "border-l-status-orange",
-  probe_ep: "border-l-status-orange",
-  langer_lauf: "border-l-chart-2",
-  lauf_z2: "border-l-status-green",
-  kraft: "border-l-primary",
-  klimmzuege: "border-l-primary",
-  liegestuetze: "border-l-primary",
-  rumpf: "border-l-status-yellow",
-  gtg: "border-l-muted-foreground",
-  ruhe: "border-l-muted",
-  ep: "border-l-ep",
-};
+/** Rolle eines Wochentags im festen Rhythmus */
+function tagesRolle(i: number): string {
+  if (GYM_TAGE.includes(i)) return "Gym";
+  if (i === 1) return "Intervalle";
+  if (i === 2) return "Zone 2";
+  if (i === RUHE_TAG) return "Ruhetag";
+  return "frei";
+}
 
-/** Erledigt/Zurücksetzen für einen Plan-Eintrag (aufgeklappte Ansicht und EP-Sheet) */
+/** Erledigt/Zurücksetzen für einen Plan-Eintrag */
 function StatusKnopf({
   status,
   onSetze,
-  className,
 }: {
   status: string;
   onSetze: (status: "absolviert" | "geplant") => void;
-  className?: string;
 }) {
   return status !== "absolviert" ? (
-    <Button size="sm" variant="ghost" className={className} onClick={() => onSetze("absolviert")}>
+    <Button size="sm" variant="secondary" className="min-h-10 rounded-xl" onClick={() => onSetze("absolviert")}>
       <Check className="size-4" /> Erledigt
     </Button>
   ) : (
-    <Button size="sm" variant="ghost" className={className} onClick={() => onSetze("geplant")}>
+    <Button size="sm" variant="ghost" className="min-h-10 rounded-xl" onClick={() => onSetze("geplant")}>
       Zurücksetzen
     </Button>
   );
+}
+
+function StatusPill({ e, fehler }: { e: PlanEinheit; fehler: boolean }) {
+  if (e.status === "absolviert") return <Pill ton="lime" icon={Check}>erledigt</Pill>;
+  if (e.status === "verpasst") return <Pill ton="rot" icon={X}>verpasst</Pill>;
+  if (fehler) return <Pill ton="rot" icon={X}>Fehler</Pill>;
+  if (e.garminWorkoutId != null || e.status === "gepusht") return <Pill ton="neutral" icon={Watch}>auf der Uhr</Pill>;
+  return null;
 }
 
 export function WeekView() {
@@ -109,7 +116,6 @@ export function WeekView() {
   // Demo: nur ansehen — nichts generieren, senden oder abhaken
   const demo = useIstDemo();
   const [woche, setWoche] = useState(() => montagVon(heuteIso()));
-  // „Deine Trainingstage" ist standardmässig eingeklappt
   const [tageOffen, setTageOffen] = useState(false);
   const [daten, setDaten] = useState<PlanDaten | null>(null);
   const [laedt, setLaedt] = useState(false);
@@ -119,9 +125,6 @@ export function WeekView() {
   const [pushProgress, setPushProgress] = useState<{ done: number; total: number } | null>(null);
   const [fehlgeschlagen, setFehlgeschlagen] = useState<string[]>([]);
   const [anpassungenWeg, setAnpassungenWeg] = useState(false);
-  /** EP-Eintrag für das Checklisten-Sheet (bleibt beim Schliessen für die Animation stehen) */
-  const [epEintrag, setEpEintrag] = useState<PlanEinheit | null>(null);
-  const [epOffen, setEpOffen] = useState(false);
 
   const lade = useCallback(async () => {
     const res = await fetch(`/api/plan?woche=${woche}`);
@@ -135,46 +138,54 @@ export function WeekView() {
   }, [lade]);
 
   const anpassungen = anpassungenWeg ? [] : (daten?.anpassungen ?? []);
+  const schreibgeschuetzt = demo || (daten?.archiv ?? false);
 
   async function verfuegbarkeit(datum: string, verfuegbar: boolean) {
     if (!daten) return;
     setLaedt(true);
     try {
-      const sperren = verfuegbar ? daten.nichtVerfuegbar.filter(d => d !== datum) : [...daten.nichtVerfuegbar, datum];
-      const res = await fetch('/api/plan/generate', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({wochenstart:woche, nichtVerfuegbar:sperren})});
+      const sperren = verfuegbar ? daten.nichtVerfuegbar.filter((d) => d !== datum) : [...daten.nichtVerfuegbar, datum];
+      const res = await fetch("/api/plan/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wochenstart: woche, nichtVerfuegbar: sperren }),
+      });
       const result = await res.json();
-      if (!res.ok) throw new Error(result.error ?? 'Speichern fehlgeschlagen.');
+      if (!res.ok) throw new Error(result.error ?? "Speichern fehlgeschlagen.");
       await lade();
-      toast({message:'Verfügbarkeit gespeichert und Plan angepasst.'});
+      toast({ message: "Verfügbarkeit gespeichert und Plan angepasst." });
     } catch (e) {
-      toast({message:e instanceof Error ? e.message : 'Speichern fehlgeschlagen.', variant:'error'});
-    } finally { setLaedt(false); }
+      toast({ message: e instanceof Error ? e.message : "Speichern fehlgeschlagen.", variant: "error" });
+    } finally {
+      setLaedt(false);
+    }
   }
 
   async function generiere() {
     setLaedt(true);
     setGeneriert(false);
     try {
-      const res = await fetch('/api/plan/generate', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/plan/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ wochenstart: woche }),
       });
       const result = await res.json();
-      if (!res.ok) throw new Error(result.error ?? 'Generierung fehlgeschlagen.');
+      if (!res.ok) throw new Error(result.error ?? "Generierung fehlgeschlagen.");
       setGeneriert(true);
       await lade();
     } catch (e) {
-      toast({message: e instanceof Error ? e.message : 'Generierung fehlgeschlagen.', variant:'error'});
-    } finally { setLaedt(false); }
+      toast({ message: e instanceof Error ? e.message : "Generierung fehlgeschlagen.", variant: "error" });
+    } finally {
+      setLaedt(false);
+    }
   }
 
   async function pushe(id: string) {
     const res = await fetch(`/api/plan/${id}/push`, { method: "POST" });
     const data = await res.json();
     toast({
-      message: res.ok
-        ? (data.hinweis ?? "An Garmin gesendet.")
-        : (data.error ?? "Push fehlgeschlagen"),
+      message: res.ok ? (data.hinweis ?? "An Garmin gesendet.") : (data.error ?? "Push fehlgeschlagen"),
       variant: res.ok ? "default" : "error",
     });
     lade();
@@ -191,11 +202,7 @@ export function WeekView() {
 
   /** Garmin-Sync-Flag pro Einheit umschalten */
   async function toggleSync(id: string, syncToGarmin: boolean) {
-    setDaten((d) =>
-      d
-        ? { ...d, einheiten: d.einheiten.map((e) => (e.id === id ? { ...e, syncToGarmin } : e)) }
-        : d
-    );
+    setDaten((d) => (d ? { ...d, einheiten: d.einheiten.map((e) => (e.id === id ? { ...e, syncToGarmin } : e)) } : d));
     await fetch(`/api/plan/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -213,13 +220,9 @@ export function WeekView() {
 
   /** Einheiten, die beim Sammel-Senden übertragen bzw. übersprungen werden */
   function partition(einheiten: PlanEinheit[]) {
-    const zuSenden = einheiten.filter(
-      (e) => e.syncToGarmin && istPushbar(e) && !e.garminWorkoutId
-    );
+    const zuSenden = einheiten.filter((e) => e.syncToGarmin && istPushbar(e) && !e.garminWorkoutId && e.datum >= heute);
     const bereits = einheiten.filter((e) => e.garminWorkoutId != null);
-    const uebersprungen = einheiten.filter(
-      (e) => istPushbar(e) && !e.syncToGarmin
-    );
+    const uebersprungen = einheiten.filter((e) => istPushbar(e) && !e.syncToGarmin);
     return { zuSenden, bereits, uebersprungen };
   }
 
@@ -229,9 +232,7 @@ export function WeekView() {
     setPushProgress({ done: 0, total: ids.length });
     const neuFehlgeschlagen: string[] = [];
     for (let i = 0; i < ids.length; i++) {
-      const res = await fetch(`/api/plan/${ids[i]}/push`, { method: "POST" }).catch(
-        () => null
-      );
+      const res = await fetch(`/api/plan/${ids[i]}/push`, { method: "POST" }).catch(() => null);
       const ok = res?.ok && (await res.json().catch(() => ({})))?.ok;
       if (!ok) neuFehlgeschlagen.push(ids[i]);
       setPushProgress({ done: i + 1, total: ids.length });
@@ -248,58 +249,110 @@ export function WeekView() {
           : `${erfolg} gesendet, ${neuFehlgeschlagen.length} fehlgeschlagen.`,
       variant: neuFehlgeschlagen.length === 0 ? "default" : "error",
       actionLabel: neuFehlgeschlagen.length ? "Fehlgeschlagene erneut" : undefined,
-      onAction: neuFehlgeschlagen.length
-        ? () => sendeAlle(neuFehlgeschlagen)
-        : undefined,
+      onAction: neuFehlgeschlagen.length ? () => sendeAlle(neuFehlgeschlagen) : undefined,
     });
   }
 
   const heute = heuteIso();
-  const teile = daten ? partition(daten.einheiten) : null;
+  const teile = daten && !daten.archiv ? partition(daten.einheiten) : null;
+  const training = daten?.einheiten.filter((e) => e.typ !== "ruhe") ?? [];
+  const erledigt = training.filter((e) => e.status === "absolviert").length;
+  const geplanteMin = Math.round(
+    training.reduce((s, e) => s + (geplanteDauerS(e.struktur) ?? 0), 0) / 60
+  );
+  const trimp = training.reduce((s, e) => s + (e.erwarteterTrimp ?? 0), 0);
+  // Als Nächstes: erste offene Trainingseinheit ab heute
+  const naechste = daten?.archiv
+    ? null
+    : (training.find((e) => e.datum >= heute && (e.status === "geplant" || e.status === "gepusht")) ?? null);
+  const ziel = daten?.block;
 
   return (
-    <div className="space-y-3">
-      {/* Wochen-Navigation */}
-      <div className="flex items-center justify-between">
-        <Button variant="ghost" size="sm" disabled={laedt || pushProgress != null} onClick={() => setWoche(addTage(woche, -7))}>
-          <ChevronLeft className="size-4" />
-        </Button>
-        <div className="text-center">
-          <div className="stat-display text-[17px]">
-            {formatDatum(woche)} – {formatDatum(addTage(woche, 6))}
-          </div>
-          {daten && (
-            <div className="text-[10px] font-medium uppercase tracking-[0.06em] text-primary">
-              Phase {daten.phase.nr}: {daten.phase.name}
-              {daten.phase.nr === 3 && TAPER_START > woche && TAPER_START <= addTage(woche, 6) && (
-                <> · Taper ab {formatDatum(TAPER_START)}</>
-              )}
-            </div>
-          )}
-        </div>
-        <Button variant="ghost" size="sm" disabled={laedt || pushProgress != null} onClick={() => setWoche(addTage(woche, 7))}>
-          <ChevronRight className="size-4" />
-        </Button>
-      </div>
-
-      {daten && (
-        <div className="rounded-xl border border-border">
+    <div className="space-y-4">
+      {/* Kopf: Wochenwahl, Block, Fortschritt */}
+      <section className="flaeche-hero relative overflow-hidden rounded-xl p-4 shadow-card ring-1 ring-white/[0.06] md:p-5">
+        <div className="flex items-center justify-between gap-2">
           <button
             type="button"
-            className="flex min-h-11 w-full items-center justify-between gap-3 px-3 py-2 text-left"
+            aria-label="Vorherige Woche"
+            disabled={laedt || pushProgress != null}
+            onClick={() => setWoche(addTage(woche, -7))}
+            className="flex size-11 items-center justify-center rounded-full bg-white/[0.06] transition-colors hover:bg-white/[0.12] disabled:opacity-40"
+          >
+            <ChevronLeft className="size-5" />
+          </button>
+          <div className="min-w-0 text-center">
+            <div className="text-lg font-semibold tracking-tight">
+              {formatDatum(woche)} – {formatDatum(addTage(woche, 6))}
+            </div>
+            {daten && (
+              <div className="mt-0.5 text-[11px] font-semibold tracking-[0.08em] text-primary uppercase">
+                {daten.archiv ? "Archiv" : `${daten.block.name} · ${daten.block.fokus}`}
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            aria-label="Nächste Woche"
+            disabled={laedt || pushProgress != null}
+            onClick={() => setWoche(addTage(woche, 7))}
+            className="flex size-11 items-center justify-center rounded-full bg-white/[0.06] transition-colors hover:bg-white/[0.12] disabled:opacity-40"
+          >
+            <ChevronRight className="size-5" />
+          </button>
+        </div>
+
+        {daten && !daten.archiv && training.length > 0 && (
+          <div className="mt-4 flex items-center gap-4">
+            <Ring wert={erledigt} max={training.length} groesse={64} dicke={7} label={`${erledigt} von ${training.length} Einheiten erledigt`}>
+              <span className="stat-display text-base leading-none">
+                {erledigt}/{training.length}
+              </span>
+            </Ring>
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <p className="text-[13px] leading-snug text-foreground/85">
+                <Target className="mr-1 inline size-3.5 text-primary" />
+                Ziel: Laufleistung, Ausdauer und allgemeine Fitness verbessern.
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {geplanteMin > 0 && <Pill icon={Clock3}>~{geplanteMin} Min Laufen</Pill>}
+                {trimp > 0 && <Pill icon={Flame}>~{Math.round(trimp)} TRIMP</Pill>}
+                {ziel?.entlastung && <Pill ton="neutral">Entlastungswoche</Pill>}
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {daten?.archiv && (
+        <div className="flex items-start gap-2.5 rounded-xl bg-surface px-4 py-3 text-[13px] text-muted-foreground">
+          <Archive className="mt-0.5 size-4 shrink-0" />
+          <p>
+            Diese Woche liegt vor dem Start des aktuellen Programms. Die Einträge sind neutral und schreibgeschützt
+            dargestellt; deine Aktivitäten findest du unter Aktivitäten.
+          </p>
+        </div>
+      )}
+
+      {/* Verfügbarkeit: nur die Lauftage Di/Mi lassen sich sperren */}
+      {daten && !daten.archiv && (
+        <div className="rounded-xl bg-card shadow-card ring-1 ring-white/[0.055]">
+          <button
+            type="button"
+            className="flex min-h-12 w-full items-center justify-between gap-3 px-4 py-2 text-left"
             aria-expanded={tageOffen}
             aria-controls="trainingstage-liste"
             onClick={() => setTageOffen((o) => !o)}
           >
             <span>
-              <span className="block text-sm font-medium">Deine Trainingstage</span>
+              <span className="block text-sm font-medium">Deine Lauftage</span>
               {!tageOffen && (
                 <span className="block text-xs text-muted-foreground">
                   {(() => {
-                    const gesperrt = WOCHENTAGE.filter((_, i) => daten.nichtVerfuegbar.includes(addTage(woche, i))).length;
+                    const gesperrt = daten.nichtVerfuegbar.length;
                     return gesperrt === 0
-                      ? "Alle Tage verfügbar · zum Anpassen öffnen"
-                      : `${gesperrt} ${gesperrt === 1 ? "Tag" : "Tage"} ohne Zeit · zum Anpassen öffnen`;
+                      ? "Di und Mi verfügbar · bei Terminen anpassen"
+                      : `${gesperrt} ${gesperrt === 1 ? "Lauftag" : "Lauftage"} ohne Zeit · zum Anpassen öffnen`;
                   })()}
                 </span>
               )}
@@ -307,43 +360,50 @@ export function WeekView() {
             <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform", tageOffen && "rotate-180")} />
           </button>
           {tageOffen && (
-          <div id="trainingstage-liste" className="space-y-2 px-3 pb-3">
-          <p className="text-xs text-muted-foreground">Markiere, wann du trainieren kannst. Der Plan passt sich direkt an.</p>
-          {WOCHENTAGE.map((tag, i) => {
-            const datum = addTage(woche, i);
-            const gym = [0, 3, 6].includes(i);
-            const ep = istEpTag(datum);
-            const frei = !daten.nichtVerfuegbar.includes(datum);
-            return <div key={datum} className="flex min-h-11 items-center justify-between gap-3 text-sm">
-              <span>{tag} · {formatDatum(datum)}</span>
-              {ep ? <span className="text-xs font-medium text-ep">EP · fix</span> :
-                gym ? <span className="text-xs text-muted-foreground">Gymtag · fix</span> :
-                <label className="flex min-h-11 items-center gap-2 text-xs">
-                  {frei ? 'Training möglich' : 'Keine Zeit'}
-                  <Switch aria-label={tag + ' ' + formatDatum(datum) + ': Training möglich'} checked={frei} disabled={demo || laedt || pushProgress != null || datum < heute} onCheckedChange={v => verfuegbarkeit(datum, v)} />
-                </label>}
-            </div>;
-          })}
-          </div>
+            <div id="trainingstage-liste" className="space-y-1 px-4 pb-3">
+              <p className="pb-1 text-xs text-muted-foreground">
+                Gym (Mo/Do), Ruhetag (Fr) und das freie Wochenende sind fix. Hast du Di oder Mi keine Zeit, verteilt der
+                Plan die Läufe neu.
+              </p>
+              {KURZ.map((tag, i) => {
+                const datum = addTage(woche, i);
+                const frei = !daten.nichtVerfuegbar.includes(datum);
+                return (
+                  <div key={datum} className="flex min-h-11 items-center justify-between gap-3 text-sm">
+                    <span>
+                      {tag} · {formatDatum(datum)}
+                    </span>
+                    {istSperrbar(datum) ? (
+                      <label className="flex min-h-11 items-center gap-2 text-xs">
+                        {frei ? "Training möglich" : "Keine Zeit"}
+                        <Switch
+                          aria-label={tag + " " + formatDatum(datum) + ": Training möglich"}
+                          checked={frei}
+                          disabled={demo || laedt || pushProgress != null || datum < heute}
+                          onCheckedChange={(v) => verfuegbarkeit(datum, v)}
+                        />
+                      </label>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">{tagesRolle(i)} · fix</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       )}
 
-      {/* Automatische Anpassungen: oranges Flag über dem Plan. Bewusst
-          prominenter als die Hinweise — hier hat sich der Plan wirklich
-          geändert, nicht nur ein Rat dazugestellt. */}
+      {/* Automatische Anpassungen: prominenter als Hinweise — hier hat sich der Plan geändert */}
       {anpassungen.length > 0 && (
-        <div className="rounded-lg border border-status-orange/40 bg-status-orange/10 px-3 py-2.5">
-          <div className="flex items-start gap-2">
+        <div className="rounded-xl border border-status-orange/35 bg-status-orange/10 px-4 py-3">
+          <div className="flex items-start gap-2.5">
             <Flag className="mt-0.5 size-4 shrink-0 text-status-orange" />
             <div className="min-w-0 flex-1 space-y-1.5">
-              <div className="text-xs font-semibold text-status-orange">
-                Plan automatisch angepasst
-              </div>
+              <div className="text-xs font-semibold text-status-orange">Plan automatisch angepasst</div>
               {anpassungen.map((a) => (
                 <div key={a.einheitId} className="text-xs">
-                  <span className="font-medium">{formatDatum(a.datum)}:</span>{" "}
-                  «{a.alterTitel}» → «{a.neuerTitel}»
+                  <span className="font-medium">{formatDatum(a.datum)}:</span> «{a.alterTitel}» → «{a.neuerTitel}»
                   <div className="text-muted-foreground">{a.grund}</div>
                   {a.bereitsGepusht && (
                     <div className="mt-0.5 flex items-center gap-1 text-[11px] text-status-orange">
@@ -357,7 +417,7 @@ export function WeekView() {
             <button
               onClick={() => setAnpassungenWeg(true)}
               aria-label="Hinweis ausblenden"
-              className="-mr-1 -mt-1 flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground"
+              className="-mt-1 -mr-1 flex size-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground"
             >
               <X className="size-3.5" />
             </button>
@@ -365,14 +425,11 @@ export function WeekView() {
         </div>
       )}
 
-      {/* Hinweise der Adaptionslogik (bleiben inline, §11.3) */}
+      {/* Hinweise der Adaptionslogik */}
       {daten && daten.hinweise.length > 0 && (
         <div className="space-y-1.5">
           {daten.hinweise.map((h, i) => (
-            <div
-              key={i}
-              className="flex items-start gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs"
-            >
+            <div key={i} className="flex items-start gap-2.5 rounded-xl bg-primary/[0.07] px-4 py-2.5 text-xs leading-snug">
               <Info className="mt-0.5 size-3.5 shrink-0 text-primary" />
               {h}
             </div>
@@ -382,41 +439,38 @@ export function WeekView() {
 
       {!daten ? (
         <div className="space-y-2">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-16 animate-pulse rounded-xl bg-muted" />
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="h-20 animate-pulse rounded-xl bg-surface" />
           ))}
         </div>
-      ) : daten.einheiten.length === 0 && woche > REGENERATION_BIS ? (
-        <div className="rounded-xl border border-dashed border-border py-10 text-center">
-          <p className="text-sm text-muted-foreground">
-            Kein Trainingsplan nach der EP, bis neue Ziele gesetzt sind.
+      ) : daten.einheiten.length === 0 && !daten.archiv ? (
+        <div className="rounded-xl border border-dashed border-white/12 px-6 py-10 text-center">
+          <p className="mx-auto mb-4 max-w-sm text-sm text-muted-foreground">
+            Für diese Woche ist noch kein Plan erstellt. Der Generator baut deinen Rhythmus: Gym, Intervalle, lockerer
+            Lauf, Gym — Freitag Ruhe, Wochenende frei.
           </p>
-        </div>
-      ) : daten.einheiten.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border py-10 text-center">
-          <p className="mb-3 text-sm text-muted-foreground">
-            Für diese Woche ist noch kein Plan generiert.
-          </p>
-          <Button onClick={generiere} disabled={demo || laedt || pushProgress != null}>
-            <RefreshCw className={cn("size-4", laedt && "animate-spin")} />
+          <button
+            onClick={generiere}
+            disabled={demo || laedt || pushProgress != null}
+            className="flaeche-lime inline-flex min-h-11 items-center gap-2 rounded-xl px-5 text-sm font-semibold disabled:opacity-60"
+          >
+            <RefreshCw className={cn("size-4", laedt && "gh-spin")} />
             Woche generieren
-          </Button>
+          </button>
           {demo && <DemoDeaktiviert className="mt-2" />}
         </div>
       ) : (
         <>
-          {/* Sammel-Aktion: der einzige gefüllte Akzentbutton dieser Seite.
-              Während des Sendens ist der Button die Fortschrittsanzeige
-              (Füllung von links + „x von y"). */}
+          {/* Sammel-Aktion: während des Sendens Fortschrittsanzeige */}
           {!demo && teile && (teile.zuSenden.length > 0 || pushProgress) && (
             <button
               disabled={pushProgress != null}
               onClick={() => setVorschau(true)}
-              className="relative flex min-h-11 w-full items-center justify-center gap-2 overflow-hidden rounded-lg bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-90"
+              className="flaeche-lime relative flex min-h-12 w-full items-center justify-center gap-2 overflow-hidden rounded-xl text-sm font-semibold shadow-glow transition-transform active:scale-[0.99] disabled:opacity-90"
             >
               {pushProgress && (
                 <span
-                  className="absolute inset-y-0 left-0 bg-white/20"
+                  className="absolute inset-y-0 left-0 bg-white/25"
                   style={{
                     width: `${(pushProgress.done / pushProgress.total) * 100}%`,
                     transition: "width var(--dur-base) var(--ease-base)",
@@ -426,233 +480,90 @@ export function WeekView() {
               <span className="relative flex items-center gap-2">
                 {pushProgress ? (
                   <>
-                    <RefreshCw className="size-4 gh-spin" />
+                    <RefreshCw className="gh-spin size-4" />
                     {pushProgress.done} von {pushProgress.total}
                   </>
                 ) : (
                   <>
                     <Send className="size-4" />
-                    Alle an Garmin senden ({teile.zuSenden.length})
+                    Läufe an Garmin senden ({teile.zuSenden.length})
                   </>
                 )}
               </span>
             </button>
           )}
 
-          <div className="space-y-3">
+          <ol className="space-y-4">
             {[0, 1, 2, 3, 4, 5, 6].map((i) => {
               const datum = addTage(woche, i);
               const einheiten = daten.einheiten.filter((e) => e.datum === datum);
-              if (einheiten.length === 0) return null;
-              // Taper-Begründung pro Tag: reine Funktion, kein DB-Feld nötig
-              const regel = taperRegelFuerTag(datum);
-              const epTag = istEpTag(datum);
+              const istHeute = datum === heute;
+              const freiTag = FREIE_TAGE.includes(wochentagIndex(datum));
               return (
-                <div key={datum}>
-                  <div
-                    className={cn(
-                      "mb-1 flex items-baseline gap-2 text-xs",
-                      epTag ? "text-ep" : datum === heute ? "text-primary" : "text-muted-foreground"
+                <li key={datum} className="gh-auf" style={{ animationDelay: `${i * 30}ms` }}>
+                  <div className="mb-1.5 flex items-baseline gap-2 px-1">
+                    <span className={cn("text-sm font-semibold", istHeute ? "text-primary" : "text-foreground")}>
+                      {WOCHENTAGE[i]}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{formatDatum(datum)}</span>
+                    {istHeute && (
+                      <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                        heute
+                      </span>
                     )}
-                  >
-                    <span className="stat-display text-sm">{WOCHENTAGE[i]}</span>
-                    {formatDatum(datum)}
-                    {datum === heute && <span className="font-medium">· heute</span>}
                   </div>
-                  {regel && (
-                    <p className="mb-1.5 text-[11px] leading-snug text-dim-foreground">
-                      <span className={cn("font-medium", epTag ? "text-ep" : "text-muted-foreground")}>
-                        {regel.label}:
-                      </span>{" "}
-                      {regel.begruendung}
-                    </p>
-                  )}
-                  <div className="space-y-1.5">
-                    {einheiten.map((e) => {
-                      const istOffen = offen === e.id;
-                      const kannPushen = istPushbar(e);
-                      const istEp = e.typ === "ep";
-                      return (
-                        <div
-                          key={e.id}
-                          className={cn(
-                            "rounded-xl border border-border border-l-4 bg-card",
-                            TYP_FARBEN[e.typ] ?? "border-l-muted",
-                            istEp && "bg-ep/10",
-                            e.status === "absolviert" && "opacity-60"
-                          )}
-                        >
-                          {/* EP-Einträge öffnen die Checkliste im Sheet statt aufzuklappen */}
-                          <button
-                            className="flex w-full items-center gap-2.5 p-3 text-left"
-                            aria-haspopup={istEp ? "dialog" : undefined}
-                            aria-expanded={istEp ? undefined : istOffen}
-                            onClick={() => {
-                              if (istEp) {
-                                setEpEintrag(e);
-                                setEpOffen(true);
-                              } else setOffen(istOffen ? null : e.id);
-                            }}
-                          >
-                            {istEp ? (
-                              <Trophy className="size-4 shrink-0 text-ep" aria-label="EP-Tag" />
-                            ) : e.status === "absolviert" ? (
-                              <Check className="size-4 shrink-0 text-status-green" />
-                            ) : e.status === "verpasst" ? (
-                              <X className="size-4 shrink-0 text-status-red" />
-                            ) : e.status === "gepusht" ? (
-                              <Watch className="size-4 shrink-0 text-primary" />
-                            ) : (
-                              <CircleDashed className="size-4 shrink-0 text-muted-foreground" />
-                            )}
-                            <span
-                              className={cn(
-                                "flex-1 text-sm font-medium",
-                                e.status === "absolviert" && "line-through"
-                              )}
-                            >
-                              {e.titel}
-                            </span>
-                            {e.erwarteterTrimp != null && !istEp && (
-                              <span className="stat-mono text-[10px] text-muted-foreground">
-                                ~{e.erwarteterTrimp} TRIMP
-                              </span>
-                            )}
-                            {istEp && (
-                              <span className="text-[11px] font-medium text-ep">Checkliste</span>
-                            )}
-                          </button>
-                          {!istEp && (
-                          <div
-                            className="grid transition-[grid-template-rows]"
-                            style={{
-                              gridTemplateRows: istOffen ? "1fr" : "0fr",
-                              transitionDuration: "var(--dur-base)",
-                            }}
-                          >
-                           <div className="min-h-0 overflow-hidden">
-                            <div className="space-y-2.5 border-t border-border/60 p-3 text-sm">
-                              <p className="text-muted-foreground">{e.beschreibung}</p>
-                              {/* Garmin-Sync-Flag pro Einheit + Status */}
-                              {kannPushen && (
-                                <div className="flex items-center justify-between rounded-lg bg-muted px-3 py-2">
-                                  <div className="flex items-center gap-2.5">
-                                    <span>An Garmin senden</span>
-                                    {/* Status immer Icon + Text, nie nur Farbe */}
-                                    {e.garminWorkoutId != null ? (
-                                      <span className="flex items-center gap-1 text-[10px] text-status-green">
-                                        <Check className="size-3" /> übertragen
-                                      </span>
-                                    ) : fehlgeschlagen.includes(e.id) ? (
-                                      <span className="flex items-center gap-1 text-[10px] text-status-red">
-                                        <X className="size-3" /> Fehler
-                                      </span>
-                                    ) : (
-                                      <span className="flex items-center gap-1 text-[10px] text-dim-foreground">
-                                        <CircleDashed className="size-3" /> offen
-                                      </span>
-                                    )}
-                                  </div>
-                                  <Switch
-                                    disabled={demo}
-                                    checked={e.syncToGarmin}
-                                    onCheckedChange={(v) => toggleSync(e.id, v)}
-                                  />
-                                </div>
-                              )}
-                              {e.struktur?.metronom && <Metronome />}
-                              {demo ? (
-                                <DemoDeaktiviert />
-                              ) : (
-                              <div className="flex flex-wrap gap-1.5">
-                                {kannPushen && e.garminWorkoutId == null && (
-                                  <Button size="sm" variant="secondary" onClick={() => pushe(e.id)}>
-                                    <Watch className="size-4" />
-                                    Auf die Uhr laden
-                                  </Button>
-                                )}
-                                {kannPushen && e.garminWorkoutId != null && (
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => entfernenVonUhr(e.id)}
-                                  >
-                                    <X className="size-4" /> Von der Uhr entfernen
-                                  </Button>
-                                )}
-                                <StatusKnopf
-                                  status={e.status}
-                                  onSetze={(st) => setzeStatus(e.id, st)}
-                                />
-                              </div>
-                              )}
-                            </div>
-                           </div>
+
+                  {einheiten.length === 0 ? (
+                    freiTag && !daten.archiv ? (
+                      <div className="flex items-center gap-3 rounded-xl border border-dashed border-white/10 px-4 py-3">
+                        <span className="flex size-10 items-center justify-center rounded-xl bg-surface text-status-yellow">
+                          <Sun className="size-[18px]" />
+                        </span>
+                        <div className="min-w-0 text-sm">
+                          <div className="font-medium">Frei</div>
+                          <div className="text-xs text-muted-foreground">
+                            Keine Pflicht — Lust auf einen lockeren Lauf? Du entscheidest.
                           </div>
-                          )}
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl bg-surface/50 px-4 py-3 text-xs text-dim-foreground">Kein Eintrag</div>
+                    )
+                  ) : (
+                    <div className="space-y-2">
+                      {einheiten.map((e) => (
+                        <EinheitKarte
+                          key={e.id}
+                          e={e}
+                          offen={offen === e.id}
+                          naechste={naechste?.id === e.id}
+                          schreibgeschuetzt={schreibgeschuetzt}
+                          demo={demo}
+                          fehler={fehlgeschlagen.includes(e.id)}
+                          onToggle={() => setOffen(offen === e.id ? null : e.id)}
+                          onPush={() => pushe(e.id)}
+                          onUnpush={() => entfernenVonUhr(e.id)}
+                          onSync={(v) => toggleSync(e.id, v)}
+                          onStatus={(st) => setzeStatus(e.id, st)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </li>
               );
             })}
-          </div>
-          {!demo && (
-          <div className="flex justify-end">
-            <Button variant="ghost" size="sm" onClick={generiere} disabled={laedt || pushProgress != null}>
-              <RefreshCw className={cn("size-4", laedt && "animate-spin")} />
-              {generiert ? "Neu generiert" : "Woche neu generieren"}
-            </Button>
-          </div>
+          </ol>
+
+          {!schreibgeschuetzt && (
+            <div className="flex justify-end">
+              <Button variant="ghost" size="sm" className="min-h-10 rounded-xl" onClick={generiere} disabled={laedt || pushProgress != null}>
+                <RefreshCw className={cn("size-4", laedt && "gh-spin")} />
+                {generiert ? "Neu generiert" : "Woche neu generieren"}
+              </Button>
+            </div>
           )}
         </>
       )}
-
-      {/* EP-Tag: Checkliste statt der normalen Eintragsansicht */}
-      <SheetShell open={epOffen} onClose={() => setEpOffen(false)} labelledBy="ep-sheet-titel">
-        {epEintrag && (
-          <div className="flex max-h-[85dvh] flex-col">
-            <div className="flex items-start gap-3 px-5 pb-3 pt-1.5">
-              <Trophy className="mt-0.5 size-5 shrink-0 text-ep" />
-              <div className="min-w-0 flex-1">
-                <h2 id="ep-sheet-titel" className="text-base font-semibold">
-                  {epEintrag.titel}
-                </h2>
-                <p className="text-xs text-muted-foreground">
-                  {formatDatumLang(epEintrag.datum)} · Checkliste
-                </p>
-              </div>
-              <button
-                onClick={() => setEpOffen(false)}
-                aria-label="Checkliste schliessen"
-                className="-mr-2 -mt-1 flex size-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground"
-              >
-                <X className="size-4" />
-              </button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-3">
-              {epEintrag.beschreibung && (
-                <p className="mb-3 text-sm text-muted-foreground">{epEintrag.beschreibung}</p>
-              )}
-              <EpCheckliste key={epEintrag.datum} datum={epEintrag.datum} />
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3">
-                <p className="min-w-0 flex-1 text-[11px] text-dim-foreground">
-                  Fixer Termin — wird vom Generator nie überschrieben und nicht an die Uhr gesendet.
-                </p>
-                {!demo && <StatusKnopf
-                  status={epEintrag.status}
-                  className="min-h-11"
-                  onSetze={(st) => {
-                    setzeStatus(epEintrag.id, st);
-                    setEpEintrag({ ...epEintrag, status: st });
-                  }}
-                />}
-              </div>
-            </div>
-          </div>
-        )}
-      </SheetShell>
 
       {/* Vorschau vor dem Sammel-Senden (Bottom-Sheet) */}
       <SheetShell open={vorschau} onClose={() => setVorschau(false)}>
@@ -660,45 +571,36 @@ export function WeekView() {
           <h2 className="text-base font-semibold">An Garmin senden</h2>
           {teile && (
             <div className="mt-3 space-y-3 text-sm">
-              <div className="text-[10px] font-medium uppercase tracking-[0.06em] text-dim-foreground">
-                Diese {teile.zuSenden.length} Einheiten werden übertragen
-              </div>
-              <ul className="max-h-56 space-y-1 overflow-y-auto">
+              <div className="kachel-titel">Diese {teile.zuSenden.length} Einheiten werden übertragen</div>
+              <ul className="max-h-56 space-y-1.5 overflow-y-auto">
                 {teile.zuSenden.map((e) => (
-                  <li key={e.id} className="flex items-center gap-2">
-                    <Watch className="size-3.5 shrink-0 text-primary" />
+                  <li key={e.id} className="flex items-center gap-2.5">
+                    <EinheitIcon typ={e.typ} groesse="sm" />
                     <span className="flex-1 truncate">{e.titel}</span>
-                    <span className="stat-mono text-[10px] text-dim-foreground">
-                      {formatDatum(e.datum)}
-                    </span>
+                    <span className="stat-mono text-[11px] text-dim-foreground">{formatDatum(e.datum)}</span>
                   </li>
                 ))}
               </ul>
               {teile.uebersprungen.length > 0 && (
                 <p className="text-[13px] text-dim-foreground">
-                  {teile.uebersprungen.length} Einheit(en) übersprungen (nicht für
-                  Garmin markiert, z.B. Gym).
+                  {teile.uebersprungen.length} Einheit(en) übersprungen (nicht für Garmin markiert, z. B. Gym).
                 </p>
               )}
               {teile.bereits.length > 0 && (
                 <p className="text-[13px] text-dim-foreground">
-                  {teile.bereits.length} bereits übertragen — werden nicht doppelt
-                  angelegt.
+                  {teile.bereits.length} bereits übertragen — werden nicht doppelt angelegt.
                 </p>
               )}
             </div>
           )}
           <div className="mt-4 flex gap-2.5">
-            <button
-              onClick={() => setVorschau(false)}
-              className="min-h-11 flex-1 rounded-lg bg-muted text-sm font-medium"
-            >
+            <button onClick={() => setVorschau(false)} className="min-h-11 flex-1 rounded-xl bg-surface text-sm font-medium">
               Abbrechen
             </button>
             <button
               disabled={!teile || teile.zuSenden.length === 0}
               onClick={() => teile && sendeAlle(teile.zuSenden.map((e) => e.id))}
-              className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-50"
+              className="flaeche-lime flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl text-sm font-semibold disabled:opacity-50"
             >
               <Send className="size-4" />
               Senden
@@ -706,6 +608,134 @@ export function WeekView() {
           </div>
         </div>
       </SheetShell>
+    </div>
+  );
+}
+
+/** Eine Einheit als Karte: Kopf mit Icon/Kennzahlen, aufklappbar mit Details und Aktionen */
+function EinheitKarte({
+  e,
+  offen,
+  naechste,
+  schreibgeschuetzt,
+  demo,
+  fehler,
+  onToggle,
+  onPush,
+  onUnpush,
+  onSync,
+  onStatus,
+}: {
+  e: PlanEinheit;
+  offen: boolean;
+  naechste: boolean;
+  schreibgeschuetzt: boolean;
+  demo: boolean;
+  fehler: boolean;
+  onToggle: () => void;
+  onPush: () => void;
+  onUnpush: () => void;
+  onSync: (v: boolean) => void;
+  onStatus: (s: "absolviert" | "geplant") => void;
+}) {
+  const kannPushen = istPushbar(e);
+  const dauerS = geplanteDauerS(e.struktur);
+  const intens = intensitaet(e.typ);
+  const zeilen = strukturZeilen(e.struktur);
+  const erledigt = e.status === "absolviert";
+
+  return (
+    <div
+      className={cn(
+        "relative overflow-hidden rounded-xl bg-card shadow-card ring-1 ring-white/[0.055] transition-shadow",
+        naechste && "shadow-glow ring-primary/40",
+        erledigt && "opacity-75"
+      )}
+    >
+      <span aria-hidden className={cn("absolute inset-y-0 left-0 w-1", einheitRand(e.typ))} />
+      <button
+        type="button"
+        className="flex w-full items-center gap-3 py-3 pr-3 pl-4 text-left"
+        aria-expanded={offen}
+        onClick={onToggle}
+      >
+        <EinheitIcon typ={e.typ} />
+        <div className="min-w-0 flex-1">
+          {naechste && (
+            <div className="text-[10px] font-semibold tracking-[0.08em] text-primary uppercase">Als Nächstes</div>
+          )}
+          <div className={cn("text-[15px] leading-snug font-medium", erledigt && "line-through decoration-white/30")}>
+            {e.titel}
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            {dauerS != null && (
+              <span className="stat-mono text-[11px] text-muted-foreground">~{Math.round(dauerS / 60)} Min</span>
+            )}
+            {intens && intens.stufe > 0 && (
+              <span
+                className={cn(
+                  "text-[11px] font-medium",
+                  intens.stufe >= 3 ? "text-coral" : intens.stufe === 1 ? "text-primary" : "text-muted-foreground"
+                )}
+              >
+                {dauerS != null ? "· " : ""}
+                {intens.label}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <StatusPill e={e} fehler={fehler} />
+          {!erledigt && e.status !== "verpasst" && e.garminWorkoutId == null && !fehler && (
+            <CircleDashed className="size-4 text-dim-foreground" aria-label="offen" />
+          )}
+        </div>
+      </button>
+
+      <div
+        className="grid transition-[grid-template-rows]"
+        style={{ gridTemplateRows: offen ? "1fr" : "0fr", transitionDuration: "var(--dur-base)" }}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div className="space-y-3 border-t border-white/[0.06] py-3 pr-4 pl-5 text-sm">
+            {e.beschreibung && <p className="leading-snug text-muted-foreground">{e.beschreibung}</p>}
+            {zeilen.length > 0 && (
+              <ul className="space-y-1 rounded-xl bg-surface px-3 py-2.5">
+                {zeilen.map((z, i) => (
+                  <li key={i} className="flex gap-2 text-[13px] leading-snug">
+                    <span className="mt-[7px] size-1.5 shrink-0 rounded-full bg-primary/70" />
+                    <span>{z}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {kannPushen && !schreibgeschuetzt && (
+              <div className="flex items-center justify-between rounded-xl bg-surface px-3 py-2">
+                <span>An Garmin senden</span>
+                <Switch disabled={demo} checked={e.syncToGarmin} onCheckedChange={onSync} />
+              </div>
+            )}
+            {demo ? (
+              <DemoDeaktiviert />
+            ) : schreibgeschuetzt ? null : (
+              <div className="flex flex-wrap gap-1.5">
+                {kannPushen && e.garminWorkoutId == null && (
+                  <Button size="sm" variant="secondary" className="min-h-10 rounded-xl" onClick={onPush}>
+                    <Watch className="size-4" />
+                    Auf die Uhr laden
+                  </Button>
+                )}
+                {kannPushen && e.garminWorkoutId != null && (
+                  <Button size="sm" variant="ghost" className="min-h-10 rounded-xl" onClick={onUnpush}>
+                    <X className="size-4" /> Von der Uhr entfernen
+                  </Button>
+                )}
+                {e.typ !== "ruhe" && <StatusKnopf status={e.status} onSetze={onStatus} />}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

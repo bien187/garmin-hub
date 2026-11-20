@@ -1,22 +1,16 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono, Saira_Condensed } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
 import { SwRegister } from "@/components/sw-register";
 
-const sans = Inter({
+const sans = Geist({
   variable: "--font-sans",
   subsets: ["latin"],
 });
 
-const mono = JetBrains_Mono({
+const mono = Geist_Mono({
   variable: "--font-mono",
-  subsets: ["latin"],
-});
-
-const display = Saira_Condensed({
-  variable: "--font-display",
-  weight: ["500", "600", "700"],
   subsets: ["latin"],
 });
 
@@ -26,7 +20,7 @@ export const metadata: Metadata = {
     template: "%s · Garmin Hub",
   },
   description:
-    "Persönliches Trainings-HQ für die Eignungsprüfung der Schweizer Armee-Grenadiere.",
+    "Personal Fitness & Running Performance — dein persönliches Fitness-Cockpit mit Garmin-Daten, Trainingsplan und Fortschritt.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
@@ -40,7 +34,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#10151d",
+  themeColor: "#151d2b",
   width: "device-width",
   initialScale: 1,
   // Pinch-Zoom erlaubt (Barrierefreiheit) — Eingabefelder sind 16px, damit
@@ -55,7 +49,7 @@ export default function RootLayout({
   return (
     <html
       lang="de-CH"
-      className={`dark ${sans.variable} ${mono.variable} ${display.variable}`}
+      className={`dark ${sans.variable} ${mono.variable}`}
     >
       <body className="antialiased">
         <AppShell>{children}</AppShell>

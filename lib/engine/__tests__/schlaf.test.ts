@@ -8,7 +8,6 @@ import {
   empfehlungen,
   kernwerte,
   nachtAusRaw,
-  phaseKontext,
   regelBewertung,
   analysiereZusammenfassung,
   analysierePhasen,
@@ -114,15 +113,6 @@ describe("analysiereSchlaf mit echten Fixtures", () => {
     expect(a.warnungen).toEqual([]);
   });
 
-  it("Taper-Kontext: 04.11. kein Taper, 05.11. Taper, 18.11. EP-Tag 1", () => {
-    expect(phaseKontext("2026-11-04").taper).toBe(false);
-    expect(phaseKontext("2026-11-05")).toMatchObject({ taper: true, tageBisEp: 13 });
-    expect(phaseKontext("2026-11-18")).toMatchObject({ taper: true, epTag: 1 });
-    expect(phaseKontext("2026-11-20")).toMatchObject({ taper: false, epTag: null, tageBisEp: null });
-    const { nacht, zusammenfassung } = fixtureNacht("2026-11-04");
-    const taper = analysiereSchlaf({ ...nacht, datum: "2026-11-16" }, [], {}, zusammenfassung);
-    expect(taper.empfehlungen[0]).toMatch(/Noch 2 Tage bis zur EP/);
-  });
 });
 
 describe("Baseline-Vergleich", () => {
@@ -158,28 +148,28 @@ describe("Baseline-Vergleich", () => {
 });
 
 describe("Empfehlungen", () => {
-  const ohneTaper = { phaseKontext: phaseKontext("2026-10-20"), hrv: null, zusammenfassung: {} as never };
+  const kontext = { hrv: null, zusammenfassung: {} as never };
   it("drei Nächte < 7 h → harte Einheit verschieben (mit Titel)", () => {
     const heute = leer("2026-10-20", { dauerS: 6 * 3600 });
     const hist = [leer("2026-10-19", { dauerS: 6.5 * 3600 }), leer("2026-10-18", { dauerS: 5 * 3600 })];
-    const e = empfehlungen(ohneTaper, heute, hist, { geplant: [{ typ: "intervalle", titel: "EP-Tempo: 5×1 km" }] });
+    const e = empfehlungen(kontext, heute, hist, { geplant: [{ typ: "intervalle", titel: "Tempo 5×1 km" }] });
     expect(e[0]).toMatch(/Drei Nächte in Folge unter 7 h/);
-    expect(e[0]).toMatch(/EP-Tempo/);
+    expect(e[0]).toMatch(/Tempo 5×1 km/);
   });
   it("fehlt eine der drei Nächte, greift die Regel nicht", () => {
     const heute = leer("2026-10-20", { dauerS: 6 * 3600 });
-    const e = empfehlungen(ohneTaper, heute, [leer("2026-10-19", { dauerS: 5 * 3600 })], {});
+    const e = empfehlungen(kontext, heute, [leer("2026-10-19", { dauerS: 5 * 3600 })], {});
     expect(e.join(" ")).not.toMatch(/Drei Nächte/);
   });
-  it("Tiefschlaf < 75 % des 30-Tage-Mittels → kein Lastlauf", () => {
+  it("Tiefschlaf < 75 % des 30-Tage-Mittels → keine harte Einheit", () => {
     const heute = leer("2026-10-20", { tiefS: 30 * 60 });
     const hist = Array.from({ length: 6 }, (_, i) => leer(`2026-10-1${i}`, { tiefS: 80 * 60 }));
-    const e = empfehlungen(ohneTaper, heute, hist, {});
-    expect(e.join(" ")).toMatch(/keinen Lastlauf/);
+    const e = empfehlungen(kontext, heute, hist, {});
+    expect(e.join(" ")).toMatch(/keine harte Einheit/);
   });
   it("HRV unter dem Band → Intensität senken", () => {
     const e = empfehlungen(
-      { ...ohneTaper, hrv: { mittel: 60, min: 40, max: 80, band: { von: 75, bis: 96 }, einordnung: "unter", status: null } },
+      { ...kontext, hrv: { mittel: 60, min: 40, max: 80, band: { von: 75, bis: 96 }, einordnung: "unter", status: null } },
       leer("2026-10-20"),
       [],
       {}

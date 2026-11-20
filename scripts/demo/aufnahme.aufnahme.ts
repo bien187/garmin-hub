@@ -6,8 +6,10 @@
  *  2. Woche für Woche mit gestellter Uhr: echte Engine-Neuberechnung
  *     (`recomputeAll`), echter Plan-Generator (`generiereUndSpeichereWoche`),
  *     danach „absolviert" die fiktive Person Alex Muster die geplanten
- *     Einheiten (scripts/demo/generator.mjs). So passen Plan, Aktivitäten,
- *     Fitness, Muskelstatus und EP-Noten zueinander.
+ *     Einheiten (scripts/demo/generator.mjs) und läuft am freien Wochenende
+ *     ab und zu zusätzlich. Dazu Wägungen einer Index-S2-Waage mit teils
+ *     ergänztem Messprotokoll. So passen Plan, Aktivitäten, Fitness,
+ *     Muskelstatus und Gewicht zueinander.
  *  3. Export der Antworten der echten Services/Route-Handler als JSON nach
  *     public/demo/daten/ — die Demo liest nur diese Dateien.
  *
@@ -26,22 +28,22 @@ import { NextRequest } from "next/server";
 import * as schema from "@/lib/db/schema";
 import * as gen from "./generator.mjs";
 
-const HEUTE = "2026-11-05";
-/** „Jetzt" der Demo: Do 05.11.2026, 20:15 Zürich (alle Einheiten des Tages erledigt) */
-export const DEMO_JETZT = "2026-11-05T19:15:00.000Z";
-const VORLAUF_START = "2026-06-29";
-const PLAN_START = "2026-07-13";
-const SCHLAF_AB = "2026-10-08"; // vier Wochen Schlafdetails
+const HEUTE = "2027-03-11";
+/** „Jetzt" der Demo: Do 11.03.2027, 20:15 Zürich (alle Einheiten des Tages erledigt) */
+export const DEMO_JETZT = "2027-03-11T19:15:00.000Z";
+const VORLAUF_START = "2026-11-09";
+/** = PROGRAMM_START (lib/engine/block.ts): erste Planwoche */
+const PLAN_START = "2026-11-23";
+const SCHLAF_AB = "2027-02-11"; // vier Wochen Schlafdetails
+const GEWICHT_AB = "2026-11-02";
 const ZIEL = path.resolve(__dirname, "../../public/demo/daten");
 
 const PROFIL = {
   name: "Alex Muster",
-  gewichtKg: 76,
+  gewichtKg: 77,
   groesseCm: 180,
   ruhepuls: 50,
   hfMax: 192,
-  lastZuschlagSproKmPro10kg: 8.5,
-  stiefelMalusSproKm: 10,
 };
 const hrAnteil = (f: number) => Math.round(PROFIL.ruhepuls + f * (PROFIL.hfMax - PROFIL.ruhepuls));
 
@@ -69,26 +71,7 @@ async function einfuegen(tabelle: string, zeilen: Zeile[]) {
 const uhr = (iso: string, hh = 12, mm = 0) => vi.setSystemTime(gen.zuerich(iso, hh, mm));
 const wochentag = (iso: string) => new Date(iso + "T12:00:00Z").getUTCDay(); // 0 = So
 const fortschrittAm = (iso: string) =>
-  Math.max(0, Math.min(1, (Date.parse(iso) - Date.parse(PLAN_START)) / (Date.parse("2026-11-01") - Date.parse(PLAN_START))));
-
-/** EP-Benchmark-Wert der fiktiven Person an einem Datum (stetige Verbesserung) */
-function benchmarkWert(disziplin: string, datum: string): number {
-  const p = fortschrittAm(datum);
-  const s = gen.zw(-0.04, 0.04);
-  switch (disziplin) {
-    case "lastlauf":
-      return Math.round(2230 - 330 * p + 30 * s * 10); // 37:10 → ~31:40
-    case "klimmzuege":
-      return Math.round(6 + 4.4 * p + s * 10);
-    case "liegestuetze":
-      return Math.round(24 + 12 * p + s * 15);
-    case "rumpf_seitlich":
-      return Math.round(70 + 40 * p + s * 50);
-    case "rumpf_dorsal":
-      return Math.round(95 + 25 * p + s * 50);
-  }
-  throw new Error(disziplin);
-}
+  Math.max(0, Math.min(1, (Date.parse(iso) - Date.parse(PLAN_START)) / (Date.parse("2027-03-07") - Date.parse(PLAN_START))));
 
 /* --------------------------------------------------- Einheit → Aktivität */
 
@@ -104,7 +87,7 @@ type Phase = { dauerS: number; paceSKm: number; hr: number };
 
 /** Workout-Struktur des Plans in Simulationsphasen übersetzen */
 /**
- * Wahre Leistungsfähigkeit der fiktiven Person: 5-km-Pace ohne Last
+ * Wahre Leistungsfähigkeit der fiktiven Person: 5-km-Pace
  * (5:35 → 5:02/km). Harte Abschnitte richten sich danach, NICHT nach den
  * Zielpaces des Plans — sonst lernte das Lauf-Modell nur seine eigenen
  * Vorgaben zurück.
@@ -151,34 +134,12 @@ function phasenAusStruktur(
 
 const LAUF_RUNDEN = ["aare_kurz", "bremgartenwald", "allmend", "aare_kurz"];
 
-function laufFuerEinheit(e: PlanZeile, idx: number, benchmarks: Zeile[]) {
+function laufFuerEinheit(e: PlanZeile, idx: number) {
   const p = fortschrittAm(e.datum);
   const z2Pace = 398 - 32 * p; // 6:38 → 6:06 bei gleichem Puls
   const basis = { pace: z2Pace, hr: hrAnteil(0.66) };
   const profil = { ruhepuls: PROFIL.ruhepuls, hfMax: PROFIL.hfMax };
   const titel = e.titel;
-  if (e.typ === "probe_ep") {
-    const zeit = benchmarkWert("lastlauf", e.datum);
-    for (const d of ["klimmzuege", "liegestuetze", "rumpf_seitlich", "rumpf_dorsal"]) {
-      benchmarks.push({ id: crypto.randomUUID(), datum: e.datum, disziplin: d, wert: benchmarkWert(d, e.datum), notiz: "Probe-EP" });
-    }
-    benchmarks.push({ id: crypto.randomUUID(), datum: e.datum, disziplin: "lastlauf", wert: zeit, notiz: "Probe-EP" });
-    return gen.ausdauer({
-      datum: e.datum, stunde: 9, typ: "running", name: "Probe-EP: Lastlauf 5 km mit 20 kg", routeId: "allmend", profil, fortschritt: p, startDistanz: 0,
-      phasen: [{ dauerS: zeit, paceSKm: zeit / 5, hr: hrAnteil(0.86) }],
-      // Name mit „Lastlauf": das Lauf-Modell klammert Läufe mit Last aus
-    });
-  }
-  if (e.typ === "lastlauf") {
-    const kg = Number(titel.match(/(\d{1,2})\s*kg/i)?.[1] ?? 10);
-    const aufZeit = /auf Zeit/i.test(titel);
-    const pace = aufZeit ? benchmarkWert("lastlauf", e.datum) / 5 : z2Pace - 10 + kg * 0.9;
-    if (aufZeit) benchmarks.push({ id: crypto.randomUUID(), datum: e.datum, disziplin: "lastlauf", wert: Math.round(pace * 5), notiz: "Lastlauf auf Zeit" });
-    const phasen = aufZeit
-      ? [{ dauerS: 600, paceSKm: z2Pace + 30, hr: hrAnteil(0.6) }, { dauerS: Math.round(pace * 5), paceSKm: pace, hr: hrAnteil(0.85) }]
-      : phasenAusStruktur(e.struktur, { pace, hr: hrAnteil(0.76) }, { p5: fuenfKmPace(e.datum), einheitTyp: e.typ });
-    return gen.ausdauer({ datum: e.datum, stunde: 9, typ: "running", name: titel, routeId: "allmend", profil, fortschritt: p, phasen: phasen.length ? phasen : [{ dauerS: 2700, paceSKm: pace, hr: hrAnteil(0.76) }] });
-  }
   const huegel = e.typ === "huegel_intervalle";
   const lang = e.typ === "langer_lauf";
   const routeId = huegel ? "gurten" : lang ? (idx % 2 ? "gurten_lang" : "aare_lang") : LAUF_RUNDEN[idx % LAUF_RUNDEN.length];
@@ -203,23 +164,85 @@ function kraftFuerTag(datum: string, einheiten: PlanZeile[]) {
   const p = fortschrittAm(datum);
   const kz = Math.round(5 + 4 * p);
   const uebungen: [string, number, number, number][] = [];
-  const typen = new Set(einheiten.map((e) => e.typ));
-  if (typen.has("kraft")) {
-    const wt = wochentag(datum);
-    if (wt === 1)
-      uebungen.push(["BENCH_PRESS", 4, 8, Math.round(62 + 10 * p)], ["DIP", 3, 10, 0], ["SHOULDER_PRESS", 3, 10, 18], ["TRICEPS_EXTENSION", 3, 12, 22]);
-    else if (wt === 4)
-      uebungen.push(["ROW", 4, 10, Math.round(52 + 8 * p)], ["LAT_PULLDOWN", 3, 10, 50], ["CURL", 3, 12, 12], ["FARMERS_CARRY", 3, 40, 28]);
-    else
-      uebungen.push(["SQUAT", 4, 8, Math.round(70 + 15 * p)], ["ROMANIAN_DEADLIFT", 3, 10, 60], ["LUNGE", 3, 12, 16], ["CALF_RAISE", 3, 15, 30], ["HIP_THRUST", 3, 10, 60]);
+  const wt = wochentag(datum);
+  if (wt === 1) {
+    uebungen.push(
+      ["BENCH_PRESS", 4, 8, Math.round(62 + 10 * p)],
+      ["SHOULDER_PRESS", 3, 10, 18],
+      ["DIP", 3, 10, 0],
+      ["TRICEPS_EXTENSION", 3, 12, 22],
+      ["PLANK", 3, Math.round(55 + 20 * p), 0],
+      ["SIDE_PLANK", 2, Math.round(35 + 15 * p), 0]
+    );
+  } else {
+    uebungen.push(
+      ["PULL_UP", 5, kz, 0],
+      ["ROW", 3, 10, Math.round(52 + 8 * p)],
+      ["CURL", 3, 12, 12],
+      ["LUNGE", 3, 10, 16],
+      ["ROMANIAN_DEADLIFT", 3, 8, 60],
+      ["CALF_RAISE", 3, 15, 30],
+      ["BACK_EXTENSION", 2, 15, 0]
+    );
   }
-  if (typen.has("klimmzuege") || typen.has("kraft")) uebungen.push(["PULL_UP", 5, kz, 0]);
-  if (typen.has("liegestuetze")) uebungen.push(["PUSH_UP", 4, Math.round(16 + 8 * p), 0]);
-  if (typen.has("rumpf") || typen.has("kraft")) uebungen.push(["PLANK", 3, Math.round(75 + 30 * p), 0], ["SIDE_PLANK", 2, Math.round(55 + 30 * p), 0]);
-  const name = typen.has("kraft")
-    ? { 1: "Gym: Brust/Schultern", 4: "Gym: Rücken/Zug", 0: "Gym: Beine/Ganzkörper" }[wochentag(datum) as 0 | 1 | 4] ?? "Gym: Ganzkörper"
-    : einheiten[0].titel;
-  return gen.kraft({ datum, name, uebungen, profil: PROFIL });
+  return gen.kraft({ datum, name: einheiten[0]?.titel ?? "Gym", uebungen, profil: PROFIL });
+}
+
+/* ------------------------------------------------------------- Gewicht */
+
+/**
+ * Wägungen einer Index-S2-Waage: meist morgens nüchtern (≈ 06:30), ab und
+ * zu zusätzlich abends; ein Teil der Messungen mit ausgefülltem Protokoll.
+ * Langsamer Trend 78.4 → 76.6 kg, Tagesrauschen, Abendmessungen höher.
+ */
+function gewichtFuerTag(datum: string, n: number) {
+  const tage = (Date.parse(datum) - Date.parse(GEWICHT_AB)) / 86_400_000;
+  const trend = 78.4 - 1.8 * Math.min(1, tage / 125) + 0.25 * Math.sin(tage / 9);
+  const messungen: { zeile: Zeile; bedingung: Zeile | null }[] = [];
+  const morgens = gen.zufall() < 0.86;
+  const fett = (abend: boolean) => gen.rund(18.6 - 1.4 * Math.min(1, tage / 125) + gen.zw(-0.35, 0.35) + (abend ? gen.zw(0.4, 1.1) : 0), 1);
+  const zeile = (stunde: number, minute: number, kg: number, abend: boolean): Zeile => {
+    const zeitpunkt = gen.zuerich(datum, stunde, minute);
+    const fettProz = fett(abend);
+    return {
+      id: String(4_100_000_000 + n * 10 + (abend ? 1 : 0)),
+      zeitpunkt,
+      datum,
+      gewicht_kg: gen.rund(kg, 1),
+      bmi: gen.rund(kg / 1.8 ** 2, 1),
+      koerperfett_proz: fettProz,
+      koerperwasser_proz: gen.rund(56.2 - (fettProz - 18) * 0.6 + (abend ? gen.zw(-1.2, -0.3) : gen.zw(-0.3, 0.3)), 1),
+      muskelmasse_kg: gen.rund(35.2 + 0.4 * Math.min(1, tage / 125) + gen.zw(-0.25, 0.25), 1),
+      knochenmasse_kg: gen.rund(3.3 + gen.zw(-0.05, 0.05), 1),
+      quelle: "INDEX_SCALE",
+      raw: { demo: true },
+      synced_at: zeitpunkt,
+    };
+  };
+  if (morgens) {
+    const z = zeile(6, Math.round(gen.zw(15, 55)), trend + gen.zw(-0.35, 0.35), false);
+    const protokoll = gen.zufall();
+    messungen.push({
+      zeile: z,
+      bedingung:
+        protokoll < 0.55
+          ? { messung_id: z.id, nuechtern: true, vor_fruehstueck: true, nach_toilette: true, fluessigkeit_vor_min: 360 }
+          : protokoll < 0.7
+            ? { messung_id: z.id, nuechtern: true }
+            : null,
+    });
+  }
+  if (!morgens || gen.zufall() < 0.12) {
+    const z = zeile(Math.round(gen.zw(18, 21)), Math.round(gen.zw(0, 55)), trend + gen.zw(0.7, 1.4), true);
+    messungen.push({
+      zeile: z,
+      bedingung:
+        gen.zufall() < 0.6
+          ? { messung_id: z.id, nuechtern: false, vor_fruehstueck: false, mahlzeit_vor_min: 90, fluessigkeit_vor_min: 30, nach_toilette: false }
+          : null,
+    });
+  }
+  return messungen;
 }
 
 /* ---------------------------------------------------------------- Test */
@@ -248,11 +271,11 @@ test("Demo-Daten aufnehmen", async () => {
   const { generiereUndSpeichereWoche } = await import("@/lib/server/plan-service");
   const { ladeDashboard } = await import("@/lib/server/dashboard-service");
   const { ladeSchlafDetail, letzteSchlafNacht } = await import("@/lib/server/sleep-service");
+  const { ladeGewicht } = await import("@/lib/server/gewicht-service");
 
   await einfuegen("app_settings", [{ key: "profil", value: PROFIL }]);
 
   const aktivitaeten: Zeile[] = [];
-  const benchmarks: Zeile[] = [];
   const profilSim = { ruhepuls: PROFIL.ruhepuls, hfMax: PROFIL.hfMax };
   let laufIdx = 0;
 
@@ -285,6 +308,17 @@ test("Demo-Daten aufnehmen", async () => {
     ]);
   }
 
+  let gewichtN = 0;
+  async function waage(datum: string) {
+    if (datum < GEWICHT_AB || datum > HEUTE) return;
+    // ab und zu ein Tag ohne Wägung — fehlende Tage bleiben leer
+    if (gen.zufall() < 0.14) return;
+    for (const m of gewichtFuerTag(datum, gewichtN++)) {
+      await einfuegen("gewicht_messungen", [m.zeile]);
+      if (m.bedingung) await einfuegen("gewicht_bedingungen", [m.bedingung]);
+    }
+  }
+
   async function speichere(a: { zeile: Zeile; stream?: Zeile; saetze?: Zeile[] }) {
     aktivitaeten.push(a.zeile);
     await einfuegen("activities", [{ ...a.zeile, synced_at: a.zeile.start_zeit }]);
@@ -296,8 +330,9 @@ test("Demo-Daten aufnehmen", async () => {
   for (let d = VORLAUF_START; d < PLAN_START; d = gen.addTage(d, 1)) {
     uhr(d, 6);
     await gesundheit(d);
+    await waage(d);
     const wt = wochentag(d);
-    if ([2, 4].includes(wt) || (wt === 6 && d > "2026-07-04")) {
+    if ([2, 4].includes(wt) || wt === 6) {
       const lang = wt === 6;
       await speichere(
         gen.ausdauer({
@@ -307,17 +342,12 @@ test("Demo-Daten aufnehmen", async () => {
         })
       );
     }
-    if ([1, 5].includes(wt)) await speichere(kraftFuerTag(d, [{ id: "", datum: d, typ: "kraft", titel: "Gym", struktur: null }]));
-    if (d === "2026-07-04") {
-      for (const disz of ["lastlauf", "klimmzuege", "liegestuetze", "rumpf_seitlich", "rumpf_dorsal"]) {
-        benchmarks.push({ id: crypto.randomUUID(), datum: d, disziplin: disz, wert: benchmarkWert(disz, d), notiz: "Eingangstest" });
-      }
-    }
+    if ([1, 4].includes(wt)) await speichere(kraftFuerTag(d, [{ id: "", datum: d, typ: "kraft", titel: "Gym", struktur: null }]));
   }
 
   /* ---- Planwochen ---- */
-  const VERPASST = new Set(["2026-08-19", "2026-09-24"]); // realistisch: zwei ausgelassene Einheiten
-  for (let montag = PLAN_START; montag <= "2026-11-02"; montag = gen.addTage(montag, 7)) {
+  const VERPASST = new Set(["2026-12-23", "2027-02-03"]); // realistisch: zwei ausgelassene Einheiten
+  for (let montag = PLAN_START; montag <= "2027-03-08"; montag = gen.addTage(montag, 7)) {
     uhr(gen.addTage(montag, -1), 20); // Sonntagabend: Woche planen
     await recomputeAll();
     await generiereUndSpeichereWoche(montag);
@@ -331,49 +361,37 @@ test("Demo-Daten aufnehmen", async () => {
       if (d > HEUTE) break;
       uhr(d, 6);
       await gesundheit(d);
+      await waage(d);
       const tag = einheiten.filter((e) => e.datum === d);
-      for (const e of tag.filter((e) => ["lauf_z2", "intervalle", "huegel_intervalle", "langer_lauf", "lastlauf", "probe_ep"].includes(e.typ))) {
+      for (const e of tag.filter((e) => ["lauf_z2", "intervalle", "huegel_intervalle", "langer_lauf"].includes(e.typ))) {
         if (VERPASST.has(d)) continue;
-        await speichere(laufFuerEinheit(e, laufIdx++, benchmarks));
+        await speichere(laufFuerEinheit(e, laufIdx++));
       }
-      const kraftEinheiten = tag.filter((e) => ["kraft", "klimmzuege", "rumpf", "liegestuetze"].includes(e.typ));
+      const kraftEinheiten = tag.filter((e) => ["kraft", "klimmzuege"].includes(e.typ));
       if (kraftEinheiten.length) await speichere(kraftFuerTag(d, kraftEinheiten));
-      // Aktive Erholung am Wochenende ohne Lauf: Wanderung bzw. Velotour
-      const ohneLauf = !tag.some((e) => ["lauf_z2", "intervalle", "huegel_intervalle", "langer_lauf", "lastlauf", "probe_ep"].includes(e.typ));
+      // Freies Wochenende: jeden zweiten Samstag ein lockerer Lauf, alle drei
+      // Wochen sonntags eine Wanderung — beides ungeplant (keine Pflicht)
       const wochenNr = Math.round((Date.parse(montag) - Date.parse(PLAN_START)) / 604_800_000);
-      if (ohneLauf && wochentag(d) === 0 && wochenNr % 3 === 1 && d < "2026-11-01") {
+      if (wochentag(d) === 6 && wochenNr % 2 === 0) {
         await speichere(
           gen.ausdauer({
-            datum: d, stunde: 10, typ: "hiking", name: "Wanderung Bantiger", routeId: "bantiger", art: "wandern",
+            datum: d, stunde: 9, minute: Math.round(gen.zw(0, 40)), typ: "running", name: "Samstagslauf locker",
+            routeId: LAUF_RUNDEN[laufIdx++ % LAUF_RUNDEN.length], profil: profilSim, fortschritt: fortschrittAm(d),
+            phasen: [{ dauerS: Math.round(gen.zw(2400, 3300)), paceSKm: 392 - 30 * fortschrittAm(d), hr: hrAnteil(0.66) }],
+          })
+        );
+      } else if (wochentag(d) === 0 && wochenNr % 3 === 1) {
+        await speichere(
+          gen.ausdauer({
+            datum: d, stunde: 10, typ: "hiking", name: "Winterwanderung Bantiger", routeId: "bantiger", art: "wandern",
             profil: profilSim, fortschritt: fortschrittAm(d), startDistanz: 0, phasen: [{ dauerS: 11000, paceSKm: 760, hr: hrAnteil(0.4) }],
           })
         );
-      } else if (ohneLauf && [0, 6].includes(wochentag(d)) && wochenNr % 3 !== 1 && d < "2026-10-25") {
-        const wohlensee = (wochenNr + wochentag(d)) % 2 === 1;
-        await speichere(
-          gen.ausdauer({
-            datum: d, stunde: 14, typ: "cycling", name: wohlensee ? "Velotour Wohlensee" : "Velotour Gürbetal",
-            routeId: wohlensee ? "wohlensee" : "guerbetal", art: "velo", profil: profilSim, fortschritt: fortschrittAm(d),
-            startDistanz: 0, phasen: [{ dauerS: Math.round(gen.zw(3900, 4700)), paceSKm: 150, hr: hrAnteil(0.55) }],
-          })
-        );
       }
-      // Monatlicher Benchmark-Test (Samstag) zusätzlich zur Probe-EP
-      if (["2026-08-08", "2026-09-05"].includes(d)) {
-        for (const disz of ["klimmzuege", "liegestuetze", "rumpf_seitlich", "rumpf_dorsal"]) {
-          benchmarks.push({ id: crypto.randomUUID(), datum: d, disziplin: disz, wert: benchmarkWert(disz, d), notiz: "Monatstest" });
-        }
-      }
-    }
-    // Benchmarks fortlaufend speichern, damit der Plan-Generator sie sieht
-    const neu = benchmarks.filter((b) => !b.gespeichert);
-    if (neu.length) {
-      await einfuegen("ep_benchmarks", neu.map((b) => Object.fromEntries(Object.entries(b).filter(([k]) => k !== "gespeichert"))));
-      neu.forEach((b) => (b.gespeichert = true));
     }
   }
 
-  /* ---- Stand „heute" (Do 05.11.2026 20:15) ---- */
+  /* ---- Stand „heute" (Do 11.03.2027 20:15) ---- */
   vi.setSystemTime(new Date(DEMO_JETZT));
   await einfuegen("courses", [
     ["gurten", "Gurten-Trail", "2026-09-02"],
@@ -399,17 +417,16 @@ test("Demo-Daten aufnehmen", async () => {
     };
   }));
   await recomputeAll();
-  await generiereUndSpeichereWoche("2026-11-09");
-  await generiereUndSpeichereWoche("2026-11-16");
-  await recomputeAll();
-  // Zwei kommende Einheiten liegen (simuliert) schon auf der Uhr
+  // Die Folgewoche ist schon geplant (wie nach dem Sonntags-Cron)
+  await generiereUndSpeichereWoche("2027-03-15");
+  // Die zwei kommenden Läufe liegen (simuliert) schon auf der Uhr
   const kommend = (await db.select().from(schema.plannedWorkouts).orderBy(asc(schema.plannedWorkouts.datum))).filter(
-    (e) => e.datum > HEUTE && e.struktur != null && e.syncToGarmin && e.typ !== "ep"
+    (e) => e.datum > HEUTE && e.struktur != null && e.syncToGarmin
   );
   for (const [i, e] of kommend.slice(0, 2).entries()) {
     await db.update(schema.plannedWorkouts).set({ status: "gepusht", garminWorkoutId: 900_000_001 + i }).where(eq(schema.plannedWorkouts.id, e.id));
   }
-  await einfuegen("sync_state", [{ key: "activities", value: { lastSyncAt: "2026-11-05T18:58:00.000Z" } }]);
+  await einfuegen("sync_state", [{ key: "activities", value: { lastSyncAt: "2027-03-11T18:58:00.000Z" } }]);
 
   /* ---------------------------------------------------------- Export */
   rmSync(ZIEL, { recursive: true, force: true });
@@ -423,7 +440,6 @@ test("Demo-Daten aufnehmen", async () => {
     insights: await import("@/app/api/insights/route"),
     body: await import("@/app/api/body/route"),
     model: await import("@/app/api/model/route"),
-    benchmarks: await import("@/app/api/benchmarks/route"),
     courses: await import("@/app/api/courses/route"),
     polylines: await import("@/app/api/activities/polylines/route"),
     detail: await import("@/app/api/activities/[id]/route"),
@@ -471,12 +487,8 @@ test("Demo-Daten aufnehmen", async () => {
     courses: (await json(await route.courses.GET())).courses,
     polylines: (await json(await route.polylines.GET())).polylines,
     aktivitaeten: JSON.parse(JSON.stringify(liste)).reverse(),
-    lastSync: "2026-11-05T18:58:00.000Z",
-    // Antwort der echten Route (inkl. Notenstand), Einstellungen gehören nicht in die Demo
-    ...(await json(await route.benchmarks.GET()).then((r: { benchmarks: unknown; prognose: unknown }) => ({
-      benchmarks: r.benchmarks,
-      benchmarkPrognose: r.prognose,
-    }))),
+    lastSync: "2027-03-11T18:58:00.000Z",
+    gewicht: JSON.parse(JSON.stringify(await ladeGewicht())),
     plan: {
       einheiten: JSON.parse(JSON.stringify(await db.select().from(schema.plannedWorkouts).orderBy(asc(schema.plannedWorkouts.datum)))),
       hinweise: setting("plan_hinweise_"),
@@ -486,7 +498,7 @@ test("Demo-Daten aufnehmen", async () => {
   };
   schreibe("kern.json", kern);
   process.stdout.write(
-    `\nDemo-Daten: ${liste.length} Aktivitäten, ${naechte.length} Nächte, ${(kern.benchmarks as unknown[]).length} Benchmarks, ` +
+    `\nDemo-Daten: ${liste.length} Aktivitäten, ${naechte.length} Nächte, ${kern.gewicht.messungen.length} Wägungen, ` +
       `${kern.plan.einheiten.length} Plan-Einheiten → ${path.relative(process.cwd(), ZIEL)}\n`
   );
 });

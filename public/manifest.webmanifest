@@ -1,14 +1,14 @@
 {
   "name": "Garmin Hub",
   "short_name": "Garmin Hub",
-  "description": "Persönliches Trainings-HQ für die Eignungsprüfung der Schweizer Armee-Grenadiere.",
+  "description": "Personal Fitness & Running Performance — dein persönliches Fitness-Cockpit mit Garmin-Daten, Trainingsplan und Fortschritt.",
   "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#10151d",
-  "theme_color": "#10151d",
+  "background_color": "#151d2b",
+  "theme_color": "#151d2b",
   "lang": "de-CH",
   "icons": [
     {

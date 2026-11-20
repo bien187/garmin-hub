@@ -9,8 +9,8 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
-  --font-heading: var(--font-display);
-  --font-display: var(--font-display);
+  --font-heading: var(--font-sans);
+  --font-display: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -36,6 +36,10 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+  --color-coral: var(--coral);
+  --color-coral-foreground: var(--coral-foreground);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -44,81 +48,97 @@
   --color-status-yellow: var(--status-yellow);
   --color-status-orange: var(--status-orange);
   --color-status-red: var(--status-red);
-  --color-ep: var(--ep);
   --color-schlaf-tief: var(--schlaf-tief);
   --color-schlaf-leicht: var(--schlaf-leicht);
   --color-schlaf-rem: var(--schlaf-rem);
   --color-schlaf-wach: var(--schlaf-wach);
   --color-dim-foreground: var(--dim-foreground);
-  /* Exakt zwei Radien: 8px (Buttons/Segmente/Inputs/Minimaps) · 12px (Karten/
-     Dialoge/Toasts). Vollrund nur für Badges/Pills. */
+  /* Radien: 8 (Chips) · 12 (Buttons/Inputs/Segmente) · 16 (innere Kacheln)
+     · 22 (Karten/Sheets). Vollrund nur für Pills, Badges und Avatare. */
   --radius-sm: 8px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 12px;
-  --radius-2xl: 12px;
-  --radius-3xl: 12px;
-  --radius-4xl: 12px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+  --radius-2xl: 22px;
+  --radius-3xl: 28px;
+  --radius-4xl: 9999px;
+  --shadow-card: var(--schatten-karte);
+  --shadow-glow: var(--schatten-glow);
 }
 
 /*
- * GRENADIER HQ — Identität „Schweizer Gebirgs-Präzision"
- * Basis: tiefes Anthrazit/Nachtblau · Akzent: Bergsee-Türkis
- * Ampelfarben ausschliesslich für Status.
+ * GARMIN HUB — „Personal Fitness & Running Performance"
+ * Midnight Navy als Bühne · Lime für Fortschritt, Aktives und Kennzahlen ·
+ * Coral für Laufen, Intensität und Highlights · Ampelfarben nur für Status.
  * Dark-first: :root == dark; .light als optionaler Override.
  */
 :root,
 .dark {
-  --background: oklch(0.155 0.014 252);
-  --foreground: oklch(0.94 0.008 220); /* Text 1 */
-  --muted-foreground: oklch(0.66 0.014 240); /* Text 2 */
-  --dim-foreground: oklch(0.5 0.014 240); /* Text 3 — NEU */
-  --card: oklch(0.195 0.016 252);
-  --card-foreground: oklch(0.94 0.008 220);
-  /* Konsolidiert: popover = card (waren 2 % auseinander) */
-  --popover: var(--card);
-  --popover-foreground: oklch(0.94 0.008 220);
-  --primary: oklch(0.83 0.13 180); /* einziger Interaktionsakzent */
-  --primary-foreground: oklch(0.17 0.02 220);
-  /* Konsolidiert: ein Grauton statt drei (muted/secondary/accent) */
-  --muted: oklch(0.25 0.016 252);
-  --secondary: var(--muted);
-  --secondary-foreground: oklch(0.94 0.008 220);
-  --accent: var(--muted);
-  --accent-foreground: oklch(0.94 0.008 220);
-  /* Konsolidiert: eine Linienfarbe (border = input = sidebar-border) */
-  --border: oklch(0.95 0.01 220 / 9%);
-  --input: var(--border);
-  /* Konsolidiert: destructive = status-red */
-  --status-red: oklch(0.63 0.21 25);
+  /* Grundfarben (Hex = Referenz aus dem Designbrief) */
+  --navy: #151d2b;
+  --lime: #b8f36b;
+  --coral-basis: #ff9466;
+  --hell: #e8edf3;
+
+  --background: var(--navy);
+  --foreground: #f5f7fa; /* Text 1 */
+  --muted-foreground: #9aa7ba; /* Text 2 */
+  --dim-foreground: #6b788d; /* Text 3 */
+  --card: #1b2537;
+  --card-foreground: var(--foreground);
+  --popover: #202b3f;
+  --popover-foreground: var(--foreground);
+  /* Flächen innerhalb von Karten (Kacheln, Segmente, Eingaben) */
+  --surface: #222d42;
+  --surface-2: #2a364d;
+  --primary: var(--lime); /* einziger Interaktionsakzent */
+  --primary-foreground: #142010;
+  --coral: var(--coral-basis);
+  --coral-foreground: #2a1308;
+  --muted: var(--surface);
+  --secondary: var(--surface);
+  --secondary-foreground: var(--foreground);
+  --accent: var(--surface);
+  --accent-foreground: var(--foreground);
+  --border: rgb(232 237 243 / 8%);
+  --input: rgb(232 237 243 / 10%);
+  --status-red: #ff6370;
   --destructive: var(--status-red);
-  --status-green: oklch(0.78 0.17 152);
-  --status-yellow: oklch(0.85 0.14 95);
-  --status-orange: oklch(0.75 0.15 60);
-  /* EP-Tage im Plan: eigener Akzent, klar getrennt von Status-Farben */
-  --ep: oklch(0.72 0.17 310);
+  --status-green: #8fe388;
+  --status-yellow: #f4d35e;
+  --status-orange: #f8b04c;
   /* Schlafphasen (Datenfarben, keine Status-/Akzentfarben): Blau-Familie,
      dunkel = tief, hell/neutral = wach */
-  --schlaf-tief: oklch(0.5 0.17 268);
-  --schlaf-leicht: oklch(0.7 0.11 245);
-  --schlaf-rem: oklch(0.74 0.13 292);
-  --schlaf-wach: oklch(0.86 0.02 240);
-  --ring: oklch(0.83 0.13 180 / 60%);
-  --chart-1: oklch(0.83 0.13 180);
-  --chart-2: oklch(0.68 0.1 250);
-  --chart-3: oklch(0.75 0.13 85);
-  --chart-4: oklch(0.63 0.17 25);
-  --chart-5: var(--dim-foreground); /* redundant → Text 3 */
-  --radius: 0.75rem;
-  /* Konsolidiert: sidebar = background (2 % Unterschied) */
-  --sidebar: var(--background);
-  --sidebar-foreground: oklch(0.94 0.008 220);
-  --sidebar-primary: oklch(0.83 0.13 180);
-  --sidebar-primary-foreground: oklch(0.17 0.02 220);
-  --sidebar-accent: var(--muted);
-  --sidebar-accent-foreground: oklch(0.94 0.008 220);
+  --schlaf-tief: oklch(0.52 0.17 268);
+  --schlaf-leicht: oklch(0.72 0.11 245);
+  --schlaf-rem: oklch(0.75 0.13 292);
+  --schlaf-wach: oklch(0.88 0.02 240);
+  --ring: rgb(184 243 107 / 55%);
+  /* Diagramme: Lime, Coral, Himmelblau, Violett, Text 3 */
+  --chart-1: var(--lime);
+  --chart-2: var(--coral-basis);
+  --chart-3: #6cc4ff;
+  --chart-4: #b49cff;
+  --chart-5: var(--dim-foreground);
+  --radius: 1rem;
+  --sidebar: #121a27;
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--lime);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--surface);
+  --sidebar-accent-foreground: var(--foreground);
   --sidebar-border: var(--border);
-  --sidebar-ring: oklch(0.83 0.13 180 / 60%);
+  --sidebar-ring: var(--ring);
+
+  /* Tiefe: dezente Schatten, Lichtkante oben */
+  --schatten-karte: inset 0 1px 0 rgb(255 255 255 / 4%), 0 10px 30px -18px rgb(0 0 0 / 70%);
+  --schatten-glow: 0 0 0 1px rgb(184 243 107 / 35%), 0 12px 40px -16px rgb(184 243 107 / 45%);
+  /* Verläufe */
+  --verlauf-hero: radial-gradient(120% 140% at 0% 0%, rgb(184 243 107 / 16%) 0%, transparent 55%),
+    radial-gradient(90% 120% at 100% 100%, rgb(255 148 102 / 14%) 0%, transparent 60%),
+    linear-gradient(160deg, #1f2b40 0%, #182133 100%);
+  --verlauf-lime: linear-gradient(135deg, #c9f78a 0%, #b8f36b 45%, #95d94a 100%);
+  --verlauf-coral: linear-gradient(135deg, #ffb08c 0%, #ff9466 50%, #f2734a 100%);
 
   /* Motion-Tokens */
   --dur-instant: 120ms;
@@ -136,42 +156,51 @@
 }
 
 .light {
-  --background: oklch(0.97 0.004 240);
-  --foreground: oklch(0.2 0.015 252);
-  --muted-foreground: oklch(0.5 0.012 240);
-  --dim-foreground: oklch(0.62 0.012 240);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.2 0.015 252);
-  --popover: var(--card);
-  --popover-foreground: oklch(0.2 0.015 252);
-  --primary: oklch(0.6 0.12 180);
-  --primary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.93 0.006 240);
-  --secondary: var(--muted);
-  --secondary-foreground: oklch(0.2 0.015 252);
-  --accent: var(--muted);
-  --accent-foreground: oklch(0.2 0.015 252);
-  --border: oklch(0.2 0.015 252 / 10%);
-  --input: var(--border);
-  --status-red: oklch(0.55 0.21 25);
+  --background: var(--hell);
+  --foreground: #151d2b;
+  --muted-foreground: #526077;
+  --dim-foreground: #7a8699;
+  --card: #ffffff;
+  --card-foreground: #151d2b;
+  --popover: #ffffff;
+  --popover-foreground: #151d2b;
+  --surface: #f1f4f8;
+  --surface-2: #e4e9f0;
+  --primary: #4f8a12; /* Lime ist auf Hell zu kontrastarm für Text */
+  --primary-foreground: #ffffff;
+  --coral: #e2683a;
+  --coral-foreground: #ffffff;
+  --muted: var(--surface);
+  --secondary: var(--surface);
+  --secondary-foreground: #151d2b;
+  --accent: var(--surface);
+  --accent-foreground: #151d2b;
+  --border: rgb(21 29 43 / 10%);
+  --input: rgb(21 29 43 / 14%);
+  --status-red: #d93a4a;
   --destructive: var(--status-red);
-  --status-green: oklch(0.62 0.17 152);
-  --status-yellow: oklch(0.7 0.14 95);
-  --status-orange: oklch(0.65 0.15 60);
-  --ep: oklch(0.52 0.2 310);
+  --status-green: #2f9e44;
+  --status-yellow: #b88a00;
+  --status-orange: #d9822b;
   --schlaf-tief: oklch(0.4 0.17 268);
   --schlaf-leicht: oklch(0.62 0.12 245);
   --schlaf-rem: oklch(0.58 0.16 295);
   --schlaf-wach: oklch(0.78 0.02 240);
-  --ring: oklch(0.6 0.12 180 / 60%);
-  --sidebar: var(--background);
-  --sidebar-foreground: oklch(0.2 0.015 252);
-  --sidebar-primary: oklch(0.6 0.12 180);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: var(--muted);
-  --sidebar-accent-foreground: oklch(0.2 0.015 252);
+  --ring: rgb(79 138 18 / 55%);
+  --chart-1: #4f8a12;
+  --chart-2: #e2683a;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #151d2b;
+  --sidebar-primary: #4f8a12;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--surface);
+  --sidebar-accent-foreground: #151d2b;
   --sidebar-border: var(--border);
-  --sidebar-ring: oklch(0.6 0.12 180 / 60%);
+  --sidebar-ring: var(--ring);
+  --schatten-karte: 0 1px 2px rgb(21 29 43 / 6%), 0 12px 32px -20px rgb(21 29 43 / 25%);
+  --verlauf-hero: radial-gradient(120% 140% at 0% 0%, rgb(184 243 107 / 35%) 0%, transparent 55%),
+    radial-gradient(90% 120% at 100% 100%, rgb(255 148 102 / 22%) 0%, transparent 60%),
+    linear-gradient(160deg, #ffffff 0%, #f1f4f8 100%);
 }
 
 @layer base {
@@ -183,17 +212,59 @@
   }
   html {
     @apply font-sans;
+    font-feature-settings: "ss01", "cv11";
   }
-  /* Grosse Messwerte / Countdown */
+  /* Grosse Kennzahlen: Geist, eng gesetzt, Tabellenziffern */
   .stat-display {
-    font-family: var(--font-display);
-    font-weight: 700;
-    letter-spacing: -0.01em;
+    font-family: var(--font-sans);
+    font-weight: 650;
+    letter-spacing: -0.035em;
     font-variant-numeric: tabular-nums;
   }
   .stat-mono {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
+  }
+}
+
+/* ---- Bausteine des Design-Systems ---- */
+
+/* Kachel-Titel (Karten-Überschrift): klein, gesperrt, Text 2 */
+.kachel-titel {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+/* Hero-Fläche mit Lime/Coral-Verlauf */
+.flaeche-hero {
+  background: var(--verlauf-hero);
+}
+
+/* Lime-Verlauf für prominente Aktionen und Fortschritt */
+.flaeche-lime {
+  background: var(--verlauf-lime);
+  color: var(--primary-foreground);
+}
+
+.flaeche-coral {
+  background: var(--verlauf-coral);
+  color: var(--coral-foreground);
+}
+
+/* Karten, die auf Hover/Fokus leicht anheben (nur mit Zeiger) */
+@media (hover: hover) {
+  .karte-hover {
+    transition:
+      transform var(--dur-base) var(--ease-base),
+      box-shadow var(--dur-base) var(--ease-base),
+      background-color var(--dur-base) var(--ease-base);
+  }
+  .karte-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--schatten-karte), 0 0 0 1px rgb(184 243 107 / 18%);
   }
 }
 
@@ -279,6 +350,10 @@ html[data-vp-luecke] {
 .map-bleed-pad {
   padding-bottom: calc(var(--nav-h) + var(--nav-sab));
 }
+/* Routen-Panel der Karte: über der mobilen Tab-Bar, auf dem Desktop unten */
+.karte-panel-unten {
+  bottom: calc(var(--nav-h) + var(--nav-sab) + 8px);
+}
 @media (min-width: 768px) {
   .app-scroll-pad {
     padding-top: 0;
@@ -286,6 +361,9 @@ html[data-vp-luecke] {
   }
   .map-bleed-pad {
     padding-bottom: 0;
+  }
+  .karte-panel-unten {
+    bottom: 8px;
   }
 }
 
@@ -366,8 +444,36 @@ html[data-vp-luecke] {
   }
 }
 
+@keyframes gh-wachsen {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes gh-auf {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--gh-shift) * 2));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .gh-row-in {
   animation: gh-row-in var(--dur-base) var(--ease-base) both;
+}
+/* Fortschrittsbalken wachsen beim Erscheinen von links */
+.gh-wachsen {
+  transform-origin: left center;
+  animation: gh-wachsen var(--dur-emphasis) var(--ease-base) both;
+}
+/* Karten blenden gestaffelt ein (Verzögerung per style={{animationDelay}}) */
+.gh-auf {
+  animation: gh-auf 360ms var(--ease-base) both;
 }
 .gh-spin {
   animation: gh-spin 900ms linear infinite;

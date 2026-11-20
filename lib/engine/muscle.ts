@@ -320,13 +320,14 @@ export interface LaufLastInput {
   hmAuf: number;
   hmAb: number;
   distanzM: number;
-  istLastlauf: boolean;
+  /** Lauf mit Zusatzlast (Rucksack/Weste) */
+  mitZusatzlast: boolean;
 }
 
 /**
  * Last aus Läufen: Beinmuskulatur gewichtet nach TRIMP; Hm-Anteil verschiebt
  * Richtung Waden+Gesäss (bergauf) bzw. Quadrizeps (bergab, exzentrisch).
- * Lastläufe belasten zusätzlich Trapez/unteren Rücken/Rumpf.
+ * Läufe mit Zusatzlast (Rucksack/Weste) belasten zusätzlich Trapez/unteren Rücken/Rumpf.
  */
 export function lastenAusLauf(inp: LaufLastInput): Lasten {
   if (inp.trimp <= 0) return {};
@@ -350,7 +351,7 @@ export function lastenAusLauf(inp: LaufLastInput): Lasten {
   basis.waden = (basis.waden ?? 0) + 0.35 * bergauf;
   basis.gesaess = (basis.gesaess ?? 0) + 0.3 * bergauf;
   basis.quadrizeps = (basis.quadrizeps ?? 0) + 0.45 * bergab; // exzentrisch
-  if (inp.istLastlauf) {
+  if (inp.mitZusatzlast) {
     basis.nacken_trapez = 0.3;
     basis.unterer_ruecken = (basis.unterer_ruecken ?? 0) + 0.25;
     basis.bauch = (basis.bauch ?? 0) + 0.15;

@@ -114,19 +114,19 @@ describe("lastenAusKraft", () => {
 
 describe("lastenAusLauf", () => {
   it("flacher Lauf: Waden am stärksten", () => {
-    const l = lastenAusLauf({ trimp: 80, hmAuf: 10, hmAb: 10, distanzM: 10000, istLastlauf: false });
+    const l = lastenAusLauf({ trimp: 80, hmAuf: 10, hmAb: 10, distanzM: 10000, mitZusatzlast: false });
     expect(l.waden).toBeGreaterThan(l.quadrizeps as number);
   });
 
   it("bergab verschiebt Richtung Quadrizeps (exzentrisch)", () => {
-    const flach = lastenAusLauf({ trimp: 80, hmAuf: 0, hmAb: 0, distanzM: 10000, istLastlauf: false });
-    const bergab = lastenAusLauf({ trimp: 80, hmAuf: 0, hmAb: 500, distanzM: 10000, istLastlauf: false });
+    const flach = lastenAusLauf({ trimp: 80, hmAuf: 0, hmAb: 0, distanzM: 10000, mitZusatzlast: false });
+    const bergab = lastenAusLauf({ trimp: 80, hmAuf: 0, hmAb: 500, distanzM: 10000, mitZusatzlast: false });
     expect(bergab.quadrizeps as number).toBeGreaterThan(flach.quadrizeps as number);
   });
 
-  it("Lastlauf belastet zusätzlich Trapez/Rumpf", () => {
-    const normal = lastenAusLauf({ trimp: 80, hmAuf: 0, hmAb: 0, distanzM: 5000, istLastlauf: false });
-    const last = lastenAusLauf({ trimp: 80, hmAuf: 0, hmAb: 0, distanzM: 5000, istLastlauf: true });
+  it("Lauf mit Zusatzlast belastet zusätzlich Trapez/Rumpf", () => {
+    const normal = lastenAusLauf({ trimp: 80, hmAuf: 0, hmAb: 0, distanzM: 5000, mitZusatzlast: false });
+    const last = lastenAusLauf({ trimp: 80, hmAuf: 0, hmAb: 0, distanzM: 5000, mitZusatzlast: true });
     expect(normal.nacken_trapez ?? 0).toBe(0);
     expect(last.nacken_trapez as number).toBeGreaterThan(0);
     expect(last.seitlicher_rumpf as number).toBeGreaterThan(0);
