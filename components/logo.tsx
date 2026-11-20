@@ -1,24 +1,21 @@
 import { cn } from "@/lib/utils";
 
 /**
- * Bildmarke von Garmin Hub: Puls-Linie mit steigendem Ausschlag —
- * Navy auf Lime. Rein dekorativ (aria-hidden).
+ * Bildmarke von Garmin Hub: Puls-Linie in Salbei auf ruhiger Fläche.
+ * Rein dekorativ (aria-hidden).
  */
 export function Logo({ className }: { className?: string }) {
   return (
     <span
       aria-hidden
-      className={cn(
-        "flaeche-lime flex shrink-0 items-center justify-center rounded-[30%] shadow-[0_8px_24px_-10px_rgb(184_243_107/70%)]",
-        className
-      )}
+      className={cn("flex shrink-0 items-center justify-center rounded-lg border border-border bg-surface text-primary", className)}
     >
       <svg
         viewBox="0 0 24 24"
         className="size-[62%]"
         fill="none"
         stroke="currentColor"
-        strokeWidth={2.6}
+        strokeWidth={2.2}
         strokeLinecap="round"
         strokeLinejoin="round"
       >

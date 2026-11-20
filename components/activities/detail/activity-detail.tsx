@@ -183,15 +183,15 @@ export function ActivityDetail({ id }: { id: string }) {
         : lastenAusTemplate("ganzkoerper", 55);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4 p-4 md:p-6 lg:p-8">
-      <div className="flaeche-hero gh-auf flex items-start justify-between gap-3 rounded-xl p-4 shadow-card ring-1 ring-white/[0.06] md:p-5">
-        <div className="flex min-w-0 items-start gap-3">
-          <SportIcon typ={a.typ} groesse="lg" />
+    <div className="mx-auto max-w-4xl space-y-5 px-4 pt-5 pb-8 md:px-8 md:pt-8">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-2">
+          <SportIcon typ={a.typ} groesse="sm" className="mt-1" />
           <div className="min-w-0">
-          <div className="text-[11px] font-medium text-muted-foreground">
+          <div className="text-xs text-muted-foreground">
             {formatDatumLang(isoDatum(new Date(a.startZeit)))} · {sportName(a.typ)}
           </div>
-          <h1 className="text-[22px] leading-tight font-semibold tracking-tight md:text-[26px]">
+          <h1 className="text-[22px] leading-tight font-medium tracking-tight md:text-[26px]">
             {a.name ?? sportName(a.typ)}
           </h1>
           <div className="stat-mono mt-0.5 text-[10px] text-dim-foreground">
@@ -208,14 +208,14 @@ export function ActivityDetail({ id }: { id: string }) {
             aria-label="Von Garmin aktualisieren"
             disabled={aktualisiert}
             onClick={aktualisieren}
-            className="flex size-11 items-center justify-center rounded-full bg-white/[0.06] transition-colors hover:bg-white/[0.12]"
+            className="flex size-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
           >
             <RefreshCw className={cn("size-4.5", aktualisiert && "gh-spin")} />
           </button>
           <button
             aria-label="Aktivität löschen"
             onClick={() => setLoeschenOffen(true)}
-            className="flex size-11 items-center justify-center rounded-full bg-status-red/10 text-status-red transition-colors hover:bg-status-red/20"
+            className="flex size-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface hover:text-status-red"
           >
             <Trash2 className="size-4.5" />
           </button>
@@ -244,7 +244,7 @@ export function ActivityDetail({ id }: { id: string }) {
       />
 
       {/* Kernmetriken */}
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+      <div className="grid grid-cols-3 gap-x-4 gap-y-4 border-y border-border py-4 sm:grid-cols-5">
         <Stat label="Dauer" wert={formatDauer(a.dauerS)} />
         {a.distanzM != null && a.distanzM > 100 && (
           <Stat label="Distanz" wert={formatKm(a.distanzM)} />
@@ -284,7 +284,7 @@ export function ActivityDetail({ id }: { id: string }) {
       {hatStrecke && !istKraftTyp && (
         <Card>
           <CardHeader className="pb-1">
-            <CardTitle className="kachel-titel">
+            <CardTitle className="abschnitt-titel">
               Verlauf {flyover ? "· Höhe · Herzfrequenz · Pace" : "· Höhenprofil"}
             </CardTitle>
           </CardHeader>
@@ -309,7 +309,7 @@ export function ActivityDetail({ id }: { id: string }) {
       {m.zonenZeit && zonenGesamt > 0 && (
         <Card>
           <CardHeader className="pb-1">
-            <CardTitle className="kachel-titel">
+            <CardTitle className="abschnitt-titel">
               Herzfrequenz-Zonen
             </CardTitle>
           </CardHeader>
@@ -324,7 +324,7 @@ export function ActivityDetail({ id }: { id: string }) {
                       {grenze.von}–{grenze.bis}
                     </span>
                   )}
-                  <div className="h-4 flex-1 overflow-hidden rounded-full bg-surface">
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-border">
                     <div
                       className="h-full rounded-full"
                       style={{
@@ -352,7 +352,7 @@ export function ActivityDetail({ id }: { id: string }) {
       {m.splits.length > 0 && (
         <Card>
           <CardHeader className="pb-1">
-            <CardTitle className="kachel-titel">
+            <CardTitle className="abschnitt-titel">
               Splits
             </CardTitle>
           </CardHeader>
@@ -378,7 +378,7 @@ export function ActivityDetail({ id }: { id: string }) {
                       </td>
                       <td className="py-1 pl-3">
                         <div
-                          className="flaeche-coral h-2 rounded-full"
+                          className="h-1.5 rounded-full bg-coral/70"
                           style={{ width: `${Math.max(8, (schnellste / s.paceSKm) * 100)}%` }}
                         />
                       </td>
@@ -395,7 +395,7 @@ export function ActivityDetail({ id }: { id: string }) {
       {istKraftTyp && (
         <Card>
           <CardHeader className="pb-1">
-            <CardTitle className="kachel-titel">
+            <CardTitle className="abschnitt-titel">
               Muskel-Template
             </CardTitle>
           </CardHeader>
@@ -405,15 +405,15 @@ export function ActivityDetail({ id }: { id: string }) {
                 ? "Überschreibt die aus den Sätzen abgeleitete Belastung."
                 : "Keine Übungsdetails von Garmin — weise die Belastung manuell zu."}
             </p>
-            <div className="flex flex-wrap gap-1 rounded-2xl bg-surface p-1">
+            <div className="flex flex-wrap gap-1">
               <button
                 disabled={demo}
                 onClick={() => setzeTemplate(null)}
                 className={cn(
-                  "min-h-10 rounded-full px-3.5 text-[13px] font-medium transition-colors",
+                  "min-h-10 rounded-md px-3 text-[13px] transition-colors",
                   a.manualMuscleTemplate == null
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground"
+                    ? "bg-surface text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 Automatisch
@@ -424,10 +424,10 @@ export function ActivityDetail({ id }: { id: string }) {
                   disabled={demo}
                   onClick={() => setzeTemplate(t.id)}
                   className={cn(
-                    "min-h-10 rounded-full px-3.5 text-[13px] font-medium transition-colors",
+                    "min-h-10 rounded-md px-3 text-[13px] transition-colors",
                     a.manualMuscleTemplate === t.id
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground"
+                      ? "bg-surface text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
                   )}
                 >
                   {t.name}
@@ -444,7 +444,7 @@ export function ActivityDetail({ id }: { id: string }) {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <Card>
             <CardHeader className="pb-1">
-              <CardTitle className="kachel-titel">
+              <CardTitle className="abschnitt-titel">
                 Sätze
               </CardTitle>
             </CardHeader>
@@ -475,7 +475,7 @@ export function ActivityDetail({ id }: { id: string }) {
           </Card>
           <Card>
             <CardHeader className="pb-1">
-              <CardTitle className="kachel-titel">
+              <CardTitle className="abschnitt-titel">
                 Belastete Muskeln
               </CardTitle>
             </CardHeader>
@@ -488,7 +488,7 @@ export function ActivityDetail({ id }: { id: string }) {
                   .map(([id, last]) => (
                     <span
                       key={id}
-                      className="rounded-full bg-surface px-2 py-0.5 text-[10px] text-muted-foreground"
+                      className="text-[11px] text-muted-foreground"
                     >
                       {MUSKEL_NAME[id as MuskelId]} {Math.round(last ?? 0)}
                     </span>
@@ -514,11 +514,12 @@ function Stat({
   farbe?: string;
 }) {
   return (
-    <div
-      className={`rounded-2xl p-3 ${hebe ? "bg-primary/10 ring-1 ring-primary/25" : "bg-surface"}`}
-    >
-      <div className="text-[10px] tracking-wider text-muted-foreground uppercase">{label}</div>
-      <div className={`stat-display mt-0.5 text-xl leading-tight ${farbe ?? ""}`}>{wert}</div>
+    <div className="min-w-0">
+      <div className="text-xs text-muted-foreground">
+        {label}
+        {hebe && <span className="ml-1 text-primary">·</span>}
+      </div>
+      <div className={`stat-display mt-0.5 text-[17px] leading-tight ${farbe ?? ""}`}>{wert}</div>
     </div>
   );
 }

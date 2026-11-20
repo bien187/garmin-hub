@@ -410,12 +410,16 @@ export function stundenBisBelastbar(
   return tau * Math.log(aktuellProzent / zielProzent);
 }
 
-/** Ampelfarbe (HSL-interpoliert) für Rest-Erschöpfung 0–100 % */
+/**
+ * Gedämpfte Ampelfarbe (HSL-interpoliert) für Rest-Erschöpfung 0–100 %,
+ * passend zu den Statusfarben in app/globals.css.
+ */
 export function erschoepfungFarbe(prozent: number): string {
-  // 0 % = Grün (145°), 50 % = Gelb (55°), 100 % = Rot (12°)
+  // 0 % = Salbeigrün (111°, ≈ --status-green), 50 % = Ocker (46°, ≈ --status-yellow),
+  // 100 % = gedämpftes Rot (5°, ≈ --status-red)
   const p = Math.min(100, Math.max(0, prozent)) / 100;
-  const hue = p <= 0.5 ? 145 - (145 - 55) * (p / 0.5) : 55 - (55 - 12) * ((p - 0.5) / 0.5);
-  const sat = 60 + 15 * p;
-  const light = 42 + 8 * (1 - p);
+  const hue = p <= 0.5 ? 111 - (111 - 46) * (p / 0.5) : 46 - (46 - 5) * ((p - 0.5) / 0.5);
+  const sat = p <= 0.5 ? 26 + (55 - 26) * (p / 0.5) : 55 - 3 * ((p - 0.5) / 0.5);
+  const light = 64 + 2 * (1 - Math.abs(p - 0.5) * 2);
   return `hsl(${Math.round(hue)} ${Math.round(sat)}% ${Math.round(light)}%)`;
 }

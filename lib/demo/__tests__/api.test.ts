@@ -70,6 +70,8 @@ describe("Demo-Datenstand", () => {
     expect(d.wochenTage).toHaveLength(7);
     expect(d.verlauf).toHaveLength(12);
     expect(d.gewicht?.aktuellKg).toBeGreaterThan(60);
+    expect(d.gesundheitVerlauf.length).toBeGreaterThan(7);
+    expect(d.gesundheitVerlauf.at(-1)?.datum).toBe(kern.heute);
     expect(d.allTime.aktivitaeten).toBeGreaterThan(80);
     expect(d.paceFortschritt.wochen.some((w) => w.paceSKm != null)).toBe(true);
     expect(Object.keys(d.muskelnHeute).length).toBeGreaterThan(5);

@@ -56,7 +56,7 @@ export function GarminCard() {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="kachel-titel">
+        <CardTitle className="abschnitt-titel">
           Garmin-Verbindung
         </CardTitle>
       </CardHeader>
@@ -97,7 +97,7 @@ export function GarminCard() {
             </div>
             {status.log.length > 0 && (
               <div>
-                <div className="mb-1 text-xs uppercase tracking-wider text-muted-foreground">
+                <div className="mb-1 text-xs text-muted-foreground">
                   Sync-Log
                 </div>
                 <div className="max-h-40 space-y-1 overflow-y-auto">
@@ -130,7 +130,7 @@ export function GarminCard() {
 
         {/* MFA */}
         <div className="border-t border-border pt-3">
-          <div className="mb-1.5 flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
+          <div className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
             <KeyRound className="size-3.5" /> MFA-Code (falls Garmin ihn verlangt)
           </div>
           <div className="flex gap-2">

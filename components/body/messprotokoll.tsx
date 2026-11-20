@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Clock3, Dumbbell, Scale, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { SheetShell } from "@/components/ui/sheet-confirm";
 import { DemoDeaktiviert } from "@/components/basis-pfad";
 import {
@@ -65,8 +65,10 @@ function Wahl<T extends string | number | boolean>({
               disabled={deaktiviert}
               onClick={() => onWahl(aktiv ? null : o.wert)}
               className={cn(
-                "min-h-10 min-w-12 rounded-full px-3.5 text-[13px] font-medium transition-colors disabled:opacity-50",
-                aktiv ? "bg-primary text-primary-foreground" : "bg-surface text-muted-foreground hover:text-foreground"
+                "min-h-10 min-w-12 rounded-md border px-3 text-[13px] transition-colors disabled:opacity-50",
+                aktiv
+                  ? "border-primary/70 bg-primary/10 text-foreground"
+                  : "border-border text-muted-foreground hover:text-foreground"
               )}
             >
               {o.label}
@@ -152,15 +154,12 @@ export function Messprotokoll({
     <SheetShell open={offen} onClose={onClose} labelledBy="messprotokoll-titel">
       <div className="flex max-h-[85dvh] flex-col">
         <div className="flex items-start gap-3 px-5 pt-1.5 pb-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary">
-            <Scale className="size-5" />
-          </span>
           <div className="min-w-0 flex-1">
-            <h2 id="messprotokoll-titel" className="text-base font-semibold">
+            <h2 id="messprotokoll-titel" className="text-base font-medium">
               Wie war deine Messung?
             </h2>
             <p className="text-xs text-muted-foreground">
-              {zeit} · <span className="font-semibold text-foreground tabular-nums">{messung.gewichtKg.toFixed(1)} kg</span>
+              {zeit} · <span className="font-medium text-foreground tabular-nums">{messung.gewichtKg.toFixed(1)} kg</span>
             </p>
           </div>
           <button
@@ -175,16 +174,10 @@ export function Messprotokoll({
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 pb-4">
           {/* Automatisch bekannt — wird nicht abgefragt */}
           <div className="flex flex-wrap gap-1.5">
-            <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-surface px-3 text-[12px]">
-              <Clock3 className="size-3.5 text-primary" />
+            <span className="text-xs text-muted-foreground">
               {TAGESZEIT[vorschau.tageszeit]} (aus dem Zeitstempel)
+              {sport?.herkunft === "garmin" ? ` · ${sport.hinweis} (Garmin)` : ""}
             </span>
-            {sport?.herkunft === "garmin" && (
-              <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-surface px-3 text-[12px]">
-                <Dumbbell className="size-3.5 text-primary" />
-                {sport.hinweis} (Garmin)
-              </span>
-            )}
           </div>
 
           <Wahl label="Nüchtern?" wert={b.nuechtern} optionen={JA_NEIN} onWahl={(v) => setze({ nuechtern: v })} deaktiviert={demo} />
@@ -234,7 +227,7 @@ export function Messprotokoll({
           <Wahl label="Bad oder Sauna in den 2 h davor?" wert={b.badSauna} optionen={JA_NEIN} onWahl={(v) => setze({ badSauna: v })} deaktiviert={demo} />
 
           {/* Live-Vorschau des Scores */}
-          <div className="space-y-2 rounded-xl bg-surface p-3">
+          <div className="space-y-2 border-t border-border pt-3">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[13px] font-medium">Vergleichbarkeit</span>
               <QualitaetsBadge klasse={vorschau.klasse} score={vorschau.score} />
@@ -279,7 +272,7 @@ export function Messprotokoll({
               <button
                 onClick={speichern}
                 disabled={speichert}
-                className="flaeche-lime flex min-h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold disabled:opacity-60"
+                className="flaeche-lime flex min-h-11 w-full items-center justify-center gap-2 rounded-md text-sm font-medium disabled:opacity-60"
               >
                 <Check className="size-4" />
                 {speichert ? "Speichert…" : "Angaben speichern"}

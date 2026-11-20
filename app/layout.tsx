@@ -34,7 +34,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#151d2b",
+  themeColor: "#151b26",
   width: "device-width",
   initialScale: 1,
   // Pinch-Zoom erlaubt (Barrierefreiheit) — Eingabefelder sind 16px, damit

@@ -157,11 +157,11 @@ export function SyncButton({ kompakt = false }: { kompakt?: boolean }) {
           disabled={laeuft}
           aria-label="Synchronisieren"
           className={cn(
-            "flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full bg-white/[0.07] px-3 ring-1 ring-white/10 backdrop-blur transition-colors hover:bg-white/[0.12]",
+            "flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-md px-2 text-muted-foreground transition-colors hover:text-foreground",
             phase === "fehler" && "text-status-red"
           )}
         >
-          <RefreshCw className={cn("size-4.25", laeuft && "gh-spin")} />
+          <RefreshCw className={cn("size-[18px]", laeuft && "gh-spin")} strokeWidth={1.8} />
           {zaehler && (
             <span className="stat-mono text-xs tabular-nums">{zaehler}</span>
           )}

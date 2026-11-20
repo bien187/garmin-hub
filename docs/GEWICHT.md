@@ -111,5 +111,6 @@ Zwei getrennte Ebenen:
   vom Gewicht, mit derselben Tageswahl und 7-Tage-Median. Bioimpedanz reagiert
   auf Flüssigkeitshaushalt und Messbedingungen — der Hinweis steht unter den
   Diagrammen.
-- Dashboard-Karte „Gewicht": aktuelles Gewicht, Trend, Veränderung über
-  30 Tage, Mini-Trendlinie, letzte Messung; Klick führt zu `/body#gewicht`.
+- Dashboard-Abschnitt „Gewicht": aktuelles Gewicht mit Tag der letzten Messung,
+  Trend (7-Tage-Median), Veränderung über 30 Tage und ab Tablet-Breite eine
+  Mini-Trendlinie; „Körper ›" führt zu `/body#gewicht`.

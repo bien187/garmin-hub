@@ -88,7 +88,7 @@ function ToastItem({
               onClose();
             }}
             // sichtbar kompakt, Hit-Area 44px
-            className="-my-3 -mr-1.5 flex min-h-11 shrink-0 items-center px-2.5 text-[13px] font-semibold text-primary"
+            className="-my-3 -mr-1.5 flex min-h-11 shrink-0 items-center px-2.5 text-[13px] font-medium text-primary"
           >
             {toast.actionLabel}
           </button>

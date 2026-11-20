@@ -81,7 +81,7 @@ export function ProfileForm() {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="kachel-titel">
+        <CardTitle className="abschnitt-titel">
           Profil & Zonen
         </CardTitle>
       </CardHeader>
@@ -129,7 +129,7 @@ export function ProfileForm() {
           <div className="stat-mono grid grid-cols-5 gap-1 text-center text-[11px]">
             {(["z1", "z2", "z3", "z4", "z5"] as const).map((z) => (
               <div key={z} className="rounded bg-muted px-1 py-1.5">
-                <div className="font-semibold uppercase">{z}</div>
+                <div className="font-medium uppercase">{z}</div>
                 <div className="text-muted-foreground">
                   {zonen[z].von}–{zonen[z].bis}
                 </div>

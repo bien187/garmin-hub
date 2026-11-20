@@ -78,8 +78,8 @@ for (const [name, geraet] of [
   pruefe(await p.getByText("Garmin-Hub-Demo. Alle Aktivitäten, Gesundheits- und Schlafwerte sind fiktive Testdaten.").isVisible(), `${name}: Demo-Hinweis sichtbar`);
   pruefe((await p.locator('a[href$="/settings"]').count()) === 0, `${name}: kein Link zu Einstellungen`);
   pruefe((await p.getByRole("button", { name: /synchronisieren/i }).count()) === 0, `${name}: kein Sync-Knopf`);
-  await p.getByText("Bereitschaft heute").waitFor({ timeout: 20_000 });
-  for (const t of ["Nächstes Training", "Diese Woche", "Fortschritt", "Letzte Aktivitäten", "Schlaf letzte Nacht", "Gewicht", "Muskelstatus", "Gesamtbilanz"]) {
+  await p.getByText("Training Readiness").waitFor({ timeout: 20_000 });
+  for (const t of ["Training Readiness", "Body Battery", "Ruhepuls", "Schlaf", "Letzte Aktivitäten", "Diese Woche", "Gewicht", "Entwicklung", "Gesamtbilanz"]) {
     pruefe(await p.getByText(t, { exact: false }).first().isVisible(), `${name}: Dashboard zeigt „${t}"`);
   }
   pruefe(!(await p.getByText("Noch keine Aktivitäten").count()), `${name}: Dashboard nicht leer`);

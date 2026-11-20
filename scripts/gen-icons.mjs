@@ -1,6 +1,6 @@
 /**
  * Generiert die PWA-Icons und das Favicon aus der Bildmarke von Garmin Hub
- * (Puls-Linie, Navy auf Lime — wie components/logo.tsx). Rendert das SVG
+ * (Puls-Linie in Salbei auf Navy — wie components/logo.tsx). Rendert das SVG
  * mit dem lokal installierten Google Chrome über Playwright (devDependency).
  *
  *   node scripts/gen-icons.mjs
@@ -21,12 +21,9 @@ function svg(groesse, anteil) {
   const versatz = (512 - box) / 2;
   const skala = box / 24;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${groesse}" height="${groesse}" viewBox="0 0 512 512">
-  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0" stop-color="#c9f78a"/><stop offset="0.45" stop-color="#b8f36b"/><stop offset="1" stop-color="#95d94a"/>
-  </linearGradient></defs>
-  <rect width="512" height="512" fill="url(#g)"/>
+  <rect width="512" height="512" fill="#151b26"/>
   <g transform="translate(${versatz} ${versatz}) scale(${skala})">
-    <path d="M2.5 13.5h4l2.5-6 4 11 3-8.5h5.5" fill="none" stroke="#151d2b" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M2.5 13.5h4l2.5-6 4 11 3-8.5h5.5" fill="none" stroke="#a4b99a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
   </g></svg>`;
 }
 

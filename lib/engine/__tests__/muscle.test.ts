@@ -219,8 +219,10 @@ describe("lastenAusTemplate", () => {
 });
 
 describe("erschoepfungFarbe", () => {
-  it("liefert HSL-Verlauf grün → rot", () => {
-    expect(erschoepfungFarbe(0)).toMatch(/^hsl\(145/);
-    expect(erschoepfungFarbe(100)).toMatch(/^hsl\(12/);
+  it("liefert gedämpften HSL-Verlauf grün → ocker → rot", () => {
+    expect(erschoepfungFarbe(0)).toBe("hsl(111 26% 64%)");
+    expect(erschoepfungFarbe(50)).toBe("hsl(46 55% 66%)");
+    expect(erschoepfungFarbe(100)).toBe("hsl(5 52% 64%)");
+    expect(erschoepfungFarbe(-10)).toBe(erschoepfungFarbe(0));
   });
 });

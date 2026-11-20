@@ -73,7 +73,7 @@ export function ZeitraumUmschalter({
   const optionen = ZEITRAEUME.filter((z) => verfuegbar.includes(z.id));
   if (optionen.length < 2) return null;
   return (
-    <div role="group" aria-label="Zeitraum" className={cn("flex w-fit rounded-full bg-surface p-0.5", className)}>
+    <div role="group" aria-label="Zeitraum" className={cn("flex w-fit gap-0.5", className)}>
       {optionen.map((o) => (
         <button
           key={o.id}
@@ -81,8 +81,8 @@ export function ZeitraumUmschalter({
           aria-pressed={wert === o.id}
           onClick={() => onChange(o.id)}
           className={cn(
-            "min-h-11 min-w-11 whitespace-nowrap rounded-full px-3 text-[13px] transition-colors",
-            wert === o.id ? "bg-primary font-semibold text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+            "min-h-10 min-w-10 whitespace-nowrap rounded-md px-2.5 text-[13px] transition-colors",
+            wert === o.id ? "bg-surface text-foreground" : "text-muted-foreground hover:text-foreground"
           )}
         >
           {o.label}

@@ -9,8 +9,8 @@ Garmin Hub ist eine persönliche Single-User-Webapp für die langfristige
 Verbesserung von **Laufleistung, Ausdauer und allgemeiner Fitness**. Sie
 synchronisiert Garmin-Daten über die inoffizielle Garmin-Connect-API, wertet sie
 mit einer regelbasierten Engine aus (keine LLM-Aufrufe, keine laufenden Kosten)
-und soll sich wie ein persönliches Fitness-Cockpit anfühlen — modern, sportlich,
-motivierend, datenorientiert und trotzdem leicht bedienbar.
+und soll ruhig, professionell und hochwertig wirken — ein Werkzeug für Gesundheit
+und Training, kein lautes Dashboard (Design-Revision 2.0 „Understated Performance").
 
 Grundsatz: **Weiterentwicklung statt Neubau.** Architektur, Datenstrukturen,
 Garmin-Integration, Aktivitätsverwaltung und die Trainings-Engine bleiben
@@ -18,12 +18,14 @@ erhalten; Prüfungs- und Notenlogik gibt es nicht mehr.
 
 ## 2. Seiten
 
-1. **Dashboard** — Begrüssung mit kurzem Motivationssatz, Wochenkennzahlen
-   (Laufdistanz, Einheiten, Trainingszeit, Ø Pace und Puls), Wochenübersicht
-   Mo–So, Fortschritt über die letzten Wochen, nächstes Training (Art, Dauer,
-   Intensität, Beschreibung, ggf. Distanz/Pace), letzte Aktivitäten, bestehende
-   Analysen (Bereitschaft, Schlaf, Form, Pace bei gleichem Puls, Muskelstatus,
-   Konsistenz, Insights) und eine Gewichtskarte.
+1. **Dashboard** — Gesundheitsübersicht in dieser Reihenfolge: Kopf (Gruss,
+   Datum, dezenter Sync-Knopf); Training Readiness und Body Battery (Wert, Status,
+   Trend, schlanke Skala) mit kurzer Einschätzung; weitere Gesundheitswerte
+   (Ruhepuls, HRV, Stress, Form); Schlaf (Dauer, Score, Tief/REM/Leicht/Wach,
+   Schlaf-Herzfrequenz, Zeitleiste); kompakte letzte Aktivitäten; weiter unten
+   Wochenkennzahlen, Gewicht, Entwicklung (Fortschritt, Form, Pace bei gleichem
+   Puls, Konsistenz), Insights und Gesamtbilanz. **Kein „Nächstes Training" im
+   Dashboard** — das steht nur im Plan.
 2. **Aktivitäten** — Karten mit Sportart, Datum, Distanz, Dauer, Pace, Puls,
    Höhenmetern und Icon; Laufen und Kraft klar unterscheidbar. Detailansichten mit
    Flyover, Splits, Zonen und Metriken bleiben vollständig.
@@ -76,11 +78,14 @@ allgemeine Fitness-Zielsetzung ersetzt.
 
 ## 5. Design
 
-Midnight Navy `#151D2B`, Lime `#B8F36B` (Fortschritt, Aktives, Kennzahlen), Coral
-`#FF9466` (Laufen, Intensität, Highlights), helle Fläche `#E8EDF3`. Abgerundete
-Karten, dezente Schatten und Verläufe, Line-Icons, Pill-Badges, grosse Kennzahlen,
-klare Typo-Hierarchie (Geist), dezente Animationen. Ein zentrales Design-System,
-mobile-first, Touch-Ziele ≥ 44 px, kein horizontales Scrollen auf 390 px.
+Design-Revision 2.0 „Understated Performance": Hintergrund `#151B26`, Fläche
+`#1C2532`, erhöhte Fläche `#232E3C`, Text `#F0F2F4` / `#9AA5B3`, Akzente Muted Sage
+`#A4B99A`, Soft Blue `#8FA6C1` und Muted Orange `#D69A72`, Trennlinien `#303A47`.
+Struktur über Typografie (Geist), Abstände und feine Trennlinien statt über
+Karten: keine grossen abgerundeten Boxen, keine verschachtelten Karten, keine
+starken Schatten, kein Glow, keine Verläufe, keine Lime-Flächen, wenige Icons und
+Badges, kaum Animation. Ein zentrales Design-System, mobile-first, Touch-Ziele
+≥ 44 px, kein horizontales Scrollen auf 390 px.
 
 ## 6. Technik
 

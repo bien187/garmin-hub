@@ -11,7 +11,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { AlertTriangle, ChevronDown, ClipboardList, Info, Scale } from "lucide-react";
+import { AlertTriangle, ChevronDown, Info } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { KachelKopf } from "@/components/ui/kachel";
 import { useIstDemo } from "@/components/basis-pfad";
@@ -52,10 +52,9 @@ const KOMPOSITION: Record<KompositionsFeld, { label: string; einheit: string; de
 const TOOLTIP_STIL: React.CSSProperties = {
   background: "var(--popover)",
   border: "1px solid var(--border)",
-  borderRadius: 14,
+  borderRadius: 8,
   fontSize: 12,
-  boxShadow: "0 16px 40px -16px rgb(0 0 0 / 70%)",
-  padding: "10px 12px",
+  padding: "8px 10px",
 };
 
 const kg1 = (v: number) => v.toLocaleString("de-CH", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -79,10 +78,10 @@ function bedingungKurz(m: BewerteteMessung): string {
 
 function Kennzahl({ label, wert, einheit, fuss, ton }: { label: string; wert: string; einheit?: string; fuss?: React.ReactNode; ton?: "lime" | "coral" }) {
   return (
-    <div className="rounded-2xl bg-surface p-3">
-      <div className="text-[10px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">{label}</div>
+    <div className="min-w-0">
+      <div className="text-xs text-muted-foreground">{label}</div>
       <div className="mt-1 flex items-baseline gap-1">
-        <span className={cn("stat-display text-2xl leading-none", ton === "lime" && "text-primary", ton === "coral" && "text-coral")}>{wert}</span>
+        <span className={cn("stat-display text-[22px] leading-none", ton === "lime" && "text-primary", ton === "coral" && "text-coral")}>{wert}</span>
         {einheit && <span className="text-xs text-muted-foreground">{einheit}</span>}
       </div>
       {fuss && <div className="mt-1 truncate text-[11px] text-dim-foreground">{fuss}</div>}
@@ -97,11 +96,11 @@ function Schalter({ aktiv, onClick, children, farbe }: { aktiv: boolean; onClick
       aria-pressed={aktiv}
       onClick={onClick}
       className={cn(
-        "inline-flex min-h-9 items-center gap-2 rounded-full px-3 text-[12px] font-medium transition-colors",
-        aktiv ? "bg-surface-2 text-foreground" : "bg-transparent text-dim-foreground ring-1 ring-white/10"
+        "inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-[12px] transition-colors",
+        aktiv ? "text-foreground" : "text-dim-foreground"
       )}
     >
-      <span className="size-2.5 rounded-full" style={{ background: aktiv ? farbe : "transparent", boxShadow: `inset 0 0 0 1.5px ${farbe}` }} />
+      <span className="size-2 rounded-full" style={{ background: aktiv ? farbe : "transparent", boxShadow: `inset 0 0 0 1.5px ${farbe}` }} />
       {children}
     </button>
   );
@@ -232,22 +231,17 @@ export function GewichtBereich() {
 
   return (
     <section id="gewicht" className="scroll-mt-4 space-y-4">
-      <Card className="gh-auf">
-        <KachelKopf
-          icon={Scale}
-          ton="lime"
-          titel="Smart Weight Tracking"
-          untertitel="Garmin Index S2 · standardisierter Trend"
-        />
+      <Card>
+        <KachelKopf titel="Smart Weight Tracking" untertitel="Garmin Index S2 · standardisierter Trend" />
 
         {!daten && !fehler && (
           <div className="space-y-3 px-(--card-spacing)">
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {[0, 1, 2, 3].map((i) => (
-                <div key={i} className="h-20 animate-pulse rounded-2xl bg-surface" />
+                <div key={i} className="h-14 animate-pulse rounded-md bg-surface" />
               ))}
             </div>
-            <div className="h-64 animate-pulse rounded-2xl bg-surface" />
+            <div className="h-56 animate-pulse rounded-md bg-surface" />
           </div>
         )}
 
@@ -256,8 +250,7 @@ export function GewichtBereich() {
         )}
 
         {daten && !daten.verfuegbar && (
-          <div className="mx-(--card-spacing) flex gap-2.5 rounded-xl bg-surface p-3 text-[13px] text-muted-foreground">
-            <Info className="mt-0.5 size-4 shrink-0 text-primary" />
+          <div className="mx-(--card-spacing) border-l-2 border-primary/50 pl-3 text-[13px] text-muted-foreground">
             <p>
               Gewichtstracking ist noch nicht eingerichtet: Die Datenbank-Migration <code>drizzle/0003_gewicht.sql</code>{" "}
               anwenden, danach synchronisieren.
@@ -274,7 +267,7 @@ export function GewichtBereich() {
         {sicht && daten && daten.messungen.length > 0 && (
           <div className="space-y-4 px-(--card-spacing)">
             {/* Kennzahlen */}
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-4">
               <Kennzahl
                 label="Aktuell"
                 wert={sicht.kz.aktuell ? kg1(sicht.kz.aktuell.kg) : "–"}
@@ -294,7 +287,7 @@ export function GewichtBereich() {
 
             {/* Filter und Ebenen */}
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div role="group" aria-label="Zeitraum" className="flex flex-wrap rounded-full bg-surface p-1">
+              <div role="group" aria-label="Zeitraum" className="flex flex-wrap gap-0.5">
                 {ZEITRAEUME.map((z) => (
                   <button
                     key={z.id}
@@ -302,29 +295,29 @@ export function GewichtBereich() {
                     aria-pressed={zeitraum === z.id}
                     onClick={() => setZeitraum(z.id)}
                     className={cn(
-                      "min-h-9 rounded-full px-3 text-[12px] font-medium transition-colors",
-                      zeitraum === z.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                      "min-h-9 rounded-md px-2.5 text-[12px] transition-colors",
+                      zeitraum === z.id ? "bg-surface text-foreground" : "text-muted-foreground hover:text-foreground"
                     )}
                   >
                     {z.label}
                   </button>
                 ))}
               </div>
-              <div className="flex flex-wrap gap-1.5">
-                <Schalter aktiv={zeigeRoh} onClick={() => setZeigeRoh((v) => !v)} farbe="#9aa7ba">
+              <div className="flex flex-wrap gap-1">
+                <Schalter aktiv={zeigeRoh} onClick={() => setZeigeRoh((v) => !v)} farbe="#9aa5b3">
                   Messungen
                 </Schalter>
-                <Schalter aktiv={zeigeTrend} onClick={() => setZeigeTrend((v) => !v)} farbe="#b8f36b">
-                  Trend
+                <Schalter aktiv={zeigeTrend} onClick={() => setZeigeTrend((v) => !v)} farbe="#a4b99a">
+                  Trend 7 Tage
                 </Schalter>
-                <Schalter aktiv={zeige30} onClick={() => setZeige30((v) => !v)} farbe="#ff9466">
-                  30 Tage
+                <Schalter aktiv={zeige30} onClick={() => setZeige30((v) => !v)} farbe="#d69a72">
+                  Trend 30 Tage
                 </Schalter>
               </div>
             </div>
 
             {/* Diagramm */}
-            <div className="h-72 w-full md:h-80">
+            <div className="h-60 w-full md:h-72">
               {sicht.roh.length === 0 ? (
                 <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
                   Keine Messung in diesem Zeitraum.
@@ -332,15 +325,6 @@ export function GewichtBereich() {
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart margin={{ top: 8, right: 6, bottom: 0, left: -8 }}>
-                    <defs>
-                      <filter id="trend-glow" x="-20%" y="-20%" width="140%" height="140%">
-                        <feGaussianBlur stdDeviation="3" result="blur" />
-                        <feMerge>
-                          <feMergeNode in="blur" />
-                          <feMergeNode in="SourceGraphic" />
-                        </feMerge>
-                      </filter>
-                    </defs>
                     <CartesianGrid vertical={false} stroke="var(--border)" />
                     <XAxis
                       type="number"
@@ -374,7 +358,7 @@ export function GewichtBereich() {
                           data={nachKlasse[k]}
                           dataKey="kg"
                           fill={KLASSEN_FARBE[k]}
-                          fillOpacity={k === "gering" ? 0.55 : 0.9}
+                          fillOpacity={k === "gering" ? 0.5 : 0.75}
                           shape="circle"
                           isAnimationActive={false}
                         />
@@ -385,8 +369,8 @@ export function GewichtBereich() {
                         dataKey="trendKg"
                         type="monotone"
                         stroke="var(--coral)"
-                        strokeWidth={2}
-                        strokeDasharray="6 5"
+                        strokeWidth={1.5}
+                        strokeDasharray="5 4"
                         dot={false}
                         connectNulls={false}
                         isAnimationActive={false}
@@ -397,13 +381,12 @@ export function GewichtBereich() {
                         data={sicht.trend7}
                         dataKey="trendKg"
                         type="monotone"
-                        stroke="var(--primary)"
-                        strokeWidth={3}
+                        stroke="var(--foreground)"
+                        strokeWidth={2}
                         dot={false}
-                        activeDot={{ r: 5, fill: "var(--primary)", strokeWidth: 0 }}
+                        activeDot={{ r: 4, fill: "var(--foreground)", strokeWidth: 0 }}
                         connectNulls={false}
-                        filter="url(#trend-glow)"
-                        animationDuration={600}
+                        isAnimationActive={false}
                       />
                     )}
                   </ComposedChart>
@@ -415,14 +398,14 @@ export function GewichtBereich() {
             <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
               {(Object.keys(KLASSEN) as Klasse[]).map((k) => (
                 <span key={k} className="flex items-center gap-1.5">
-                  <span className="size-2.5 rounded-full" style={{ background: KLASSEN_FARBE[k] }} />
+                  <span className="size-2 rounded-full" style={{ background: KLASSEN_FARBE[k] }} />
                   {KLASSEN[k].label}
                 </span>
               ))}
             </div>
 
             {/* Zeitraum-Auswertung */}
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-4 border-t border-border pt-4 sm:grid-cols-3 lg:grid-cols-6">
               <Kennzahl label="Tiefst" wert={sicht.kz.zeitraum.tiefst ? kg1(sicht.kz.zeitraum.tiefst.kg) : "–"} einheit="kg" fuss={sicht.kz.zeitraum.tiefst ? formatDatum(sicht.kz.zeitraum.tiefst.datum) : undefined} />
               <Kennzahl label="Höchst" wert={sicht.kz.zeitraum.hoechst ? kg1(sicht.kz.zeitraum.hoechst.kg) : "–"} einheit="kg" fuss={sicht.kz.zeitraum.hoechst ? formatDatum(sicht.kz.zeitraum.hoechst.datum) : undefined} />
               <Kennzahl label="Im Zeitraum" wert={delta(sicht.kz.zeitraum.trendDelta)} einheit="kg" fuss="Trend Anfang → Ende" />
@@ -436,14 +419,9 @@ export function GewichtBereich() {
 
       {/* Messungen mit Messbedingungen */}
       {sicht && daten && daten.messungen.length > 0 && (
-        <Card className="gh-auf">
-          <KachelKopf
-            icon={ClipboardList}
-            ton="neutral"
-            titel="Messungen"
-            untertitel="Tippe auf eine Messung, um die Bedingungen zu ergänzen"
-          />
-          <ul className="-my-1 px-[calc(var(--card-spacing)-8px)]">
+        <Card>
+          <KachelKopf titel="Messungen" untertitel="Tippe auf eine Messung, um die Bedingungen zu ergänzen" />
+          <ul className="divide-y divide-border px-(--card-spacing)">
             {liste.map((m) => (
               <li key={m.id}>
                 <button
@@ -452,14 +430,14 @@ export function GewichtBereich() {
                     setProtokoll(m);
                     setProtokollOffen(true);
                   }}
-                  className="flex min-h-14 w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-surface"
+                  className="flex min-h-13 w-full items-center gap-3 py-2 text-left transition-colors hover:text-foreground"
                 >
                   <div className="w-14 shrink-0">
-                    <div className="stat-display text-[17px] leading-tight">{kg1(m.gewichtKg)}</div>
+                    <div className="stat-display text-[16px] leading-tight">{kg1(m.gewichtKg)}</div>
                     <div className="text-[10px] text-dim-foreground">kg</div>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13px] font-medium">
+                    <div className="truncate text-[13px]">
                       {tagLang(m.zeitpunkt)} · {uhr(m.zeitpunkt)}
                     </div>
                     <div className="truncate text-[11px] text-muted-foreground">
@@ -496,9 +474,9 @@ export function GewichtBereich() {
 
       {/* Körperzusammensetzung — getrennt vom Gewichtstrend */}
       {daten && daten.komposition.some((r) => r.punkte.length > 0) && (
-        <Card className="gh-auf">
-          <KachelKopf icon={Scale} ton="violett" titel="Körperzusammensetzung" untertitel="Bioimpedanz · Tageswerte und 7-Tage-Median" />
-          <div className="grid gap-3 px-(--card-spacing) sm:grid-cols-2">
+        <Card>
+          <KachelKopf titel="Körperzusammensetzung" untertitel="Bioimpedanz · Tageswerte und 7-Tage-Median" />
+          <div className="grid grid-cols-1 gap-x-8 gap-y-5 px-(--card-spacing) sm:grid-cols-2">
             {daten.komposition
               .filter((r) => r.punkte.length > 0)
               .map((r) => (
@@ -515,15 +493,15 @@ export function GewichtBereich() {
 
       {/* Wie der Score funktioniert */}
       {daten?.verfuegbar && (
-        <Card className="gh-auf" size="sm">
+        <Card size="sm">
           <button
             type="button"
             aria-expanded={erklaerung}
             onClick={() => setErklaerung((v) => !v)}
             className="flex min-h-11 w-full items-center justify-between gap-3 px-(--card-spacing) text-left"
           >
-            <span className="flex items-center gap-2 text-sm font-medium">
-              <Info className="size-4 text-primary" /> So funktioniert die Messqualität
+            <span className="flex items-center gap-2 text-sm">
+              <Info className="size-4 text-muted-foreground" /> So funktioniert die Messqualität
             </span>
             <ChevronDown className={cn("size-4 text-muted-foreground transition-transform", erklaerung && "rotate-180")} />
           </button>
@@ -536,7 +514,7 @@ export function GewichtBereich() {
               </p>
               <ul className="grid grid-cols-1 gap-1 sm:grid-cols-2">
                 {Object.values(KRITERIEN).map((k) => (
-                  <li key={k.label} className="flex justify-between gap-3 rounded-lg bg-surface px-3 py-1.5">
+                  <li key={k.label} className="flex justify-between gap-3 border-b border-border py-1.5">
                     <span>{k.label}</span>
                     <span className="stat-mono text-foreground">{k.max}</span>
                   </li>
@@ -574,10 +552,10 @@ function KompositionKachel({ reihe, von }: { reihe: KompositionsReihe; von: stri
     trend: trend.find((x) => x.datum === p.datum)?.wert ?? null,
   }));
   return (
-    <div className="rounded-2xl bg-surface p-3">
+    <div className="min-w-0">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">{def.label}</span>
-        <span className="stat-display text-lg">
+        <span className="text-xs text-muted-foreground">{def.label}</span>
+        <span className="stat-display text-[16px]">
           {letzter ? letzter.wert.toFixed(def.dezimalen) : (punkte.at(-1)?.wert.toFixed(def.dezimalen) ?? "–")}
           <span className="ml-0.5 text-[11px] font-normal text-muted-foreground">{def.einheit}</span>
         </span>
@@ -590,8 +568,8 @@ function KompositionKachel({ reihe, von }: { reihe: KompositionsReihe; von: stri
             <ComposedChart data={daten} margin={{ top: 4, right: 2, bottom: 0, left: 2 }}>
               <XAxis type="number" dataKey="t" domain={["dataMin", "dataMax"]} hide />
               <YAxis domain={["dataMin - 0.5", "dataMax + 0.5"]} hide />
-              <Scatter dataKey="wert" fill="#b49cff" fillOpacity={0.45} isAnimationActive={false} />
-              <Line dataKey="trend" type="monotone" stroke="#b49cff" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
+              <Scatter dataKey="wert" fill="var(--blau)" fillOpacity={0.35} isAnimationActive={false} />
+              <Line dataKey="trend" type="monotone" stroke="var(--blau)" strokeWidth={1.5} dot={false} connectNulls isAnimationActive={false} />
             </ComposedChart>
           </ResponsiveContainer>
         )}

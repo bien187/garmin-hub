@@ -78,7 +78,7 @@ await aufnahme(mobil, "/demo/plan?tab=generator", "mobile-generator.png");
 await aufnahme(mobil, "/demo/body", "mobile-gewicht.png", { vorher: scrolleZu("Smart Weight Tracking") });
 await aufnahme(mobil, "/demo/body", "mobile-messprotokoll.png", {
   vorher: async (p) => {
-    await p.getByText("Messungen").first().evaluate((el) => el.scrollIntoView({ block: "start" }));
+    await p.getByText("Tippe auf eine Messung").first().evaluate((el) => el.scrollIntoView({ block: "start" }));
     await p.locator("#gewicht ul button").first().click();
     await p.waitForTimeout(900);
   },

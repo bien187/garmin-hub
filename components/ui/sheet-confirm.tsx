@@ -152,7 +152,7 @@ export function ConfirmSheet({
   return (
     <SheetShell open={open} onClose={onClose} labelledBy="confirm-title">
       <div className="px-5 pt-1.5">
-        <h2 id="confirm-title" className="text-base font-semibold">
+        <h2 id="confirm-title" className="text-base font-medium">
           {title}
         </h2>
         {description && (
@@ -173,7 +173,7 @@ export function ConfirmSheet({
               onClose();
             }}
             className={cn(
-              "min-h-11 flex-1 rounded-lg text-sm font-semibold",
+              "min-h-11 flex-1 rounded-lg text-sm font-medium",
               danger
                 ? "border border-status-red/50 bg-status-red/10 text-status-red"
                 : "bg-primary text-primary-foreground"

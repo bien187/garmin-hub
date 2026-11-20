@@ -55,7 +55,7 @@ export function SwipeRow({
         </button>
         {/* Inhalt darüber, verschiebbar */}
         <div
-          className="h-full bg-card"
+          className="h-full bg-background"
           style={{
             transform: `translateX(${offset}px)`,
             transition:

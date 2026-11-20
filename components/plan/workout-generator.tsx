@@ -60,23 +60,22 @@ export function WorkoutGenerator() {
 
   return (
     <div className="space-y-4">
-      <div className="flaeche-hero rounded-xl p-4 text-sm shadow-card ring-1 ring-white/[0.06]">
-        <div className="font-semibold">Spontan trainieren</div>
-        <p className="mt-1 text-[13px] leading-snug text-muted-foreground">
+      <div className="text-sm">
+        <p className="text-[13px] leading-snug text-muted-foreground">
           Lust auf einen Lauf ausserhalb des Plans — zum Beispiel am freien Wochenende? Distanz oder Dauer wählen, der
           Generator baut ein Workout mit deinen Zonen und Paces und zeigt die Wirkung auf deine Form.
         </p>
       </div>
-      <div className="grid gap-4 rounded-xl bg-card p-4 shadow-card ring-1 ring-white/[0.055] sm:grid-cols-2">
+      <div className="grid gap-4 rounded-xl border border-border/70 bg-card p-4 sm:grid-cols-2">
         <div>
-          <div className="mb-2 flex rounded-full bg-surface p-1">
+          <div className="mb-2 flex gap-0.5">
             {(["distanz", "dauer"] as const).map((m) => (
               <button
                 key={m}
                 onClick={() => setModus(m)}
                 className={cn(
-                  "min-h-9 flex-1 rounded-full text-sm transition-colors",
-                  modus === m ? "bg-primary font-semibold text-primary-foreground" : "text-muted-foreground"
+                  "min-h-9 flex-1 rounded-md text-sm transition-colors",
+                  modus === m ? "bg-surface text-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 {m === "distanz" ? "Distanz" : "Dauer"}
@@ -107,18 +106,14 @@ export function WorkoutGenerator() {
         </div>
         <div>
           <div className="kachel-titel mb-2">Anstrengung</div>
-          <div className="flex rounded-full bg-surface p-1">
+          <div className="flex gap-0.5">
             {(["locker", "mittel", "hart"] as const).map((a) => (
               <button
                 key={a}
                 onClick={() => setAnstrengung(a)}
                 className={cn(
-                  "min-h-9 flex-1 rounded-full text-sm capitalize transition-colors",
-                  anstrengung === a
-                    ? a === "hart"
-                      ? "bg-coral font-semibold text-coral-foreground"
-                      : "bg-primary font-semibold text-primary-foreground"
-                    : "text-muted-foreground"
+                  "min-h-9 flex-1 rounded-md text-sm capitalize transition-colors",
+                  anstrengung === a ? "bg-surface text-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 {a}
@@ -140,7 +135,7 @@ export function WorkoutGenerator() {
       <button
         onClick={generiere}
         disabled={demo || laedt}
-        className="flaeche-lime flex min-h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-transform active:scale-[0.99] disabled:opacity-60 sm:w-auto sm:px-6"
+        className="flaeche-lime flex min-h-11 w-full items-center justify-center gap-2 rounded-md text-sm font-medium disabled:opacity-60 sm:w-auto sm:px-6"
       >
         <Sparkles className="size-4" />
         {laedt ? "Baut Workout…" : "Workout bauen"}

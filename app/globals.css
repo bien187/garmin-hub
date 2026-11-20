@@ -38,6 +38,7 @@
   --color-primary: var(--primary);
   --color-coral: var(--coral);
   --color-coral-foreground: var(--coral-foreground);
+  --color-blau: var(--blau);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
   --color-popover-foreground: var(--popover-foreground);
@@ -53,101 +54,90 @@
   --color-schlaf-rem: var(--schlaf-rem);
   --color-schlaf-wach: var(--schlaf-wach);
   --color-dim-foreground: var(--dim-foreground);
-  /* Radien: 8 (Chips) · 12 (Buttons/Inputs/Segmente) · 16 (innere Kacheln)
-     · 22 (Karten/Sheets). Vollrund nur für Pills, Badges und Avatare. */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 22px;
-  --radius-2xl: 22px;
-  --radius-3xl: 28px;
+  /* Radien bewusst klein: 6 · 8 · 10 · 12 px. Vollrund nur für Punkte und Avatare. */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 12px;
+  --radius-3xl: 14px;
   --radius-4xl: 9999px;
   --shadow-card: var(--schatten-karte);
   --shadow-glow: var(--schatten-glow);
 }
 
 /*
- * GARMIN HUB — „Personal Fitness & Running Performance"
- * Midnight Navy als Bühne · Lime für Fortschritt, Aktives und Kennzahlen ·
- * Coral für Laufen, Intensität und Highlights · Ampelfarben nur für Status.
+ * GARMIN HUB — „Understated Performance"
+ * Ruhige, gedeckte Palette: Struktur entsteht über Typografie, Abstände und
+ * feine Trennlinien, nicht über Boxen, Schatten oder Verläufe. Akzentfarben
+ * nur mit Informationswert: Salbei (Fortschritt, aktiv), Blau (Erholung,
+ * Schlaf), gedecktes Orange (Laufen, Intensität). Ampelfarben nur für Status.
  * Dark-first: :root == dark; .light als optionaler Override.
  */
 :root,
 .dark {
-  /* Grundfarben (Hex = Referenz aus dem Designbrief) */
-  --navy: #151d2b;
-  --lime: #b8f36b;
-  --coral-basis: #ff9466;
-  --hell: #e8edf3;
-
-  --background: var(--navy);
-  --foreground: #f5f7fa; /* Text 1 */
-  --muted-foreground: #9aa7ba; /* Text 2 */
-  --dim-foreground: #6b788d; /* Text 3 */
-  --card: #1b2537;
+  --background: #151b26;
+  --foreground: #f0f2f4; /* Text 1 */
+  --muted-foreground: #9aa5b3; /* Text 2 */
+  --dim-foreground: #6e7a89; /* Text 3 */
+  --card: #1c2532; /* Surface */
   --card-foreground: var(--foreground);
-  --popover: #202b3f;
+  --popover: #232e3c;
   --popover-foreground: var(--foreground);
-  /* Flächen innerhalb von Karten (Kacheln, Segmente, Eingaben) */
-  --surface: #222d42;
-  --surface-2: #2a364d;
-  --primary: var(--lime); /* einziger Interaktionsakzent */
-  --primary-foreground: #142010;
-  --coral: var(--coral-basis);
-  --coral-foreground: #2a1308;
+  /* Elevated Surface: Eingaben, Segmente, gewählte Zeilen */
+  --surface: #232e3c;
+  --surface-2: #2b3747;
+  --primary: #a4b99a; /* Muted Sage — einziger Interaktionsakzent */
+  --primary-foreground: #151b26;
+  --coral: #d69a72; /* Muted Orange — Laufen, Intensität */
+  --coral-foreground: #151b26;
+  --blau: #8fa6c1; /* Soft Blue — Erholung, Schlaf, Ausdauer */
   --muted: var(--surface);
   --secondary: var(--surface);
   --secondary-foreground: var(--foreground);
   --accent: var(--surface);
   --accent-foreground: var(--foreground);
-  --border: rgb(232 237 243 / 8%);
-  --input: rgb(232 237 243 / 10%);
-  --status-red: #ff6370;
+  --border: #303a47; /* Divider */
+  --input: #303a47;
+  --status-red: #d27a72;
   --destructive: var(--status-red);
-  --status-green: #8fe388;
-  --status-yellow: #f4d35e;
-  --status-orange: #f8b04c;
-  /* Schlafphasen (Datenfarben, keine Status-/Akzentfarben): Blau-Familie,
-     dunkel = tief, hell/neutral = wach */
-  --schlaf-tief: oklch(0.52 0.17 268);
-  --schlaf-leicht: oklch(0.72 0.11 245);
-  --schlaf-rem: oklch(0.75 0.13 292);
-  --schlaf-wach: oklch(0.88 0.02 240);
-  --ring: rgb(184 243 107 / 55%);
-  /* Diagramme: Lime, Coral, Himmelblau, Violett, Text 3 */
-  --chart-1: var(--lime);
-  --chart-2: var(--coral-basis);
-  --chart-3: #6cc4ff;
-  --chart-4: #b49cff;
+  --status-green: #93bc8c;
+  --status-yellow: #d8c27a;
+  --status-orange: #d9a15e;
+  /* Schlafphasen (Datenfarben): gedeckte Blau-Familie */
+  --schlaf-tief: #5b6fa3;
+  --schlaf-leicht: #8fa6c1;
+  --schlaf-rem: #a99dc8;
+  --schlaf-wach: #d8dde3;
+  --ring: rgb(164 185 154 / 50%);
+  /* Diagramme: Salbei, Orange, Blau, Lavendel, Text 3 */
+  --chart-1: var(--primary);
+  --chart-2: var(--coral);
+  --chart-3: var(--blau);
+  --chart-4: #b1a3c9;
   --chart-5: var(--dim-foreground);
-  --radius: 1rem;
-  --sidebar: #121a27;
+  --radius: 0.625rem;
+  --sidebar: #131924;
   --sidebar-foreground: var(--foreground);
-  --sidebar-primary: var(--lime);
+  --sidebar-primary: var(--primary);
   --sidebar-primary-foreground: var(--primary-foreground);
   --sidebar-accent: var(--surface);
   --sidebar-accent-foreground: var(--foreground);
   --sidebar-border: var(--border);
   --sidebar-ring: var(--ring);
 
-  /* Tiefe: dezente Schatten, Lichtkante oben */
-  --schatten-karte: inset 0 1px 0 rgb(255 255 255 / 4%), 0 10px 30px -18px rgb(0 0 0 / 70%);
-  --schatten-glow: 0 0 0 1px rgb(184 243 107 / 35%), 0 12px 40px -16px rgb(184 243 107 / 45%);
-  /* Verläufe */
-  --verlauf-hero: radial-gradient(120% 140% at 0% 0%, rgb(184 243 107 / 16%) 0%, transparent 55%),
-    radial-gradient(90% 120% at 100% 100%, rgb(255 148 102 / 14%) 0%, transparent 60%),
-    linear-gradient(160deg, #1f2b40 0%, #182133 100%);
-  --verlauf-lime: linear-gradient(135deg, #c9f78a 0%, #b8f36b 45%, #95d94a 100%);
-  --verlauf-coral: linear-gradient(135deg, #ffb08c 0%, #ff9466 50%, #f2734a 100%);
+  /* Keine Schatten, kein Glow — Tiefe nur über Flächenabstufung */
+  --schatten-karte: none;
+  --schatten-glow: none;
 
-  /* Motion-Tokens */
+  /* Motion-Tokens: nur kurze Übergänge bei echten Interaktionen */
   --dur-instant: 120ms;
   --ease-instant: ease-out;
-  --dur-base: 180ms;
+  --dur-base: 160ms;
   --ease-base: cubic-bezier(0.2, 0, 0, 1);
-  --dur-sheet: 280ms;
+  --dur-sheet: 260ms;
   --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
-  --dur-emphasis: 420ms;
+  --dur-emphasis: 240ms;
   --ease-emphasis: ease-out;
   /* Von reduced-motion auf 0 gesetzt → Transform-Keyframes werden zu reinen
      Opacity-Fades, ohne jede Bewegung zu killen. */
@@ -156,51 +146,49 @@
 }
 
 .light {
-  --background: var(--hell);
-  --foreground: #151d2b;
+  --background: #e8edf3;
+  --foreground: #151b26;
   --muted-foreground: #526077;
   --dim-foreground: #7a8699;
-  --card: #ffffff;
-  --card-foreground: #151d2b;
+  --card: #f4f6f9;
+  --card-foreground: #151b26;
   --popover: #ffffff;
-  --popover-foreground: #151d2b;
-  --surface: #f1f4f8;
-  --surface-2: #e4e9f0;
-  --primary: #4f8a12; /* Lime ist auf Hell zu kontrastarm für Text */
+  --popover-foreground: #151b26;
+  --surface: #ffffff;
+  --surface-2: #dde3eb;
+  --primary: #5f7a55;
   --primary-foreground: #ffffff;
-  --coral: #e2683a;
+  --coral: #b06a40;
   --coral-foreground: #ffffff;
+  --blau: #4f6d93;
   --muted: var(--surface);
   --secondary: var(--surface);
-  --secondary-foreground: #151d2b;
+  --secondary-foreground: #151b26;
   --accent: var(--surface);
-  --accent-foreground: #151d2b;
-  --border: rgb(21 29 43 / 10%);
-  --input: rgb(21 29 43 / 14%);
-  --status-red: #d93a4a;
+  --accent-foreground: #151b26;
+  --border: #cfd6df;
+  --input: #cfd6df;
+  --status-red: #b9473f;
   --destructive: var(--status-red);
-  --status-green: #2f9e44;
-  --status-yellow: #b88a00;
-  --status-orange: #d9822b;
-  --schlaf-tief: oklch(0.4 0.17 268);
-  --schlaf-leicht: oklch(0.62 0.12 245);
-  --schlaf-rem: oklch(0.58 0.16 295);
-  --schlaf-wach: oklch(0.78 0.02 240);
-  --ring: rgb(79 138 18 / 55%);
-  --chart-1: #4f8a12;
-  --chart-2: #e2683a;
-  --sidebar: #ffffff;
-  --sidebar-foreground: #151d2b;
-  --sidebar-primary: #4f8a12;
+  --status-green: #4f8a4a;
+  --status-yellow: #9a7d1c;
+  --status-orange: #b4702a;
+  --schlaf-tief: #3f528a;
+  --schlaf-leicht: #6b86ab;
+  --schlaf-rem: #7f70ad;
+  --schlaf-wach: #aab3be;
+  --ring: rgb(95 122 85 / 50%);
+  --chart-1: var(--primary);
+  --chart-2: var(--coral);
+  --chart-3: var(--blau);
+  --sidebar: #e1e7ee;
+  --sidebar-foreground: #151b26;
+  --sidebar-primary: var(--primary);
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: var(--surface);
-  --sidebar-accent-foreground: #151d2b;
+  --sidebar-accent-foreground: #151b26;
   --sidebar-border: var(--border);
   --sidebar-ring: var(--ring);
-  --schatten-karte: 0 1px 2px rgb(21 29 43 / 6%), 0 12px 32px -20px rgb(21 29 43 / 25%);
-  --verlauf-hero: radial-gradient(120% 140% at 0% 0%, rgb(184 243 107 / 35%) 0%, transparent 55%),
-    radial-gradient(90% 120% at 100% 100%, rgb(255 148 102 / 22%) 0%, transparent 60%),
-    linear-gradient(160deg, #ffffff 0%, #f1f4f8 100%);
 }
 
 @layer base {
@@ -214,11 +202,11 @@
     @apply font-sans;
     font-feature-settings: "ss01", "cv11";
   }
-  /* Grosse Kennzahlen: Geist, eng gesetzt, Tabellenziffern */
+  /* Kennzahlen: Geist, leicht eng gesetzt, Tabellenziffern, nicht fett */
   .stat-display {
     font-family: var(--font-sans);
-    font-weight: 650;
-    letter-spacing: -0.035em;
+    font-weight: 500;
+    letter-spacing: -0.02em;
     font-variant-numeric: tabular-nums;
   }
   .stat-mono {
@@ -229,42 +217,44 @@
 
 /* ---- Bausteine des Design-Systems ---- */
 
-/* Kachel-Titel (Karten-Überschrift): klein, gesperrt, Text 2 */
+/* Abschnittstitel: ruhig, Satzschreibung, mittleres Gewicht */
+.abschnitt-titel {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: var(--foreground);
+}
+
+/* Kleine Beschriftung über Kennzahlen */
 .kachel-titel {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 400;
   color: var(--muted-foreground);
 }
 
-/* Hero-Fläche mit Lime/Coral-Verlauf */
+/* Flächen: flach, ohne Verlauf */
 .flaeche-hero {
-  background: var(--verlauf-hero);
+  background: var(--card);
 }
 
-/* Lime-Verlauf für prominente Aktionen und Fortschritt */
+/* Primäre Aktion: gedecktes Salbei, ohne Verlauf */
 .flaeche-lime {
-  background: var(--verlauf-lime);
+  background: var(--primary);
   color: var(--primary-foreground);
 }
 
 .flaeche-coral {
-  background: var(--verlauf-coral);
+  background: var(--coral);
   color: var(--coral-foreground);
 }
 
-/* Karten, die auf Hover/Fokus leicht anheben (nur mit Zeiger) */
+/* Hover nur als leichte Flächenänderung, kein Anheben */
 @media (hover: hover) {
   .karte-hover {
-    transition:
-      transform var(--dur-base) var(--ease-base),
-      box-shadow var(--dur-base) var(--ease-base),
-      background-color var(--dur-base) var(--ease-base);
+    transition: background-color var(--dur-base) var(--ease-base);
   }
   .karte-hover:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--schatten-karte), 0 0 0 1px rgb(184 243 107 / 18%);
+    background-color: color-mix(in srgb, var(--card) 88%, var(--foreground) 4%);
   }
 }
 
@@ -466,14 +456,11 @@ html[data-vp-luecke] {
 .gh-row-in {
   animation: gh-row-in var(--dur-base) var(--ease-base) both;
 }
-/* Fortschrittsbalken wachsen beim Erscheinen von links */
-.gh-wachsen {
-  transform-origin: left center;
-  animation: gh-wachsen var(--dur-emphasis) var(--ease-base) both;
-}
-/* Karten blenden gestaffelt ein (Verzögerung per style={{animationDelay}}) */
+/* Bewusst ohne Einblend- und Wachstumsanimationen: die Oberfläche steht ruhig.
+   Die Klassen bleiben als Haken bestehen, tun aber nichts. */
+.gh-wachsen,
 .gh-auf {
-  animation: gh-auf 360ms var(--ease-base) both;
+  animation: none;
 }
 .gh-spin {
   animation: gh-spin 900ms linear infinite;

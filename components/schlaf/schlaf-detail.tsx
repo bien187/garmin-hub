@@ -54,7 +54,7 @@ interface Detail {
 
 type Zustand = { status: "laden" } | { status: "fehler" } | { status: "leer" } | { status: "ok"; detail: Detail };
 
-const TITEL = "kachel-titel";
+const TITEL = "abschnitt-titel";
 const ACHSE = { fontSize: 10, fill: "var(--muted-foreground)" };
 const CHART_H = "h-44"; // 176 px auf dem Handy
 
@@ -200,7 +200,7 @@ function NichtVerfuegbar({ text }: { text: string }) {
 function Kennzahl({ label, wert, einheit }: { label: string; wert: string | number | null; einheit?: string }) {
   return (
     <div className="min-w-0 rounded-lg bg-muted p-2.5">
-      <div className="min-h-[2lh] break-words text-[10px] uppercase leading-tight tracking-wider text-muted-foreground [hyphens:auto]">{label}</div>
+      <div className="min-h-[2lh] break-words text-[11px] leading-tight text-muted-foreground [hyphens:auto]">{label}</div>
       <div className="stat-display truncate text-lg leading-tight">
         {wert ?? "–"}
         {wert != null && einheit && <span className="ml-1 text-xs text-muted-foreground">{einheit}</span>}
@@ -380,7 +380,7 @@ function KopfKarte({ d }: { d: Detail | null }) {
               <span className={`size-2.5 rounded-full ${ampel}`} aria-hidden />
               <span className="stat-display text-3xl leading-none">{a.garminScore != null ? Math.round(a.garminScore) : "–"}</span>
             </div>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Garmin-Score</div>
+            <div className="text-[11px] text-muted-foreground">Garmin-Score</div>
           </div>
         </div>
         <div className="grid grid-cols-3 gap-2">
@@ -482,7 +482,7 @@ function PhasenKarte({ d }: { d: Detail | null }) {
             <PhasenBalken phasen={ph} legende={false} />
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                <thead className="text-[11px] text-muted-foreground">
                   <tr>
                     <th className="py-1 font-medium">Phase</th>
                     <th className="py-1 font-medium">Minuten</th>
@@ -809,7 +809,7 @@ function VergleichKarte({ d }: { d: Detail | null }) {
             {d.analyse.vergleich.map((v) => (
               <div key={v.metrik} className="rounded-lg bg-muted p-2.5">
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="truncate text-[10px] uppercase tracking-wider text-muted-foreground">{v.label}</span>
+                  <span className="truncate text-[11px] text-muted-foreground">{v.label}</span>
                   <span className="stat-display text-lg leading-none">{wertText(v, v.heute)}</span>
                 </div>
                 <div className="mt-1.5 grid grid-cols-2 gap-2 text-[11px]">
@@ -848,11 +848,11 @@ function AnalyseKarte({ d }: { d: Detail | null }) {
         return (
           <div className="space-y-4 text-sm leading-snug">
             <section>
-              <h3 className="mb-1 font-semibold">Zusammenfassung</h3>
+              <h3 className="mb-1 font-medium">Zusammenfassung</h3>
               <p>{a.fazit}</p>
             </section>
             <section>
-              <h3 className="mb-1 font-semibold">Auffälligkeiten</h3>
+              <h3 className="mb-1 font-medium">Auffälligkeiten</h3>
               {a.auffaelligkeiten.length ? (
                 <ul className="list-disc space-y-1 pl-5">
                   {a.auffaelligkeiten.map((t, i) => (
@@ -864,7 +864,7 @@ function AnalyseKarte({ d }: { d: Detail | null }) {
               )}
             </section>
             <section>
-              <h3 className="mb-1 font-semibold">Was das für dein Training bedeutet</h3>
+              <h3 className="mb-1 font-medium">Was das für dein Training bedeutet</h3>
               <ul className="list-disc space-y-1 pl-5">
                 {a.empfehlungen.map((t, i) => (
                   <li key={i}>{t}</li>
@@ -873,7 +873,7 @@ function AnalyseKarte({ d }: { d: Detail | null }) {
             </section>
             {a.regelBewertung && (
               <section>
-                <h3 className="mb-1 font-semibold">Regel-Bewertung {a.regelBewertung.punkte}/100</h3>
+                <h3 className="mb-1 font-medium">Regel-Bewertung {a.regelBewertung.punkte}/100</h3>
                 <p className="mb-1 text-xs text-muted-foreground">
                   Eigene, transparente Punkte nach festen Regeln — ersetzt nicht den Garmin-Score.
                 </p>

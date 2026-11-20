@@ -72,7 +72,7 @@ export function PaceHrChart({
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
           {letzteWoche ? (
             <>
-              <span className="stat-display text-2xl">{paceKurz(letzteWoche.paceSKm)}</span>
+              <span className="stat-display text-[22px]">{paceKurz(letzteWoche.paceSKm)}</span>
               <span className="text-xs text-muted-foreground">min/km</span>
             </>
           ) : (
@@ -126,8 +126,9 @@ export function PaceHrChart({
               type="monotone"
               dataKey="paceSKm"
               stroke="var(--coral)"
-              strokeWidth={2.5}
-              dot={{ r: 3.5, fill: "var(--coral)", strokeWidth: 0 }}
+              strokeWidth={1.75}
+              isAnimationActive={false}
+              dot={{ r: 2.5, fill: "var(--coral)", strokeWidth: 0 }}
               activeDot={{ r: 5 }}
             />
           </LineChart>

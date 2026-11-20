@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="public/icons/icon-512.png" width="88" height="88" alt="Garmin-Hub-Logo: Puls-Linie in Navy auf Lime">
+  <img src="public/icons/icon-512.png" width="88" height="88" alt="Garmin-Hub-Logo: Puls-Linie in Salbeigrün auf Navy">
 </p>
 
 <h1 align="center">Garmin Hub</h1>
 <p align="center"><strong>Personal Fitness &amp; Running Performance</strong></p>
-<p align="center">Dein persönliches Fitness-Cockpit: Garmin-Daten, ein adaptiver Trainingsplan und ein ehrlicher Blick auf deinen Fortschritt.</p>
+<p align="center">Deine ruhige Übersicht über Gesundheit, Training und Fortschritt: Garmin-Daten, ein adaptiver Trainingsplan und ein ehrlicher Blick auf deine Entwicklung.</p>
 
-![Garmin Hub auf dem Desktop: Dashboard mit Begrüssung, nächstem Training, Wochenkennzahlen und Fortschritt](docs/screenshots/desktop-dashboard.png)
+![Garmin Hub auf dem Desktop: Dashboard mit Training Readiness, Body Battery, Gesundheitswerten, Schlaf und letzten Aktivitäten](docs/screenshots/desktop-dashboard.png)
 
 Garmin Hub holt Aktivitäten, Gesundheits-, Schlaf- und Gewichtsdaten von Garmin
 Connect und wertet sie mit einer regelbasierten Engine aus. Daraus entstehen ein
@@ -32,7 +32,7 @@ Die Oberfläche ist für das Smartphone gestaltet und lässt sich als PWA instal
     <th>Smart Weight Tracking</th>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/mobile-dashboard.png" width="260" alt="Mobiles Dashboard mit Begrüssung, nächstem Training und Wochenkennzahlen"></td>
+    <td><img src="docs/screenshots/mobile-dashboard.png" width="260" alt="Mobiles Dashboard mit Training Readiness, Body Battery, Ruhepuls, HRV, Stress und Form"></td>
     <td><img src="docs/screenshots/mobile-plan.png" width="260" alt="Wochenplan mit Trainingsblock, Fortschrittsring und Einheiten pro Tag"></td>
     <td><img src="docs/screenshots/mobile-gewicht.png" width="260" alt="Gewichtsdiagramm mit Rohmessungen nach Messqualität und standardisiertem Trend"></td>
   </tr>
@@ -42,7 +42,7 @@ Die Oberfläche ist für das Smartphone gestaltet und lässt sich als PWA instal
     <th>Messprotokoll</th>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/mobile-aktivitaeten.png" width="260" alt="Aktivitätsliste mit Sport-Icons, Minikarten und Kennzahlen"></td>
+    <td><img src="docs/screenshots/mobile-aktivitaeten.png" width="260" alt="Aktivitätsliste mit Minikarten, Distanz, Dauer und Pace"></td>
     <td><img src="docs/screenshots/mobile-aktivitaet.png" width="260" alt="Detail eines Laufs mit Kennzahlen, Karte und Flyover-Steuerung"></td>
     <td><img src="docs/screenshots/mobile-messprotokoll.png" width="260" alt="Messprotokoll Wie war deine Messung mit Live-Vorschau des Scores"></td>
   </tr>
@@ -52,7 +52,7 @@ Die Oberfläche ist für das Smartphone gestaltet und lässt sich als PWA instal
     <th>Schlaf</th>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/mobile-dashboard-woche.png" width="260" alt="Wochenübersicht und 12-Wochen-Fortschritt im Dashboard"></td>
+    <td><img src="docs/screenshots/mobile-dashboard-woche.png" width="260" alt="Wochenkennzahlen, Gewichtstrend und 12-Wochen-Entwicklung im Dashboard"></td>
     <td><img src="docs/screenshots/mobile-karte.png" width="260" alt="Routen-Builder mit Kartentypen und Höhenprofil"></td>
     <td><img src="docs/screenshots/mobile-schlaf.png" width="260" alt="Schlaf-Detailansicht mit Kopfwerten und Hypnogramm"></td>
   </tr>
@@ -65,30 +65,35 @@ Alle Screenshots stammen aus der öffentlichen [Demo](#öffentliche-demo) mit
 
 | Bereich | Funktionen |
 | --- | --- |
-| **Dashboard** | Begrüssung mit Trainingsblock und Serie, nächstes Training mit Dauer, Intensität und Zielpace, Wochenkennzahlen (Laufdistanz, Einheiten, Trainingszeit, Ø Pace und Puls), Wochenübersicht Mo–So, 12-Wochen-Fortschritt (Distanz, Laufzeit, Pace, Puls, Umfang), letzte Aktivitäten, Bereitschaft, Schlaf, Gewicht, Form & Fitness (CTL/ATL/TSB), Pace bei gleichem Puls, Muskelstatus, Konsistenz, Korrelations-Insights und Gesamtbilanz. |
-| **Aktivitäten** | Kartenliste mit Sport-Icons, Minikarte, Distanz, Dauer, Pace, Puls und Höhenmetern; Detailseite mit 3D-Flyover, Höhenprofil, Splits, Herzfrequenzzonen, GAP, Effizienz und aerober Entkopplung. Krafttrainings mit Satz-Tabelle und belasteten Muskeln. |
+| **Dashboard** | Gesundheitsübersicht: Training Readiness und Body Battery mit Einstufung und 7-Tage-Vergleich, Einschätzung für den Tag, Ruhepuls, HRV, Stress und Form (TSB), Schlaf der letzten Nacht, letzte Aktivitäten, Wochenkennzahlen (Laufdistanz, Trainingszeit, Einheiten, Ø Pace und Puls), Gewichtstrend, 12-Wochen-Entwicklung (Distanz, Laufzeit, Pace, Puls, Umfang), Form & Fitness (CTL/ATL/TSB), Pace bei gleichem Puls, Konsistenz, Korrelations-Insights und Gesamtbilanz. |
+| **Aktivitäten** | Ruhige Liste mit Sport-Symbol, Minikarte, Distanz, Dauer, Pace, Puls und Höhenmetern; Detailseite mit 3D-Flyover, Höhenprofil, Splits, Herzfrequenzzonen, GAP, Effizienz und aerober Entkopplung. Krafttrainings mit Satz-Tabelle und belasteten Muskeln. |
 | **Karte** | Routen-Builder mit Routing per Klick, Undo/Redo, Rückweg, Rundkurs, Höhenprofil, geschätzter Dauer nach eigener Pace, Heatmap, GPX-Export und Senden auf die Uhr. |
 | **Trainingsplan** | Fester Wochenrhythmus (Mo Gym · Di Intervalle · Mi Zone 2 · Do Gym · Fr Ruhe · Sa/So frei), 4-Wochen-Block, Anpassung nach jedem Sync, Lauftage sperren, freies Workout, Senden auf die Uhr und Rückgängig. |
 | **Körper** | Smart Weight Tracking (Garmin Index S2) mit Messqualitäts-Score, standardisiertem Trend und Messprotokoll; Körperzusammensetzung; Body-Map mit 16 Muskelgruppen; systemische Ermüdung (TSB, ACWR, HRV-Trend). |
 | **Schlaf** | Kachel im Dashboard und Detailansicht pro Nacht mit Hypnogramm, Phasen, Herzfrequenz, SpO2, Atemfrequenz je Phase, HRV, Stress, Body Battery, Bewegung, Vergleich mit 7 und 30 Tagen und Empfehlungen. |
 | **Garmin** | Chunkweiser Sync mit Fortschritt (Aktivitäten, Gesundheit, Wägungen, Schlaf), täglicher Cron, verschlüsselte Token, MFA-Eingabe und Herzfrequenzzonen direkt aus dem Garmin-Konto. |
-| **App** | Installierbare PWA, Offline-Fallback auf die zuletzt geladenen Seiten, Dark-first-Design, Login mit einem Passwort. |
+| **App** | Installierbare PWA, Offline-Fallback auf die zuletzt geladenen Seiten, ruhiges Dark-first-Design, Login mit einem Passwort. |
 
-### Dashboard — das Fitness-Cockpit
+### Dashboard — die Gesundheitsübersicht
 
-Oben begrüsst dich die App mit dem Stand der Woche und dem aktuellen Trainingsblock;
-daneben steht prominent das **nächste Training** mit Dauer, Intensität, Kerndistanz
-und Zielpace aus der Workout-Struktur. Darunter die **Kennzahlen der Woche** im
-Vergleich zur Vorwoche, die **Wochenübersicht** (erledigt, geplant, freiwillig,
-Ruhetag) und der **Fortschritt der letzten 12 Wochen** mit umschaltbarer Kennzahl.
-Alle Werte stammen aus echten Aktivitäten; fehlt etwas, steht „nicht verfügbar"
-statt einer Null.
+Das Dashboard beantwortet zuerst die Frage „Wie geht es mir heute?". Oben stehen
+**Training Readiness** und **Body Battery** (Tageshöchst- und -tiefstwert) mit
+Einstufung nach den Garmin-Bereichen, einer schmalen Skala und dem Vergleich mit dem
+Mittel der sieben Vortage; darunter eine kurze Einschätzung für den Tag aus
+Readiness, Body Battery, HRV-Status und Schlafscore. Daneben Ruhepuls, HRV der
+letzten Nacht, Ø Stress und Form (TSB).
 
-Die persönlichen Analysen bleiben erhalten: Bereitschafts-Ampel aus Training
-Readiness, Body Battery, HRV, Schlafscore und Ruhepuls; Form und Fitness
-(CTL/ATL/TSB) mit ACWR; **Pace bei gleichem Puls** als verlässlichster Beleg für
-wachsende Ausdauer; Muskelstatus; Konsistenz mit Serie; Korrelations-Insights ab
-|r| ≥ 0.3 und 15 Wertepaaren — ausdrücklich als Korrelation, nicht als Ursache.
+Es folgen der **Schlaf** der letzten Nacht (Dauer, Score, Phasen-Zeitleiste, Tief,
+Leicht, REM, Wach, Schlaf-Herzfrequenz, HRV und Atmung) und die **letzten
+Aktivitäten**. Weiter unten: die Kennzahlen der Woche im Vergleich zur Vorwoche,
+der Gewichtstrend und die **Entwicklung** der letzten 12 Wochen mit Fortschritt,
+Form und Fitness (CTL/ATL/TSB, ACWR), **Pace bei gleichem Puls** als
+verlässlichstem Beleg für wachsende Ausdauer und Konsistenz. Danach
+Korrelations-Insights ab |r| ≥ 0.3 und 15 Wertepaaren — ausdrücklich als
+Korrelation, nicht als Ursache — und die Gesamtbilanz.
+
+Das nächste Training steht bewusst nur im Plan. Alle Werte stammen aus echten
+Garmin-Daten; fehlt etwas, steht „nicht verfügbar" oder ein Strich statt einer Null.
 
 ### Adaptiver Trainingsplan
 
@@ -429,15 +434,26 @@ Vercel sendet dabei automatisch `Authorization: Bearer $CRON_SECRET`.
 
 ### Design-System
 
-Die Tokens stehen zentral in [`app/globals.css`](app/globals.css): Midnight Navy
-(`#151D2B`) als Fläche, **Lime** (`#B8F36B`, `--primary`) für Fortschritt, aktive
-Elemente und Kennzahlen, **Coral** (`#FF9466`, `--coral`) für Laufen, Intensität und
-Highlights, `#E8EDF3` als helle Fläche im Hellmodus. Ampelfarben (`--status-*`)
-nur für Status. Radien 8 · 12 · 16 · 22 px, dezente Kartenschatten
-(`shadow-card`), Verläufe (`flaeche-hero`, `flaeche-lime`, `flaeche-coral`) und
-Bewegungs-Tokens mit Rücksicht auf `prefers-reduced-motion`. Wiederkehrende Bausteine:
-`Card`, `KachelKopf`/`IconChip`, `Pill`, `Ring`/`Balken`, `SportIcon`/`EinheitIcon`
-und `Logo`.
+**„Understated Performance"**: ruhig, flach und von der Typografie getragen. Die
+Tokens stehen zentral in [`app/globals.css`](app/globals.css):
+
+| Rolle | Farbe | Token |
+| --- | --- | --- |
+| Hintergrund | `#151B26` | `--background` |
+| Fläche | `#1C2532` | `--card` |
+| Erhöhte Fläche (Eingaben, Segmente) | `#232E3C` | `--surface` |
+| Text primär · sekundär | `#F0F2F4` · `#9AA5B3` | `--foreground` · `--muted-foreground` |
+| Akzent, Fortschritt (Muted Sage) | `#A4B99A` | `--primary` |
+| Erholung, Schlaf, Ausdauer (Soft Blue) | `#8FA6C1` | `--blau` |
+| Laufen, Intensität (Muted Orange) | `#D69A72` | `--coral` |
+| Trennlinien | `#303A47` | `--border` |
+
+Die gedämpften Ampelfarben (`--status-*`) sind nur für Status da. Keine Schatten,
+kein Glow, keine Verläufe; Radien 6 · 8 · 10 · 12 px. Inhalte gliedern sich über
+Abschnitte mit feinen Trennlinien (`Abschnitt`) statt über verschachtelte Karten;
+Bewegung beschränkt sich auf kurze Farbübergänge. Wiederkehrende Bausteine:
+`Abschnitt`, `Card`, `KachelKopf`, `Pill`, `Ring`/`Balken`, `SportIcon`/`EinheitIcon`
+und `Logo`. Der optionale Hellmodus (`.light`) nutzt dieselben Rollen.
 
 ## Architektur
 

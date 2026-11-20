@@ -8,7 +8,7 @@ export function Ring({
   wert,
   max,
   groesse = 56,
-  dicke = 6,
+  dicke = 4,
   ton = "lime",
   children,
   className,
@@ -18,7 +18,7 @@ export function Ring({
   max: number;
   groesse?: number;
   dicke?: number;
-  ton?: "lime" | "coral";
+  ton?: "lime" | "coral" | "blau";
   children?: React.ReactNode;
   className?: string;
   label?: string;
@@ -34,18 +34,17 @@ export function Ring({
       aria-label={label}
     >
       <svg width={groesse} height={groesse} className="-rotate-90">
-        <circle cx={groesse / 2} cy={groesse / 2} r={r} fill="none" stroke="var(--surface-2)" strokeWidth={dicke} />
+        <circle cx={groesse / 2} cy={groesse / 2} r={r} fill="none" stroke="var(--border)" strokeWidth={dicke} />
         <circle
           cx={groesse / 2}
           cy={groesse / 2}
           r={r}
           fill="none"
-          stroke={ton === "lime" ? "var(--primary)" : "var(--coral)"}
+          stroke={ton === "lime" ? "var(--primary)" : ton === "blau" ? "var(--blau)" : "var(--coral)"}
           strokeWidth={dicke}
           strokeLinecap="round"
           strokeDasharray={umfang}
           strokeDashoffset={umfang * (1 - anteil)}
-          style={{ transition: "stroke-dashoffset var(--dur-emphasis) var(--ease-base)" }}
         />
       </svg>
       {children && <div className="absolute inset-0 flex items-center justify-center">{children}</div>}
@@ -53,7 +52,7 @@ export function Ring({
   );
 }
 
-/** Schmaler Fortschrittsbalken, wächst beim Erscheinen von links */
+/** Schmaler Fortschrittsbalken (0–max), ohne Animation */
 export function Balken({
   wert,
   max,
@@ -62,14 +61,14 @@ export function Balken({
 }: {
   wert: number;
   max: number;
-  ton?: "lime" | "coral";
+  ton?: "lime" | "coral" | "blau";
   className?: string;
 }) {
   const anteil = max > 0 ? Math.max(0, Math.min(1, wert / max)) : 0;
   return (
-    <div className={cn("h-1.5 w-full overflow-hidden rounded-full bg-surface-2", className)}>
+    <div className={cn("h-1 w-full overflow-hidden rounded-full bg-border", className)}>
       <div
-        className={cn("gh-wachsen h-full rounded-full", ton === "lime" ? "flaeche-lime" : "flaeche-coral")}
+        className={cn("h-full rounded-full", ton === "lime" ? "bg-primary" : ton === "blau" ? "bg-blau" : "bg-coral")}
         style={{ width: `${anteil * 100}%` }}
       />
     </div>

@@ -8,7 +8,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Activity, HeartPulse } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { KachelKopf } from "@/components/ui/kachel";
 import { BodyMap } from "./body-map";
@@ -60,16 +59,13 @@ export function BodyTab() {
   }, [daten, ausgewaehlt]);
 
   const kopf = (
-    <header className="gh-auf space-y-3">
-      <div>
-        <h1 className="text-[26px] leading-tight font-semibold tracking-tight md:text-[30px]">Körper</h1>
-        <p className="text-sm text-muted-foreground">Gewicht, Körperzusammensetzung, Erholung und Muskelstatus.</p>
-      </div>
-      <nav aria-label="Bereiche" className="flex gap-2">
-        <a href="#gewicht" className="inline-flex min-h-9 items-center rounded-full bg-surface px-3.5 text-[13px] font-medium">
+    <header className="space-y-1">
+      <h1 className="text-[24px] leading-tight font-medium tracking-tight md:text-[28px]">Körper</h1>
+      <nav aria-label="Bereiche" className="flex gap-4 text-[13px] text-muted-foreground">
+        <a href="#gewicht" className="flex min-h-9 items-center hover:text-foreground">
           Gewicht
         </a>
-        <a href="#muskeln" className="inline-flex min-h-9 items-center rounded-full bg-surface px-3.5 text-[13px] font-medium">
+        <a href="#muskeln" className="flex min-h-9 items-center hover:text-foreground">
           Muskeln &amp; Erholung
         </a>
       </nav>
@@ -81,7 +77,7 @@ export function BodyTab() {
       <div className="space-y-4">
         {kopf}
         <GewichtBereich />
-        <div className="h-105 animate-pulse rounded-xl bg-surface" />
+        <div className="h-105 animate-pulse rounded-xl bg-card" />
       </div>
     );
   }
@@ -97,8 +93,8 @@ export function BodyTab() {
       <GewichtBereich />
 
       {/* Muskelstatus: Body-Map als Hero der Karte */}
-      <Card id="muskeln" className="gh-auf scroll-mt-4">
-        <KachelKopf icon={Activity} ton="lime" titel="Muskelstatus" untertitel="Rest-Erschöpfung · tippe auf einen Muskel" />
+      <Card id="muskeln" className="scroll-mt-4">
+        <KachelKopf titel="Muskelstatus" untertitel="Rest-Erschöpfung · tippe auf einen Muskel" />
         <div className="px-(--card-spacing)">
         <BodyMap
           werte={daten.heute as Partial<Record<MuskelId, number>>}
@@ -138,11 +134,11 @@ export function BodyTab() {
       </Card>
 
       {/* Systemische Ermüdung */}
-      <Card className="gh-auf">
-        <KachelKopf icon={HeartPulse} ton="coral" titel="Systemische Ermüdung" untertitel="Form, Belastungsverhältnis und HRV" />
-        <div className="grid grid-cols-3 gap-2 px-(--card-spacing)">
-          <div className="rounded-2xl bg-surface p-3">
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">TSB</div>
+      <Card>
+        <KachelKopf titel="Systemische Ermüdung" untertitel="Form, Belastungsverhältnis und HRV" />
+        <div className="grid grid-cols-3 gap-4 px-(--card-spacing)">
+          <div className="min-w-0">
+            <div className="text-xs text-muted-foreground">TSB</div>
             <div
               className={cn(
                 "stat-display text-xl",
@@ -164,8 +160,8 @@ export function BodyTab() {
                     : "ermüdet"}
             </div>
           </div>
-          <div className="rounded-2xl bg-surface p-3">
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">ACWR</div>
+          <div className="min-w-0">
+            <div className="text-xs text-muted-foreground">ACWR</div>
             <div
               className={cn(
                 "stat-display text-xl",
@@ -188,10 +184,8 @@ export function BodyTab() {
                       : "zu wenig Daten"}
             </div>
           </div>
-          <div className="rounded-2xl bg-surface p-3">
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              HRV 7 Tage
-            </div>
+          <div className="min-w-0">
+            <div className="text-xs text-muted-foreground">HRV 7 Tage</div>
             {hrvWerte.length >= 2 ? (
               <MiniSparkline
                 daten={hrvWerte as unknown as Record<string, unknown>[]}

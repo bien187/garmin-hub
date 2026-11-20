@@ -56,7 +56,7 @@ export function FitnessChart({ daten }: { daten: FitnessPunkt[] }) {
         </div>
         <ZeitraumUmschalter wert={aktiv} verfuegbar={verfuegbar} onChange={setZeitraum} />
       </div>
-      <div className="h-56 w-full">
+      <div className="h-48 w-full md:h-56">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={sichtbar} margin={{ top: 4, right: 4, bottom: 0, left: -18 }}>
             <CartesianGrid vertical={false} stroke="var(--border)" />
@@ -75,7 +75,7 @@ export function FitnessChart({ daten }: { daten: FitnessPunkt[] }) {
               contentStyle={{
                 background: "var(--popover)",
                 border: "1px solid var(--border)",
-                borderRadius: 12,
+                borderRadius: 8,
                 fontSize: 12,
               }}
               labelFormatter={(l) => formatDatum(String(l))}
@@ -90,11 +90,12 @@ export function FitnessChart({ daten }: { daten: FitnessPunkt[] }) {
               dataKey="ctl"
               stroke="var(--primary)"
               fill="var(--primary)"
-              fillOpacity={0.14}
-              strokeWidth={2}
+              fillOpacity={0.06}
+              strokeWidth={1.75}
+              isAnimationActive={false}
             />
-            <Line type="monotone" dataKey="atl" stroke="var(--chart-3)" dot={false} strokeWidth={1.5} />
-            <Line type="monotone" dataKey="tsb" stroke="var(--chart-2)" dot={false} strokeWidth={2} />
+            <Line type="monotone" dataKey="atl" stroke="var(--chart-3)" dot={false} strokeWidth={1.25} isAnimationActive={false} />
+            <Line type="monotone" dataKey="tsb" stroke="var(--chart-2)" dot={false} strokeWidth={1.5} isAnimationActive={false} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>

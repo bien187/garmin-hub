@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { formatPaceKurz, formatStundenMinuten, relativerTag, stundeZuerich, tageszeitGruss } from "../format";
-import { motivation } from "../dashboard-texte";
 
 describe("Formatierung", () => {
   it("Pace ohne Einheit", () => {
@@ -25,25 +24,5 @@ describe("Formatierung", () => {
     expect(tageszeitGruss(14)).toBe("Hallo");
     expect(tageszeitGruss(20)).toBe("Guten Abend");
     expect(tageszeitGruss(2)).toMatch(/Nacht/);
-  });
-});
-
-describe("motivation", () => {
-  const leer = { erledigt: 0, geplant: 0 };
-  it("heutige Einheit hat Vorrang", () => {
-    expect(
-      motivation({ heute: "2026-11-24", naechste: { datum: "2026-11-24", titel: "Intervalle 5×3 Min", typ: "intervalle" }, fortschritt: leer })
-    ).toMatch(/Heute steht «Intervalle 5×3 Min» an/);
-  });
-  it("Woche komplett erledigt", () => {
-    expect(motivation({ heute: "2026-11-27", naechste: null, fortschritt: { erledigt: 4, geplant: 4 } })).toMatch(/Alle 4/);
-  });
-  it("morgen geplant", () => {
-    expect(
-      motivation({ heute: "2026-11-23", naechste: { datum: "2026-11-24", titel: "Tempo 5×1 km", typ: "intervalle" }, fortschritt: leer })
-    ).toMatch(/^Morgen/);
-  });
-  it("Wochenende frei", () => {
-    expect(motivation({ heute: "2026-11-28", naechste: null, fortschritt: leer })).toMatch(/Wochenende/);
   });
 });

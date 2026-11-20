@@ -2,20 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  Archive,
   Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  CircleDashed,
-  Clock3,
-  Flag,
-  Flame,
-  Info,
   RefreshCw,
   Send,
-  Sun,
-  Target,
   Watch,
   X,
 } from "lucide-react";
@@ -23,7 +15,6 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { SheetShell } from "@/components/ui/sheet-confirm";
 import { useToast } from "@/components/ui/toast";
-import { Pill } from "@/components/ui/pill";
 import { Ring } from "@/components/ui/fortschritt";
 import { EinheitIcon, einheitRand } from "@/components/sport-icon";
 import { DemoDeaktiviert, useIstDemo } from "@/components/basis-pfad";
@@ -93,21 +84,32 @@ function StatusKnopf({
   onSetze: (status: "absolviert" | "geplant") => void;
 }) {
   return status !== "absolviert" ? (
-    <Button size="sm" variant="secondary" className="min-h-10 rounded-xl" onClick={() => onSetze("absolviert")}>
+    <Button size="sm" variant="secondary" className="min-h-10" onClick={() => onSetze("absolviert")}>
       <Check className="size-4" /> Erledigt
     </Button>
   ) : (
-    <Button size="sm" variant="ghost" className="min-h-10 rounded-xl" onClick={() => onSetze("geplant")}>
+    <Button size="sm" variant="ghost" className="min-h-10" onClick={() => onSetze("geplant")}>
       Zurücksetzen
     </Button>
   );
 }
 
-function StatusPill({ e, fehler }: { e: PlanEinheit; fehler: boolean }) {
-  if (e.status === "absolviert") return <Pill ton="lime" icon={Check}>erledigt</Pill>;
-  if (e.status === "verpasst") return <Pill ton="rot" icon={X}>verpasst</Pill>;
-  if (fehler) return <Pill ton="rot" icon={X}>Fehler</Pill>;
-  if (e.garminWorkoutId != null || e.status === "gepusht") return <Pill ton="neutral" icon={Watch}>auf der Uhr</Pill>;
+/** Status als ruhiger Text — Farbe nur für erledigt bzw. Probleme */
+function StatusText({ e, fehler }: { e: PlanEinheit; fehler: boolean }) {
+  if (e.status === "absolviert")
+    return (
+      <span className="flex items-center gap-1 text-xs text-status-green">
+        <Check className="size-3.5" /> erledigt
+      </span>
+    );
+  if (e.status === "verpasst") return <span className="text-xs text-status-red">verpasst</span>;
+  if (fehler) return <span className="text-xs text-status-red">Fehler beim Senden</span>;
+  if (e.garminWorkoutId != null || e.status === "gepusht")
+    return (
+      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+        <Watch className="size-3.5" /> auf der Uhr
+      </span>
+    );
   return null;
 }
 
@@ -270,23 +272,23 @@ export function WeekView() {
   return (
     <div className="space-y-4">
       {/* Kopf: Wochenwahl, Block, Fortschritt */}
-      <section className="flaeche-hero relative overflow-hidden rounded-xl p-4 shadow-card ring-1 ring-white/[0.06] md:p-5">
+      <section className="rounded-xl border border-border/70 bg-card p-4 md:p-5">
         <div className="flex items-center justify-between gap-2">
           <button
             type="button"
             aria-label="Vorherige Woche"
             disabled={laedt || pushProgress != null}
             onClick={() => setWoche(addTage(woche, -7))}
-            className="flex size-11 items-center justify-center rounded-full bg-white/[0.06] transition-colors hover:bg-white/[0.12] disabled:opacity-40"
+            className="flex size-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface hover:text-foreground disabled:opacity-40"
           >
             <ChevronLeft className="size-5" />
           </button>
           <div className="min-w-0 text-center">
-            <div className="text-lg font-semibold tracking-tight">
+            <div className="text-base font-medium tracking-tight">
               {formatDatum(woche)} – {formatDatum(addTage(woche, 6))}
             </div>
             {daten && (
-              <div className="mt-0.5 text-[11px] font-semibold tracking-[0.08em] text-primary uppercase">
+              <div className="mt-0.5 text-xs text-muted-foreground">
                 {daten.archiv ? "Archiv" : `${daten.block.name} · ${daten.block.fokus}`}
               </div>
             )}
@@ -296,37 +298,37 @@ export function WeekView() {
             aria-label="Nächste Woche"
             disabled={laedt || pushProgress != null}
             onClick={() => setWoche(addTage(woche, 7))}
-            className="flex size-11 items-center justify-center rounded-full bg-white/[0.06] transition-colors hover:bg-white/[0.12] disabled:opacity-40"
+            className="flex size-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface hover:text-foreground disabled:opacity-40"
           >
             <ChevronRight className="size-5" />
           </button>
         </div>
 
         {daten && !daten.archiv && training.length > 0 && (
-          <div className="mt-4 flex items-center gap-4">
-            <Ring wert={erledigt} max={training.length} groesse={64} dicke={7} label={`${erledigt} von ${training.length} Einheiten erledigt`}>
-              <span className="stat-display text-base leading-none">
+          <div className="mt-4 flex items-center gap-4 border-t border-border pt-4">
+            <Ring wert={erledigt} max={training.length} groesse={48} dicke={3.5} label={`${erledigt} von ${training.length} Einheiten erledigt`}>
+              <span className="stat-display text-[13px] leading-none">
                 {erledigt}/{training.length}
               </span>
             </Ring>
-            <div className="min-w-0 flex-1 space-y-1.5">
-              <p className="text-[13px] leading-snug text-foreground/85">
-                <Target className="mr-1 inline size-3.5 text-primary" />
-                Ziel: Laufleistung, Ausdauer und allgemeine Fitness verbessern.
+            <div className="min-w-0 flex-1 space-y-0.5">
+              <p className="text-[13px] leading-snug">Laufleistung, Ausdauer und allgemeine Fitness verbessern</p>
+              <p className="text-xs text-muted-foreground">
+                {[
+                  geplanteMin > 0 ? `~${geplanteMin} Min Laufen` : null,
+                  trimp > 0 ? `~${Math.round(trimp)} TRIMP` : null,
+                  ziel?.entlastung ? "Entlastungswoche" : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
               </p>
-              <div className="flex flex-wrap gap-1.5">
-                {geplanteMin > 0 && <Pill icon={Clock3}>~{geplanteMin} Min Laufen</Pill>}
-                {trimp > 0 && <Pill icon={Flame}>~{Math.round(trimp)} TRIMP</Pill>}
-                {ziel?.entlastung && <Pill ton="neutral">Entlastungswoche</Pill>}
-              </div>
             </div>
           </div>
         )}
       </section>
 
       {daten?.archiv && (
-        <div className="flex items-start gap-2.5 rounded-xl bg-surface px-4 py-3 text-[13px] text-muted-foreground">
-          <Archive className="mt-0.5 size-4 shrink-0" />
+        <div className="border-l-2 border-border pl-3 text-[13px] text-muted-foreground">
           <p>
             Diese Woche liegt vor dem Start des aktuellen Programms. Die Einträge sind neutral und schreibgeschützt
             dargestellt; deine Aktivitäten findest du unter Aktivitäten.
@@ -336,7 +338,7 @@ export function WeekView() {
 
       {/* Verfügbarkeit: nur die Lauftage Di/Mi lassen sich sperren */}
       {daten && !daten.archiv && (
-        <div className="rounded-xl bg-card shadow-card ring-1 ring-white/[0.055]">
+        <div className="rounded-xl border border-border/70 bg-card">
           <button
             type="button"
             className="flex min-h-12 w-full items-center justify-between gap-3 px-4 py-2 text-left"
@@ -396,11 +398,10 @@ export function WeekView() {
 
       {/* Automatische Anpassungen: prominenter als Hinweise — hier hat sich der Plan geändert */}
       {anpassungen.length > 0 && (
-        <div className="rounded-xl border border-status-orange/35 bg-status-orange/10 px-4 py-3">
+        <div className="rounded-md border border-status-orange/35 px-4 py-3">
           <div className="flex items-start gap-2.5">
-            <Flag className="mt-0.5 size-4 shrink-0 text-status-orange" />
             <div className="min-w-0 flex-1 space-y-1.5">
-              <div className="text-xs font-semibold text-status-orange">Plan automatisch angepasst</div>
+              <div className="text-xs font-medium text-status-orange">Plan automatisch angepasst</div>
               {anpassungen.map((a) => (
                 <div key={a.einheitId} className="text-xs">
                   <span className="font-medium">{formatDatum(a.datum)}:</span> «{a.alterTitel}» → «{a.neuerTitel}»
@@ -429,10 +430,9 @@ export function WeekView() {
       {daten && daten.hinweise.length > 0 && (
         <div className="space-y-1.5">
           {daten.hinweise.map((h, i) => (
-            <div key={i} className="flex items-start gap-2.5 rounded-xl bg-primary/[0.07] px-4 py-2.5 text-xs leading-snug">
-              <Info className="mt-0.5 size-3.5 shrink-0 text-primary" />
+            <p key={i} className="border-l-2 border-primary/50 pl-3 text-xs leading-snug text-muted-foreground">
               {h}
-            </div>
+            </p>
           ))}
         </div>
       )}
@@ -440,11 +440,11 @@ export function WeekView() {
       {!daten ? (
         <div className="space-y-2">
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-20 animate-pulse rounded-xl bg-surface" />
+            <div key={i} className="h-16 animate-pulse rounded-lg bg-card" />
           ))}
         </div>
       ) : daten.einheiten.length === 0 && !daten.archiv ? (
-        <div className="rounded-xl border border-dashed border-white/12 px-6 py-10 text-center">
+        <div className="rounded-xl border border-dashed border-border px-6 py-10 text-center">
           <p className="mx-auto mb-4 max-w-sm text-sm text-muted-foreground">
             Für diese Woche ist noch kein Plan erstellt. Der Generator baut deinen Rhythmus: Gym, Intervalle, lockerer
             Lauf, Gym — Freitag Ruhe, Wochenende frei.
@@ -452,7 +452,7 @@ export function WeekView() {
           <button
             onClick={generiere}
             disabled={demo || laedt || pushProgress != null}
-            className="flaeche-lime inline-flex min-h-11 items-center gap-2 rounded-xl px-5 text-sm font-semibold disabled:opacity-60"
+            className="flaeche-lime inline-flex min-h-11 items-center gap-2 rounded-md px-5 text-sm font-medium disabled:opacity-60"
           >
             <RefreshCw className={cn("size-4", laedt && "gh-spin")} />
             Woche generieren
@@ -466,7 +466,7 @@ export function WeekView() {
             <button
               disabled={pushProgress != null}
               onClick={() => setVorschau(true)}
-              className="flaeche-lime relative flex min-h-12 w-full items-center justify-center gap-2 overflow-hidden rounded-xl text-sm font-semibold shadow-glow transition-transform active:scale-[0.99] disabled:opacity-90"
+              className="flaeche-lime relative flex min-h-11 w-full items-center justify-center gap-2 overflow-hidden rounded-md text-sm font-medium disabled:opacity-90"
             >
               {pushProgress && (
                 <span
@@ -500,34 +500,22 @@ export function WeekView() {
               const istHeute = datum === heute;
               const freiTag = FREIE_TAGE.includes(wochentagIndex(datum));
               return (
-                <li key={datum} className="gh-auf" style={{ animationDelay: `${i * 30}ms` }}>
+                <li key={datum}>
                   <div className="mb-1.5 flex items-baseline gap-2 px-1">
-                    <span className={cn("text-sm font-semibold", istHeute ? "text-primary" : "text-foreground")}>
+                    <span className={cn("text-sm font-medium", istHeute ? "text-primary" : "text-foreground")}>
                       {WOCHENTAGE[i]}
                     </span>
                     <span className="text-xs text-muted-foreground">{formatDatum(datum)}</span>
-                    {istHeute && (
-                      <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
-                        heute
-                      </span>
-                    )}
+                    {istHeute && <span className="text-xs text-primary">heute</span>}
                   </div>
 
                   {einheiten.length === 0 ? (
                     freiTag && !daten.archiv ? (
-                      <div className="flex items-center gap-3 rounded-xl border border-dashed border-white/10 px-4 py-3">
-                        <span className="flex size-10 items-center justify-center rounded-xl bg-surface text-status-yellow">
-                          <Sun className="size-[18px]" />
-                        </span>
-                        <div className="min-w-0 text-sm">
-                          <div className="font-medium">Frei</div>
-                          <div className="text-xs text-muted-foreground">
-                            Keine Pflicht — Lust auf einen lockeren Lauf? Du entscheidest.
-                          </div>
-                        </div>
-                      </div>
+                      <p className="px-1 text-[13px] text-muted-foreground">
+                        Frei — keine Pflicht. Ein lockerer Lauf passt, wenn du Lust hast.
+                      </p>
                     ) : (
-                      <div className="rounded-xl bg-surface/50 px-4 py-3 text-xs text-dim-foreground">Kein Eintrag</div>
+                      <p className="px-1 text-xs text-dim-foreground">Kein Eintrag</p>
                     )
                   ) : (
                     <div className="space-y-2">
@@ -556,7 +544,7 @@ export function WeekView() {
 
           {!schreibgeschuetzt && (
             <div className="flex justify-end">
-              <Button variant="ghost" size="sm" className="min-h-10 rounded-xl" onClick={generiere} disabled={laedt || pushProgress != null}>
+              <Button variant="ghost" size="sm" className="min-h-10 text-muted-foreground" onClick={generiere} disabled={laedt || pushProgress != null}>
                 <RefreshCw className={cn("size-4", laedt && "gh-spin")} />
                 {generiert ? "Neu generiert" : "Woche neu generieren"}
               </Button>
@@ -568,7 +556,7 @@ export function WeekView() {
       {/* Vorschau vor dem Sammel-Senden (Bottom-Sheet) */}
       <SheetShell open={vorschau} onClose={() => setVorschau(false)}>
         <div className="px-5 pt-1.5">
-          <h2 className="text-base font-semibold">An Garmin senden</h2>
+          <h2 className="text-base font-medium">An Garmin senden</h2>
           {teile && (
             <div className="mt-3 space-y-3 text-sm">
               <div className="kachel-titel">Diese {teile.zuSenden.length} Einheiten werden übertragen</div>
@@ -594,13 +582,13 @@ export function WeekView() {
             </div>
           )}
           <div className="mt-4 flex gap-2.5">
-            <button onClick={() => setVorschau(false)} className="min-h-11 flex-1 rounded-xl bg-surface text-sm font-medium">
+            <button onClick={() => setVorschau(false)} className="min-h-11 flex-1 rounded-md bg-surface text-sm font-medium">
               Abbrechen
             </button>
             <button
               disabled={!teile || teile.zuSenden.length === 0}
               onClick={() => teile && sendeAlle(teile.zuSenden.map((e) => e.id))}
-              className="flaeche-lime flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl text-sm font-semibold disabled:opacity-50"
+              className="flaeche-lime flex min-h-11 flex-1 items-center justify-center gap-2 rounded-md text-sm font-medium disabled:opacity-50"
             >
               <Send className="size-4" />
               Senden
@@ -647,34 +635,32 @@ function EinheitKarte({
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-xl bg-card shadow-card ring-1 ring-white/[0.055] transition-shadow",
-        naechste && "shadow-glow ring-primary/40",
+        "relative overflow-hidden rounded-lg border border-border/70 bg-card",
+        naechste && "border-primary/60",
         erledigt && "opacity-75"
       )}
     >
-      <span aria-hidden className={cn("absolute inset-y-0 left-0 w-1", einheitRand(e.typ))} />
+      <span aria-hidden className={cn("absolute inset-y-0 left-0 w-0.5", einheitRand(e.typ))} />
       <button
         type="button"
         className="flex w-full items-center gap-3 py-3 pr-3 pl-4 text-left"
         aria-expanded={offen}
         onClick={onToggle}
       >
-        <EinheitIcon typ={e.typ} />
+        <EinheitIcon typ={e.typ} groesse="sm" />
         <div className="min-w-0 flex-1">
-          {naechste && (
-            <div className="text-[10px] font-semibold tracking-[0.08em] text-primary uppercase">Als Nächstes</div>
-          )}
-          <div className={cn("text-[15px] leading-snug font-medium", erledigt && "line-through decoration-white/30")}>
+          {naechste && <div className="text-[11px] text-primary">Als Nächstes</div>}
+          <div className={cn("text-[15px] leading-snug", erledigt && "line-through decoration-white/30")}>
             {e.titel}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             {dauerS != null && (
-              <span className="stat-mono text-[11px] text-muted-foreground">~{Math.round(dauerS / 60)} Min</span>
+              <span className="text-xs text-muted-foreground tabular-nums">~{Math.round(dauerS / 60)} Min</span>
             )}
             {intens && intens.stufe > 0 && (
               <span
                 className={cn(
-                  "text-[11px] font-medium",
+                  "text-xs",
                   intens.stufe >= 3 ? "text-coral" : intens.stufe === 1 ? "text-primary" : "text-muted-foreground"
                 )}
               >
@@ -685,10 +671,8 @@ function EinheitKarte({
           </div>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
-          <StatusPill e={e} fehler={fehler} />
-          {!erledigt && e.status !== "verpasst" && e.garminWorkoutId == null && !fehler && (
-            <CircleDashed className="size-4 text-dim-foreground" aria-label="offen" />
-          )}
+          <StatusText e={e} fehler={fehler} />
+          <ChevronDown className={cn("size-4 text-dim-foreground transition-transform", offen && "rotate-180")} aria-hidden />
         </div>
       </button>
 
@@ -700,17 +684,16 @@ function EinheitKarte({
           <div className="space-y-3 border-t border-white/[0.06] py-3 pr-4 pl-5 text-sm">
             {e.beschreibung && <p className="leading-snug text-muted-foreground">{e.beschreibung}</p>}
             {zeilen.length > 0 && (
-              <ul className="space-y-1 rounded-xl bg-surface px-3 py-2.5">
+              <ul className="space-y-1 border-l border-border pl-3">
                 {zeilen.map((z, i) => (
-                  <li key={i} className="flex gap-2 text-[13px] leading-snug">
-                    <span className="mt-[7px] size-1.5 shrink-0 rounded-full bg-primary/70" />
-                    <span>{z}</span>
+                  <li key={i} className="text-[13px] leading-snug">
+                    {z}
                   </li>
                 ))}
               </ul>
             )}
             {kannPushen && !schreibgeschuetzt && (
-              <div className="flex items-center justify-between rounded-xl bg-surface px-3 py-2">
+              <div className="flex items-center justify-between border-t border-border pt-2.5">
                 <span>An Garmin senden</span>
                 <Switch disabled={demo} checked={e.syncToGarmin} onCheckedChange={onSync} />
               </div>
@@ -720,13 +703,13 @@ function EinheitKarte({
             ) : schreibgeschuetzt ? null : (
               <div className="flex flex-wrap gap-1.5">
                 {kannPushen && e.garminWorkoutId == null && (
-                  <Button size="sm" variant="secondary" className="min-h-10 rounded-xl" onClick={onPush}>
+                  <Button size="sm" variant="secondary" className="min-h-10" onClick={onPush}>
                     <Watch className="size-4" />
                     Auf die Uhr laden
                   </Button>
                 )}
                 {kannPushen && e.garminWorkoutId != null && (
-                  <Button size="sm" variant="ghost" className="min-h-10 rounded-xl" onClick={onUnpush}>
+                  <Button size="sm" variant="ghost" className="min-h-10" onClick={onUnpush}>
                     <X className="size-4" /> Von der Uhr entfernen
                   </Button>
                 )}

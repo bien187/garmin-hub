@@ -59,7 +59,7 @@ export function FortschrittChart({ verlauf }: { verlauf: VerlaufWoche[] }) {
 
   return (
     <div className="space-y-4">
-      <div role="group" aria-label="Kennzahl" className="flex flex-wrap gap-1.5">
+      <div role="group" aria-label="Kennzahl" className="flex flex-wrap gap-x-1 gap-y-1">
         {METRIKEN.map((m) => (
           <button
             key={m.id}
@@ -67,8 +67,8 @@ export function FortschrittChart({ verlauf }: { verlauf: VerlaufWoche[] }) {
             aria-pressed={metrik === m.id}
             onClick={() => setMetrik(m.id)}
             className={cn(
-              "min-h-9 rounded-full px-3.5 text-[13px] font-medium transition-colors",
-              metrik === m.id ? "bg-primary text-primary-foreground" : "bg-surface text-muted-foreground hover:text-foreground"
+              "min-h-8 rounded-md px-2 text-xs transition-colors",
+              metrik === m.id ? "bg-surface text-foreground" : "text-muted-foreground hover:text-foreground"
             )}
           >
             {m.label}
@@ -78,26 +78,21 @@ export function FortschrittChart({ verlauf }: { verlauf: VerlaufWoche[] }) {
 
       <div className="flex flex-wrap items-end gap-x-5 gap-y-1">
         <div>
-          <div className="text-[11px] text-muted-foreground">Ø letzte 4 Wochen</div>
-          <div className="flex items-baseline gap-1">
-            <span className="stat-display text-[28px] leading-none">{format(metrik, jetzt)}</span>
+          <div className="text-xs text-muted-foreground">Ø letzte 4 Wochen</div>
+          <div className="mt-1 flex items-baseline gap-1">
+            <span className="stat-display text-[24px] leading-none">{format(metrik, jetzt)}</span>
             <span className="text-sm text-muted-foreground">{def.einheit}</span>
           </div>
         </div>
         {diffProz != null && Math.abs(diffProz) >= 1 && (
-          <span
-            className={cn(
-              "mb-0.5 rounded-full px-2 py-0.5 text-[11px] font-semibold",
-              gut ? "bg-primary/12 text-primary" : "bg-coral/14 text-coral"
-            )}
-          >
+          <span className={cn("mb-0.5 text-xs", gut ? "text-status-green" : "text-status-orange")}>
             {diffProz > 0 ? "+" : "−"}
             {Math.abs(diffProz).toFixed(0)} % ggü. den 4 Wochen davor
           </span>
         )}
       </div>
 
-      <div className="h-52 w-full">
+      <div className="h-44 w-full md:h-52">
         {!hatDaten ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
             Noch keine Werte für diese Kennzahl.
@@ -106,12 +101,6 @@ export function FortschrittChart({ verlauf }: { verlauf: VerlaufWoche[] }) {
           <ResponsiveContainer width="100%" height="100%">
             {def.art === "balken" ? (
               <BarChart data={daten} margin={{ top: 6, right: 4, bottom: 0, left: -22 }} barCategoryGap="22%">
-                <defs>
-                  <linearGradient id="fortschritt-lime" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stopColor="#c9f78a" />
-                    <stop offset="100%" stopColor="#95d94a" />
-                  </linearGradient>
-                </defs>
                 <CartesianGrid vertical={false} stroke="var(--border)" />
                 <XAxis
                   dataKey="woche"
@@ -124,14 +113,14 @@ export function FortschrittChart({ verlauf }: { verlauf: VerlaufWoche[] }) {
                 />
                 <YAxis tick={{ fontSize: 10, fill: "var(--dim-foreground)" }} tickLine={false} axisLine={false} />
                 <Tooltip
-                  cursor={{ fill: "rgb(255 255 255 / 4%)" }}
+                  cursor={{ fill: "rgb(255 255 255 / 3%)" }}
                   contentStyle={TOOLTIP}
                   labelFormatter={(w) => `Woche ab ${formatDatum(String(w))}`}
                   formatter={(v) => [`${format(metrik, Number(v))} ${def.einheit}`, def.label]}
                 />
-                <Bar dataKey="wert" radius={[8, 8, 3, 3]} animationDuration={500}>
+                <Bar dataKey="wert" radius={[3, 3, 0, 0]} isAnimationActive={false}>
                   {daten.map((d, i) => (
-                    <Cell key={d.woche} fill={i === daten.length - 1 ? "url(#fortschritt-lime)" : "rgb(184 243 107 / 38%)"} />
+                    <Cell key={d.woche} fill={i === daten.length - 1 ? "var(--primary)" : "rgb(164 185 154 / 32%)"} />
                   ))}
                 </Bar>
               </BarChart>
@@ -165,11 +154,11 @@ export function FortschrittChart({ verlauf }: { verlauf: VerlaufWoche[] }) {
                   type="monotone"
                   dataKey="wert"
                   stroke={metrik === "avgHr" ? "var(--coral)" : "var(--primary)"}
-                  strokeWidth={2.5}
+                  strokeWidth={1.75}
                   connectNulls={false}
-                  dot={{ r: 3.5, strokeWidth: 0, fill: metrik === "avgHr" ? "var(--coral)" : "var(--primary)" }}
-                  activeDot={{ r: 6 }}
-                  animationDuration={500}
+                  dot={{ r: 2.5, strokeWidth: 0, fill: metrik === "avgHr" ? "var(--coral)" : "var(--primary)" }}
+                  activeDot={{ r: 4 }}
+                  isAnimationActive={false}
                 />
               </LineChart>
             )}
@@ -186,7 +175,6 @@ export function FortschrittChart({ verlauf }: { verlauf: VerlaufWoche[] }) {
 export const TOOLTIP: React.CSSProperties = {
   background: "var(--popover)",
   border: "1px solid var(--border)",
-  borderRadius: 12,
+  borderRadius: 8,
   fontSize: 12,
-  boxShadow: "0 12px 30px -12px rgb(0 0 0 / 60%)",
 };

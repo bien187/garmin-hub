@@ -114,22 +114,22 @@ Alle Werte sind Uhr-Schätzungen; Richtwerte sind keine Diagnose.
 | Empfehlungen (max. 3) | < 7 h in drei Nächten in Folge → harte Einheit verschieben; HRV unter dem Bereich → Intensität senken; Tiefschlaf < 75 % des 30-Tage-Mittels (≥ 5 Nächte) → keine harte Einheit, keine schwere Beineinheit |
 | Warnhinweis | SpO2 ≥ 2× bzw. ≥ 5 Min unter 90 %, oder Atemfrequenz ≥ 30-Tage-Mittel + 3 Atemzüge/min bei ≥ 60 % der Nacht (≥ 5 Vergleichsnächte). Text: kein medizinischer Befund, bei Beschwerden ärztlich abklären |
 
-## Schlaf-Kachel im Dashboard
+## Schlaf im Dashboard
 
-Kachel „Schlaf letzte Nacht" (`components/dashboard/schlaf-kachel.tsx`): letzte
-Nacht mit Aufwachdatum ≤ heute (sonst mit Datum gekennzeichnet), Dauer,
-Bettzeit, Effizienz, Garmin-Score mit Ampel (oder „–"), Mini-Hypnogramm,
-Phasen-Balken mit Minuten und Prozent, Vergleich gegen das 7-Tage-Mittel,
-Verlauf der Schlafdauer der letzten 14 Nächte (gestrichelt = 7 h) und ein Satz
-Fazit. Die ganze Kachel verlinkt auf `/schlaf/<datum>`. Eigene
+Abschnitt „Schlaf" (`components/dashboard/schlaf-kachel.tsx` lädt,
+`schlaf-kachel-ansicht.tsx` zeigt; die Demo nutzt nur die Ansicht): letzte Nacht
+mit Aufwachdatum ≤ heute (sonst mit Datum gekennzeichnet), Dauer, Bettzeit,
+Effizienz, Abweichung der Dauer vom 7-Tage-Mittel, Garmin-Score in der
+Ampelfarbe (oder „–"), schlanke Phasen-Zeitleiste (Mini-Hypnogramm), Tief,
+Leicht, REM und Wach in Minuten, Schlaf-Herzfrequenz, HRV und Atmung (je Ø der
+Nacht) und ein Satz Fazit. „Details ›" führt zu `/schlaf/<datum>`. Eigene
 Suspense-Grenze mit Skeleton, damit das Dashboard nicht wartet. Ohne Daten:
-„Noch keine Schlafdaten. Nach dem nächsten Sync verfügbar."
+„Noch keine Schlafdaten — nach dem nächsten Sync verfügbar."
 
-**Abweichung:** Der im Auftrag genannte Dashboard-Edit-Modus (d92cde1) wurde in
-97ea34f wieder entfernt; die Kachel ist deshalb fest neben der Fitness-Kurve
-eingeordnet. Phasenfarben: neue Tokens `--schlaf-tief/-leicht/-rem/-wach`
-(dunkel und hell) in `app/globals.css`, Blau-Familie, getrennt vom Akzent
-`--primary` und von den Ampelfarben.
+Der Abschnitt steht seit der Design-Revision 2.0 direkt nach Readiness, Body
+Battery und den Gesundheitswerten. Phasenfarben: Tokens
+`--schlaf-tief/-leicht/-rem/-wach` (dunkel und hell) in `app/globals.css`,
+gedeckte Blau-Familie, getrennt vom Akzent `--primary` und von den Ampelfarben.
 
 ## Schlaf-Detailansicht (`/schlaf/<datum>`)
 

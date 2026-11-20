@@ -18,6 +18,7 @@ import { verlaufSeitTrainingsstart, type PaceWoche } from '@/lib/engine/fortschr
 import { recomputeAll } from './compute';
 import { berechneKonsistenz, type Konsistenz } from '@/lib/engine/konsistenz';
 import { gewichtKurzAus, ladeGewicht, type GewichtKurz } from './gewicht-service';
+import type { TagesGesundheit } from '@/lib/engine/gesundheit';
 
 export interface DashboardDaten {
   dbBereit: boolean;
@@ -58,6 +59,8 @@ export interface DashboardDaten {
   konsistenz?: Konsistenz;
   /** Gewichtskarte (Smart Weight Tracking); null ohne Messungen */
   gewicht: GewichtKurz | null;
+  /** Gesundheitswerte der letzten 15 Tage inkl. heute (Trends gegen 7 Tage) */
+  gesundheitVerlauf: TagesGesundheit[];
 }
 
 export interface DashboardAktivitaet {
@@ -146,6 +149,7 @@ const LEER: DashboardDaten = {
   allTime: ALL_TIME_LEER,
   paceFortschritt: { refHr: null, wochen: [], letzteMessung: null },
   gewicht: null,
+  gesundheitVerlauf: [],
 };
 
 export async function ladeDashboard(): Promise<DashboardDaten> {
@@ -170,7 +174,11 @@ export async function ladeDashboard(): Promise<DashboardDaten> {
       dauerRows,
       wochenPlan,
     ] = await Promise.all([
-        db.select().from(tables.dailyHealth).where(eq(tables.dailyHealth.datum, heute)),
+        db
+          .select()
+          .from(tables.dailyHealth)
+          .where(and(gte(tables.dailyHealth.datum, addTage(heute, -14)), lte(tables.dailyHealth.datum, heute)))
+          .orderBy(asc(tables.dailyHealth.datum)),
         /* Gesamte Historie bis heute: computed_daily beginnt am ersten
            Trainingstag (lückenlose Tagesserie aus compute.ts). Bei ~130–400
            Zeilen ist das unkritisch und wird nicht ausgedünnt. */
@@ -271,7 +279,7 @@ export async function ladeDashboard(): Promise<DashboardDaten> {
 
     const gewicht = gewichtKurzAus(await ladeGewicht(), heute);
 
-    const h = healthRows[0];
+    const h = healthRows.find((r) => r.datum === heute);
     const letzterTag = fitnessRows[fitnessRows.length - 1];
 
     const vorMontag = addTage(montag, -7);
@@ -314,7 +322,7 @@ export async function ladeDashboard(): Promise<DashboardDaten> {
         hrvStatus: h?.hrvStatus ?? null,
         hrvLetzteNacht: h?.hrvLetzteNacht ?? null,
         schlafScore: h?.schlafScore ?? null,
-        ruhepuls: h?.ruhepuls ?? profil.ruhepuls,
+        ruhepuls: h?.ruhepuls ?? null,
       },
       trainingsstart,
       fitness: verlauf.map((r) => ({
@@ -341,6 +349,17 @@ export async function ladeDashboard(): Promise<DashboardDaten> {
         ...fortschritt,
       },
       gewicht,
+      gesundheitVerlauf: healthRows.map((r) => ({
+        datum: r.datum,
+        readiness: r.trainingReadiness,
+        bodyBatteryMax: r.bodyBatteryMax,
+        bodyBatteryMin: r.bodyBatteryMin,
+        ruhepuls: r.ruhepuls,
+        hrv: r.hrvLetzteNacht,
+        hrvStatus: r.hrvStatus,
+        stress: r.stressAvg,
+        schlafScore: r.schlafScore,
+      })),
     };
   } catch {
     return LEER;

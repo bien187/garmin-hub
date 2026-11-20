@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Lightbulb } from "lucide-react";
 import {
   CartesianGrid,
   ResponsiveContainer,
@@ -10,7 +9,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Card, CardContent } from "@/components/ui/card";
 import { ausgleichsgerade, type InsightKarte } from "@/lib/engine/correlations";
 
 /** Korrelations-Insights (§6.6) — was Garmin nicht zeigt */
@@ -29,7 +27,7 @@ export function InsightCards() {
   }, []);
 
   if (karten === null) {
-    return <div className="h-24 animate-pulse rounded-xl bg-muted" />;
+    return <div className="h-24 animate-pulse rounded-md bg-surface" />;
   }
   if (karten.length === 0 && tipps.length === 0) {
     return (
@@ -41,52 +39,46 @@ export function InsightCards() {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {tipps.map((t, i) => (
-        <div
-          key={i}
-          className="flex items-start gap-2.5 rounded-lg border border-primary/25 bg-primary/5 px-3 py-2.5 text-sm"
-        >
-          <Lightbulb className="mt-0.5 size-4 shrink-0 text-primary" />
+        <p key={i} className="border-l-2 border-primary/60 pl-3 text-sm leading-snug text-foreground/90">
           {t}
-        </div>
+        </p>
       ))}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <ul className="divide-y divide-border border-y border-border">
         {karten.map((k) => (
-          <Card key={k.id} className="py-4">
-            <CardContent className="space-y-2 px-4">
-              <div className="flex items-start justify-between gap-2">
-                <div className="text-sm font-medium leading-tight">{k.titel}</div>
-                <span className="stat-mono shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs">
-                  r = {k.r.toFixed(2)}
-                </span>
+          <li key={k.id} className="grid grid-cols-1 gap-3 py-4 sm:grid-cols-[1fr_180px] sm:items-center">
+            <div className="min-w-0 space-y-1">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-sm font-medium leading-tight">{k.titel}</span>
+                <span className="stat-mono shrink-0 text-xs text-muted-foreground">r = {k.r.toFixed(2)}</span>
               </div>
-              <p className="text-xs text-muted-foreground">{k.text}</p>
-              <div className="h-28">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ScatterChart margin={{ top: 6, right: 6, bottom: 0, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                    <XAxis dataKey="x" type="number" hide domain={["dataMin", "dataMax"]} />
-                    <YAxis dataKey="y" type="number" hide domain={["dataMin", "dataMax"]} />
-                    <Scatter data={k.punkte} fill="var(--muted-foreground)" opacity={0.5} />
-                    {/* Trend: Linie ohne eigene Punktsymbole */}
-                    <Scatter
-                      data={ausgleichsgerade(k.punkte)}
-                      line={{ stroke: "var(--primary)", strokeWidth: 2 }}
-                      shape={() => <g />}
-                      legendType="none"
-                      isAnimationActive={false}
-                    />
-                  </ScatterChart>
-                </ResponsiveContainer>
-              </div>
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-[13px] leading-snug text-muted-foreground">{k.text}</p>
+              <p className="text-[11px] text-dim-foreground">
                 {k.xLabel} ↔ {k.yLabel} · n = {k.n} · Korrelation ≠ Kausalität
               </p>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="h-24">
+              <ResponsiveContainer width="100%" height="100%">
+                <ScatterChart margin={{ top: 6, right: 6, bottom: 0, left: 0 }}>
+                  <CartesianGrid vertical={false} stroke="var(--border)" />
+                  <XAxis dataKey="x" type="number" hide domain={["dataMin", "dataMax"]} />
+                  <YAxis dataKey="y" type="number" hide domain={["dataMin", "dataMax"]} />
+                  <Scatter data={k.punkte} fill="var(--muted-foreground)" opacity={0.45} isAnimationActive={false} />
+                  {/* Trend: Linie ohne eigene Punktsymbole */}
+                  <Scatter
+                    data={ausgleichsgerade(k.punkte)}
+                    line={{ stroke: "var(--primary)", strokeWidth: 1.5 }}
+                    shape={() => <g />}
+                    legendType="none"
+                    isAnimationActive={false}
+                  />
+                </ScatterChart>
+              </ResponsiveContainer>
+            </div>
+          </li>
         ))}
-      </div>
+      </ul>
     </div>
   );
 }

@@ -3,10 +3,10 @@ import { cn } from "@/lib/utils";
 
 /** Farbe je Vergleichbarkeitsklasse — für Badges, Diagrammpunkte und Legende */
 export const KLASSEN_FARBE: Record<Klasse, string> = {
-  sehr_gut: "#b8f36b",
-  gut: "#7fc3a0",
-  eingeschraenkt: "#f4d35e",
-  gering: "#6b788d",
+  sehr_gut: "#a4b99a",
+  gut: "#8fa6c1",
+  eingeschraenkt: "#d8c27a",
+  gering: "#6e7a89",
 };
 
 const KLASSEN_KURZ: Record<Klasse, string> = {
@@ -31,8 +31,8 @@ export function QualitaetsBadge({
   const farbe = KLASSEN_FARBE[klasse];
   return (
     <span
-      className={cn("inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[11px] font-semibold whitespace-nowrap", className)}
-      style={{ background: `${farbe}22`, color: farbe }}
+      className={cn("inline-flex h-5 items-center gap-1.5 text-[12px] whitespace-nowrap", className)}
+      style={{ color: farbe }}
       title={`${KLASSEN[klasse].label} (Messqualität ${score}/100)`}
     >
       <span className="size-1.5 rounded-full" style={{ background: farbe }} />

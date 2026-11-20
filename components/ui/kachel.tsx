@@ -3,15 +3,15 @@ import { cn } from "@/lib/utils";
 
 export type Ton = "lime" | "coral" | "blau" | "violett" | "neutral";
 
-const TON_CHIP: Record<Ton, string> = {
-  lime: "bg-primary/12 text-primary",
-  coral: "bg-coral/14 text-coral",
-  blau: "bg-chart-3/14 text-chart-3",
-  violett: "bg-chart-4/14 text-chart-4",
-  neutral: "bg-surface text-muted-foreground",
+const TON_TEXT: Record<Ton, string> = {
+  lime: "text-primary",
+  coral: "text-coral",
+  blau: "text-blau",
+  violett: "text-chart-4",
+  neutral: "text-muted-foreground",
 };
 
-/** Kleines Icon im getönten Quadrat — Wiedererkennung der Kachel */
+/** Kleines Icon ohne Fläche — nur wo es der Orientierung dient */
 export function IconChip({
   icon: Icon,
   ton = "neutral",
@@ -21,23 +21,19 @@ export function IconChip({
   ton?: Ton;
   className?: string;
 }) {
-  return (
-    <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-[10px]", TON_CHIP[ton], className)}>
-      <Icon className="size-4" strokeWidth={2.2} />
-    </span>
-  );
+  return <Icon className={cn("size-4 shrink-0", TON_TEXT[ton], className)} strokeWidth={1.8} aria-hidden />;
 }
 
 /**
- * Einheitlicher Kopf aller Karten: Icon-Chip, Kachel-Titel, optional
- * Untertitel und Aktion rechts. Ersetzt die frei formatierten CardTitles.
+ * Kopf einer Karte bzw. eines Abschnitts: Titel in Satzschreibung, optional
+ * Untertitel und Aktion rechts. Bewusst ohne Icon — Struktur entsteht über
+ * Typografie. (`icon`/`ton` bleiben für ältere Aufrufer erlaubt und werden
+ * ignoriert.)
  */
 export function KachelKopf({
-  icon,
   titel,
   untertitel,
   aktion,
-  ton = "neutral",
   className,
 }: {
   icon?: LucideIcon;
@@ -48,15 +44,42 @@ export function KachelKopf({
   className?: string;
 }) {
   return (
-    <div className={cn("flex items-center justify-between gap-3 px-(--card-spacing)", className)}>
-      <div className="flex min-w-0 items-center gap-2.5">
-        {icon && <IconChip icon={icon} ton={ton} />}
-        <div className="min-w-0">
-          <h2 className="kachel-titel truncate">{titel}</h2>
-          {untertitel && <p className="mt-0.5 truncate text-[11px] text-dim-foreground">{untertitel}</p>}
-        </div>
+    <div className={cn("flex items-start justify-between gap-3 px-(--card-spacing)", className)}>
+      <div className="min-w-0">
+        <h2 className="abschnitt-titel truncate">{titel}</h2>
+        {untertitel && <p className="mt-0.5 truncate text-xs text-muted-foreground">{untertitel}</p>}
       </div>
       {aktion && <div className="shrink-0">{aktion}</div>}
     </div>
+  );
+}
+
+/**
+ * Flacher Abschnitt ohne Box: Titel mit optionaler Aktion, darunter der
+ * Inhalt. Getrennt wird über Abstand und eine feine Linie oben.
+ */
+export function Abschnitt({
+  titel,
+  aktion,
+  children,
+  className,
+  id,
+  ohneLinie = false,
+}: {
+  titel: React.ReactNode;
+  aktion?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+  id?: string;
+  ohneLinie?: boolean;
+}) {
+  return (
+    <section id={id} className={cn("scroll-mt-4", !ohneLinie && "border-t border-border pt-5", className)}>
+      <div className="mb-3 flex items-baseline justify-between gap-3">
+        <h2 className="abschnitt-titel">{titel}</h2>
+        {aktion}
+      </div>
+      {children}
+    </section>
   );
 }

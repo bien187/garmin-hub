@@ -115,7 +115,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (!demo && pathname === "/login") return <>{children}</>;
 
   const fullBleed = pathname === "/map";
-  const aktiverIndex = TABS.findIndex((t) => isActive(pathname, t.href));
 
   // Fester App-Rahmen mit gemessener Höhe (`--app-h`), weil 100dvh im
   // iOS-Standalone die Bildschirmhöhe unterschätzt.
@@ -133,24 +132,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       style={{ height: "var(--app-h, 100dvh)" }}
     >
       {/* Sidebar (Desktop) */}
-      <aside className="fixed inset-y-0 z-40 hidden md:flex md:w-60 md:flex-col md:border-r md:border-sidebar-border md:bg-sidebar">
-        <Link href={ziel("/")} className="flex items-center gap-3 px-5 pt-6 pb-7">
-          <Logo className="size-9" />
+      <aside className="fixed inset-y-0 z-40 hidden md:flex md:w-56 md:flex-col md:border-r md:border-sidebar-border md:bg-sidebar">
+        <Link href={ziel("/")} className="flex items-center gap-2.5 px-5 pt-6 pb-8">
+          <Logo className="size-8" />
           <span className="min-w-0">
-            <span className="flex items-center gap-1.5 text-[15px] font-semibold tracking-tight">
+            <span className="block text-[15px] font-medium tracking-tight">
               Garmin Hub
-              {demo && (
-                <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.08em] text-primary">
-                  Demo
-                </span>
-              )}
+              {demo && <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">Demo</span>}
             </span>
             <span className="block text-[11px] leading-tight text-muted-foreground">
               Personal Fitness &amp; Running Performance
             </span>
           </span>
         </Link>
-        <nav className="flex flex-1 flex-col gap-1 px-3">
+        <nav className="flex flex-1 flex-col gap-0.5 px-3">
           {TABS.map(({ href, label, icon: Icon }) => {
             const aktiv = isActive(pathname, href);
             return (
@@ -159,20 +154,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 href={ziel(href)}
                 aria-current={aktiv ? "page" : undefined}
                 className={cn(
-                  "group flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors",
-                  aktiv
-                    ? "bg-primary/10 text-foreground"
-                    : "text-muted-foreground hover:bg-surface hover:text-foreground"
+                  "flex min-h-10 items-center gap-3 rounded-md px-3 text-sm transition-colors",
+                  aktiv ? "bg-surface text-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <span
-                  className={cn(
-                    "flex size-8 items-center justify-center rounded-lg transition-colors",
-                    aktiv ? "bg-primary text-primary-foreground" : "bg-surface text-muted-foreground group-hover:text-foreground"
-                  )}
-                >
-                  <Icon className="size-4.5" strokeWidth={aktiv ? 2.4 : 2} />
-                </span>
+                <Icon className={cn("size-[18px]", aktiv && "text-primary")} strokeWidth={1.8} />
                 {label}
               </Link>
             );
@@ -185,20 +171,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               href={ziel("/settings")}
               aria-current={isActive(pathname, "/settings") ? "page" : undefined}
               className={cn(
-                "group flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors",
-                isActive(pathname, "/settings")
-                  ? "bg-primary/10 text-foreground"
-                  : "text-muted-foreground hover:bg-surface hover:text-foreground"
+                "flex min-h-10 items-center gap-3 rounded-md px-3 text-sm transition-colors",
+                isActive(pathname, "/settings") ? "bg-surface text-foreground" : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <span
-                className={cn(
-                  "flex size-8 items-center justify-center rounded-lg",
-                  isActive(pathname, "/settings") ? "bg-primary text-primary-foreground" : "bg-surface"
-                )}
-              >
-                <Settings className="size-4.5" />
-              </span>
+              <Settings className={cn("size-[18px]", isActive(pathname, "/settings") && "text-primary")} strokeWidth={1.8} />
               Einstellungen
             </Link>
           </div>
@@ -208,7 +185,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Content-Spalte: Scrollbereich (flex-1) + Navbar (shrink-0) im Flow.
           Da der Rahmen `fixed inset-0` exakt den Viewport füllt, sitzt die
           Navbar als letztes Flex-Kind bündig an der physischen Unterkante. */}
-      <main className="flex min-w-0 flex-1 flex-col md:ml-60">
+      <main className="flex min-w-0 flex-1 flex-col md:ml-56">
         {fullBleed ? (
           <div className="min-h-0 flex-1">{children}</div>
         ) : (
@@ -227,20 +204,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             eine Lücke — im Dunkelmodus nicht als Lücke erkennbar, sondern
             als zu hohe Navigationsleiste. */}
         {!tastaturOffen && (
-          <nav className="nav-bar fixed inset-x-0 bottom-0 z-40 border-t border-border bg-sidebar/90 backdrop-blur-xl md:hidden">
-            <div className="relative grid h-full grid-cols-5">
-              {/* Aktiv-Indikator: fährt per translateX zur aktiven Zelle */}
-              {aktiverIndex >= 0 && (
-                <div
-                  className="pointer-events-none absolute top-0 left-0 h-[3px] w-1/5"
-                  style={{
-                    transform: `translateX(${aktiverIndex * 100}%)`,
-                    transition: "transform var(--dur-base) var(--ease-base)",
-                  }}
-                >
-                  <div className="mx-auto h-full w-7 rounded-b-full bg-primary shadow-[0_0_12px_rgb(184_243_107/60%)]" />
-                </div>
-              )}
+          <nav className="nav-bar fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur md:hidden">
+            <div className="grid h-full grid-cols-5">
               {TABS.map(({ href, label, icon: Icon }) => {
                 const active = isActive(pathname, href);
                 return (
@@ -249,11 +214,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     href={ziel(href)}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "flex h-full flex-col items-center justify-center gap-1 text-[10px] font-medium leading-none transition-colors",
-                      active ? "text-primary" : "text-muted-foreground"
+                      "flex h-full flex-col items-center justify-center gap-1 text-[10px] leading-none transition-colors",
+                      active ? "text-foreground" : "text-dim-foreground"
                     )}
                   >
-                    <Icon className="size-[19px]" strokeWidth={active ? 2.4 : 1.9} />
+                    <Icon className={cn("size-[19px]", active && "text-primary")} strokeWidth={active ? 2 : 1.7} />
                     {label}
                   </Link>
                 );

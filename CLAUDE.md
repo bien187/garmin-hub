@@ -44,13 +44,16 @@ vorschlagen). Neue Migrationen additiv halten (`CREATE TABLE IF NOT EXISTS`,
   davor sind Archiv (neutral, schreibgeschützt). Keine Noten-, Prüfungs- oder EP-Logik mehr;
   `ep_benchmarks` bleibt nur als Altbestand in der DB.
 - Server-Zugriff in `lib/server/*-service.ts`, Route Handler in `app/api/**/route.ts` (Session-Prüfung im Handler zusätzlich zur `middleware.ts`).
-- Design-Tokens in `app/globals.css`: Navy `--background`, Lime `--primary` (Fortschritt, Aktives,
-  Kennzahlen), Coral `--coral` (Laufen, Intensität), Flächen `--surface`/`--surface-2`,
-  `--status-green/yellow/orange/red` nur für Status, `shadow-card`, `flaeche-hero/-lime/-coral`.
-  Karten-Kopf immer über `KachelKopf` (`components/ui/kachel.tsx`), Zahlen mit `stat-display` /
-  `stat-mono`, Badges mit `Pill`, Fortschritt mit `Ring`/`Balken`, Icons über `SportIcon`/
-  `EinheitIcon`. Schrift Geist. Grids mit `grid-cols-1` (sonst sprengen `truncate`-Texte die
-  Spalte). Touch-Ziele ≥ 44 px, kein horizontales Scrollen auf 390 px.
+- Design „Understated Performance" (Tokens in `app/globals.css`): Hintergrund `#151B26`,
+  Fläche `--card`, erhöhte Fläche `--surface`/`--surface-2`, Akzente nur mit Bedeutung —
+  Salbei `--primary` (Fortschritt, aktiv), Blau `--blau` (Erholung, Schlaf), gedecktes Orange
+  `--coral` (Laufen, Intensität); `--status-green/yellow/orange/red` nur für Status. Keine
+  Schatten, kein Glow, keine Verläufe, keine Lime-Flächen, keine verschachtelten Karten, kaum
+  Animation. Gliederung über `Abschnitt` (Titel + feine Trennlinie) bzw. `KachelKopf`
+  (`components/ui/kachel.tsx`), Zahlen mit `stat-display` / `stat-mono`, sparsam `Pill`,
+  `Ring`/`Balken`, Icons über `SportIcon`/`EinheitIcon`. Schrift Geist. Dashboard = Gesundheits-
+  übersicht, „Nächstes Training" nur im Plan. Grids mit `grid-cols-1` (sonst sprengen
+  `truncate`-Texte die Spalte). Touch-Ziele ≥ 44 px, kein horizontales Scrollen auf 390 px.
 - Öffentliche Demo unter `/demo` (ohne Login, nur fiktive Daten aus `public/demo/daten/`, erzeugt mit `pnpm demo:daten`). Geteilte Komponenten verlinken intern über `AppLink`/`useAppPfad()` (`components/basis-pfad.tsx`), „jetzt" über `jetztMs()`/`heuteIso()` — nie `Date.now()` direkt in Komponenten. Die Demo ist nur lesend: neue GET-Aufrufe der UI in `lib/demo/api.ts` beantworten, schreibende Aktionen mit `useIstDemo()` sperren.
 - Fehlende Daten als `null` behandeln und im UI als „nicht verfügbar" zeigen, nie als 0 oder geraten.
 
