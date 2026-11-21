@@ -10,11 +10,26 @@ import { addTage, tageDiff } from '@/lib/format';
  * nicht von der Zeitzone des Browsers abhängt.
  */
 
-export type Zeitraum = '90t' | '6m' | 'alles';
+export type Zeitraum = '30t' | '90t' | '6m' | '1j' | 'alles';
 
-export const ZEITRAEUME: readonly { id: Zeitraum; label: string }[] = [
+export interface ZeitraumOption {
+  id: Zeitraum;
+  label: string;
+}
+
+/** Standard der Verlaufs-Charts (Fitness) */
+export const ZEITRAEUME: readonly ZeitraumOption[] = [
   { id: '90t', label: '90 Tage' },
   { id: '6m', label: '6 Mon.' },
+  { id: 'alles', label: 'Alles' },
+];
+
+/** Feinere Auswahl für Aerobic Performance */
+export const ZEITRAEUME_AEROB: readonly ZeitraumOption[] = [
+  { id: '30t', label: '30 T' },
+  { id: '90t', label: '90 T' },
+  { id: '6m', label: '6 M' },
+  { id: '1j', label: '1 J' },
   { id: 'alles', label: 'Alles' },
 ];
 
@@ -36,8 +51,10 @@ export function addMonate(iso: string, monate: number): string {
 
 /** Erstes enthaltenes Datum eines Zeitraums relativ zu `bis`; null = keine Untergrenze */
 export function zeitraumVon(zeitraum: Zeitraum, bis: string): string | null {
+  if (zeitraum === '30t') return addTage(bis, -30);
   if (zeitraum === '90t') return addTage(bis, -90);
   if (zeitraum === '6m') return addMonate(bis, -6);
+  if (zeitraum === '1j') return addMonate(bis, -12);
   return null;
 }
 
@@ -53,9 +70,13 @@ export function filtereZeitraum<T>(punkte: readonly T[], datumVon: (p: T) => str
  * der 6-Monats-Grenze, wäre „6 Mon." identisch mit „Alles" und entfällt.
  * Bleibt nur „Alles", wird der Umschalter gar nicht gezeigt.
  */
-export function verfuegbareZeitraeume(erstesDatum: string | null, bis: string | null): Zeitraum[] {
+export function verfuegbareZeitraeume(
+  erstesDatum: string | null,
+  bis: string | null,
+  optionen: readonly ZeitraumOption[] = ZEITRAEUME
+): Zeitraum[] {
   if (!erstesDatum || !bis) return ['alles'];
-  return ZEITRAEUME.map((z) => z.id).filter((id) => {
+  return optionen.map((z) => z.id).filter((id) => {
     const von = zeitraumVon(id, bis);
     return von == null || erstesDatum < von;
   });

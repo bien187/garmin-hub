@@ -14,8 +14,10 @@ import {
   type Wochenwerte,
 } from "@/lib/engine/wochenstatistik";
 import { MuskelId } from "@/lib/engine/muscle";
-import { verlaufSeitTrainingsstart, type PaceWoche } from '@/lib/engine/fortschritt';
+import { verlaufSeitTrainingsstart } from '@/lib/engine/fortschritt';
+import type { AerobeLeistung } from '@/lib/engine/aerobe-leistung';
 import { recomputeAll } from './compute';
+import { ladeAerobeLeistung } from './aerob-service';
 import { berechneKonsistenz, type Konsistenz } from '@/lib/engine/konsistenz';
 import { gewichtKurzAus, ladeGewicht, type GewichtKurz } from './gewicht-service';
 import type { TagesGesundheit } from '@/lib/engine/gesundheit';
@@ -54,7 +56,8 @@ export interface DashboardDaten {
   /** Wochenverlauf der letzten 12 Wochen */
   verlauf: VerlaufWoche[];
   allTime: AllTimeStats;
-  paceFortschritt: { refHr: number | null; wochen: PaceWoche[]; letzteMessung: string | null };
+  /** Aerobic Performance: normierte Pace je Lauf (Referenzpuls und Zone 2); null = nicht verfügbar */
+  aerobeLeistung: AerobeLeistung | null;
   /** Trainingsstunden der letzten 12 Wochen + Serie (fehlt in älteren Demo-Daten) */
   konsistenz?: Konsistenz;
   /** Gewichtskarte (Smart Weight Tracking); null ohne Messungen */
@@ -97,9 +100,6 @@ export interface AllTimeStats {
   laengsterLaufKm: number;
   seit: string | null;
 }
-
-/** Ein Punkt der Fortschrittskurve (Wochenmontag → Pace bei Referenzpuls) */
-export type { PaceWoche } from '@/lib/engine/fortschritt';
 
 const ALL_TIME_LEER: AllTimeStats = {
   aktivitaeten: 0,
@@ -147,7 +147,7 @@ const LEER: DashboardDaten = {
   wochenFortschritt: { erledigt: 0, geplant: 0 },
   verlauf: [],
   allTime: ALL_TIME_LEER,
-  paceFortschritt: { refHr: null, wochen: [], letzteMessung: null },
+  aerobeLeistung: null,
   gewicht: null,
   gesundheitVerlauf: [],
 };
@@ -170,7 +170,6 @@ export async function ladeDashboard(): Promise<DashboardDaten> {
       letzteActs,
       naechste,
       summenRows,
-      refHrRows,
       dauerRows,
       wochenPlan,
     ] = await Promise.all([
@@ -242,10 +241,6 @@ export async function ladeDashboard(): Promise<DashboardDaten> {
           })
           .from(tables.activities)
           .where(isNull(tables.activities.deletedAt)),
-        db
-          .select()
-          .from(tables.appSettings)
-          .where(eq(tables.appSettings.key, "pace_ref_hr")),
         /* Kennwerte je Aktivität für Konsistenz, Wochenstatistik und Verlauf
            (ganze Historie, damit die Serie über 12 Wochen hinaus zählt) */
         db
@@ -278,6 +273,8 @@ export async function ladeDashboard(): Promise<DashboardDaten> {
       ]);
 
     const gewicht = gewichtKurzAus(await ladeGewicht(), heute);
+    // Zusatzauswertung: ein Fehler darf das übrige Dashboard nicht leeren
+    const aerobeLeistung = await ladeAerobeLeistung(heute).catch(() => null);
 
     const h = healthRows.find((r) => r.datum === heute);
     const letzterTag = fitnessRows[fitnessRows.length - 1];
@@ -310,8 +307,7 @@ export async function ladeDashboard(): Promise<DashboardDaten> {
 
     // Kalendertag wie in compute.ts (isoDatum), damit Start und Serie übereinstimmen
     const ersteAktivitaet = s?.seit ? isoDatum(new Date(s.seit)) : null;
-    const { trainingsstart, verlauf, fortschritt } = verlaufSeitTrainingsstart(fitnessRows, heute, ersteAktivitaet);
-    const refHrWert = (refHrRows[0]?.value as { refHr?: number } | undefined)?.refHr;
+    const { trainingsstart, verlauf } = verlaufSeitTrainingsstart(fitnessRows, heute, ersteAktivitaet);
 
     return {
       dbBereit: true,
@@ -344,10 +340,7 @@ export async function ladeDashboard(): Promise<DashboardDaten> {
       verlauf: wochenVerlauf(statAkts, heute),
       allTime,
       konsistenz: berechneKonsistenz(statAkts, heute, profil.wochenBudgetH ?? null),
-      paceFortschritt: {
-        refHr: typeof refHrWert === "number" ? refHrWert : null,
-        ...fortschritt,
-      },
+      aerobeLeistung,
       gewicht,
       gesundheitVerlauf: healthRows.map((r) => ({
         datum: r.datum,

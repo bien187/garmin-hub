@@ -75,9 +75,8 @@ export function DashboardAnsicht({
         fitness={d.fitness}
         tsbHeute={d.tsbHeute}
         acwrHeute={d.acwrHeute}
-        paceWochen={d.paceFortschritt.wochen}
-        refHr={d.paceFortschritt.refHr}
-        letzteMessung={d.paceFortschritt.letzteMessung}
+        aerob={d.aerobeLeistung ?? null}
+        heute={heute}
         konsistenz={d.konsistenz}
       />
 

@@ -9,6 +9,9 @@ Alle Funktionen sind rein und deterministisch (ohne DB) und mit Vitest getestet.
 - CTL (τ=42 d) / ATL (τ=7 d) / TSB; ACWR 7:28 mit Ampel
 - EF = (m/min)/HR (nur Läufe > 20 min, < 50 Hm); aerobe Entkopplung Pw:HR
 - GAP über Minetti-Polynom `C(i) = 155.4i⁵ − 30.4i⁴ − 43.3i³ + 46.3i² + 19.5i + 3.6`
+- Aerobic Performance: stabile 5-Min.-Abschnitte je Lauf, robuste Regression
+  `ln v = a + b·HF`, Normierung `v_ref = exp(a_Lauf + b·HF_ref)` mit begrenzter
+  Extrapolation, rollierender 28-Tage-Trend — siehe [AEROBE-LEISTUNG.md](AEROBE-LEISTUNG.md)
 - Riegel `T2 = T1 × (D2/D1)^1.06` + Best-Effort-Erkennung (rollende Fenster)
 - Trainings-Paces (Zone 2, Steady, Schwelle, Intervall) aus der 5-km-Prognose
 - Muskel-Erholung `Rest(t) = Σ Lᵢ·e^(−Δt/τ)` (Waden 30 h, kleine

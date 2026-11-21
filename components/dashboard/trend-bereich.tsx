@@ -4,15 +4,14 @@ import { useState } from "react";
 import { Abschnitt } from "@/components/ui/kachel";
 import { FortschrittChart } from "@/components/dashboard/fortschritt-chart";
 import { FitnessChart, type FitnessPunkt } from "@/components/dashboard/fitness-chart";
-import { PaceHrChart } from "@/components/dashboard/pace-hr-chart";
+import { AerobChart } from "@/components/dashboard/aerob-chart";
 import { KonsistenzKachel } from "@/components/dashboard/konsistenz-kachel";
 import type { VerlaufWoche } from "@/lib/engine/wochenstatistik";
 import type { Konsistenz } from "@/lib/engine/konsistenz";
-import type { PaceWoche } from "@/lib/engine/fortschritt";
-import { formatDatumLang } from "@/lib/format";
+import type { AerobeLeistung } from "@/lib/engine/aerobe-leistung";
 import { cn } from "@/lib/utils";
 
-type Ansicht = "fortschritt" | "form" | "pace" | "konsistenz";
+type Ansicht = "fortschritt" | "form" | "aerob" | "konsistenz";
 
 /**
  * Längerfristige Entwicklung in einem Bereich: eine Ansicht zur Zeit statt
@@ -23,25 +22,24 @@ export function TrendBereich({
   fitness,
   tsbHeute,
   acwrHeute,
-  paceWochen,
-  refHr,
-  letzteMessung,
+  aerob,
+  heute,
   konsistenz,
 }: {
   verlauf: VerlaufWoche[];
   fitness: FitnessPunkt[];
   tsbHeute: number | null;
   acwrHeute: number | null;
-  paceWochen: PaceWoche[];
-  refHr: number | null;
-  letzteMessung: string | null;
+  /** Aerobic Performance; null = nicht verfügbar */
+  aerob: AerobeLeistung | null;
+  heute: string;
   konsistenz?: Konsistenz;
 }) {
   const [ansicht, setAnsicht] = useState<Ansicht>("fortschritt");
   const ansichten: { id: Ansicht; label: string }[] = [
     { id: "fortschritt", label: "Fortschritt" },
     { id: "form", label: "Form" },
-    { id: "pace", label: "Pace bei Puls" },
+    { id: "aerob", label: "Aerobic Performance" },
     ...(konsistenz ? [{ id: "konsistenz" as const, label: "Konsistenz" }] : []),
   ];
 
@@ -80,16 +78,12 @@ export function TrendBereich({
         </div>
       )}
 
-      {ansicht === "pace" && (
-        <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">
-            Median-Pace je Woche bei {refHr ?? "–"} bpm, höhenkorrigiert. Steigt die Linie, bist du bei gleichem Puls
-            schneller — der verlässlichste Beleg, dass die Ausdauer wächst.
-          </p>
-          <PaceHrChart wochen={paceWochen} refHr={refHr} />
-          {letzteMessung && <p className="text-xs text-dim-foreground">Letzte Messung: {formatDatumLang(letzteMessung)}</p>}
-        </div>
-      )}
+      {ansicht === "aerob" &&
+        (aerob ? (
+          <AerobChart daten={aerob} heute={heute} />
+        ) : (
+          <p className="text-sm text-muted-foreground">Aerobic Performance ist nicht verfügbar.</p>
+        ))}
 
       {ansicht === "konsistenz" && konsistenz && <KonsistenzKachel k={konsistenz} />}
     </Abschnitt>

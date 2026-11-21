@@ -65,7 +65,7 @@ Alle Screenshots stammen aus der öffentlichen [Demo](#öffentliche-demo) mit
 
 | Bereich | Funktionen |
 | --- | --- |
-| **Dashboard** | Gesundheitsübersicht: Training Readiness und Body Battery mit Einstufung und 7-Tage-Vergleich, Einschätzung für den Tag, Ruhepuls, HRV, Stress und Form (TSB), Schlaf der letzten Nacht, letzte Aktivitäten, Wochenkennzahlen (Laufdistanz, Trainingszeit, Einheiten, Ø Pace und Puls), Gewichtstrend, 12-Wochen-Entwicklung (Distanz, Laufzeit, Pace, Puls, Umfang), Form & Fitness (CTL/ATL/TSB), Pace bei gleichem Puls, Konsistenz, Korrelations-Insights und Gesamtbilanz. |
+| **Dashboard** | Gesundheitsübersicht: Training Readiness und Body Battery mit Einstufung und 7-Tage-Vergleich, Einschätzung für den Tag, Ruhepuls, HRV, Stress und Form (TSB), Schlaf der letzten Nacht, letzte Aktivitäten, Wochenkennzahlen (Laufdistanz, Trainingszeit, Einheiten, Ø Pace und Puls), Gewichtstrend, 12-Wochen-Entwicklung (Distanz, Laufzeit, Pace, Puls, Umfang), Form & Fitness (CTL/ATL/TSB), Aerobic Performance mit Zone 2 Efficiency, Konsistenz, Korrelations-Insights und Gesamtbilanz. |
 | **Aktivitäten** | Ruhige Liste mit Sport-Symbol, Minikarte, Distanz, Dauer, Pace, Puls und Höhenmetern; Detailseite mit 3D-Flyover, Höhenprofil, Splits, Herzfrequenzzonen, GAP, Effizienz und aerober Entkopplung. Krafttrainings mit Satz-Tabelle und belasteten Muskeln. |
 | **Karte** | Routen-Builder mit Routing per Klick, Undo/Redo, Rückweg, Rundkurs, Höhenprofil, geschätzter Dauer nach eigener Pace, Heatmap, GPX-Export und Senden auf die Uhr. |
 | **Trainingsplan** | Fester Wochenrhythmus (Mo Gym · Di Intervalle · Mi Zone 2 · Do Gym · Fr Ruhe · Sa/So frei), 4-Wochen-Block, Anpassung nach jedem Sync, Lauftage sperren, freies Workout, Senden auf die Uhr und Rückgängig. |
@@ -86,14 +86,24 @@ letzten Nacht, Ø Stress und Form (TSB).
 Es folgen der **Schlaf** der letzten Nacht (Dauer, Score, Phasen-Zeitleiste, Tief,
 Leicht, REM, Wach, Schlaf-Herzfrequenz, HRV und Atmung) und die **letzten
 Aktivitäten**. Weiter unten: die Kennzahlen der Woche im Vergleich zur Vorwoche,
-der Gewichtstrend und die **Entwicklung** der letzten 12 Wochen mit Fortschritt,
-Form und Fitness (CTL/ATL/TSB, ACWR), **Pace bei gleichem Puls** als
+der Gewichtstrend und die **Entwicklung** mit Fortschritt der letzten 12 Wochen,
+Form und Fitness (CTL/ATL/TSB, ACWR), **Aerobic Performance** als
 verlässlichstem Beleg für wachsende Ausdauer und Konsistenz. Danach
 Korrelations-Insights ab |r| ≥ 0.3 und 15 Wertepaaren — ausdrücklich als
 Korrelation, nicht als Ursache — und die Gesamtbilanz.
 
 Das nächste Training steht bewusst nur im Plan. Alle Werte stammen aus echten
 Garmin-Daten; fehlt etwas, steht „nicht verfügbar" oder ein Strich statt einer Null.
+
+![Aerobic Performance auf dem Desktop: normierte Pace je Lauf, rollierender 28-Tage-Trend und Kennzahlen zur Datenqualität](docs/screenshots/desktop-aerob.png)
+
+**Aerobic Performance** zeigt die Laufgeschwindigkeit bei vergleichbarer aerober
+Belastung: Jeder Lauf wird in gleichmässige 5-Minuten-Abschnitte zerlegt
+(ohne Aufwärmen, Pausen, Intervalle und GPS-Ausreisser, höhenkorrigiert), über
+ein persönliches Puls-Tempo-Modell auf 148 bpm normiert — mit begrenzter
+Extrapolation — und zu einem rollierenden 28-Tage-Trend zusammengefasst. Auch
+lockere Zone-2-Läufe zählen; zusätzlich gibt es eine eigene Zone-2-Auswertung.
+Details: [Aerobic Performance](docs/AEROBE-LEISTUNG.md).
 
 ### Adaptiver Trainingsplan
 
@@ -534,6 +544,7 @@ Mit `GHQ_CHROME=1` nutzt das Skript das lokal installierte Google Chrome, mit
 | --- | --- |
 | [ARCHITEKTUR.md](docs/ARCHITEKTUR.md) | Datenfluss, Python-Hosting und Sync-Strategie |
 | [ENGINE.md](docs/ENGINE.md) | Formeln der Analyse-Engine und Regeln des Trainingsplans |
+| [AEROBE-LEISTUNG.md](docs/AEROBE-LEISTUNG.md) | Aerobic Performance: Abschnitte, individuelles Modell, 28-Tage-Trend, Zone 2 Efficiency |
 | [GEWICHT.md](docs/GEWICHT.md) | Smart Weight Tracking: Sync, Messqualität, Trend |
 | [SCHLAF.md](docs/SCHLAF.md) | Schlaf-Datenmodell, Sync, Backfill, Analyse-Regeln und Ansichten |
 | [GARMIN-DATENFORMAT.md](docs/GARMIN-DATENFORMAT.md) | Felder, Zeitformate und Auflösungen der Garmin-Antworten |

@@ -1,14 +1,9 @@
 import { and, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { getDb, tables } from "@/lib/db";
 import { ladeProfil, speichereProfil } from "@/lib/profile";
-import { aktiveZonen, zonenAusGarmin, zonenMitte } from "@/lib/hr-zonen";
+import { zonenAusGarmin } from "@/lib/hr-zonen";
 import { ladeGarminZonen } from "./zonen-service";
-import {
-  fasseZusammen,
-  medianPaceBeiHr,
-  referenzPulsAusLaeufen,
-  type PaceBeiHrErgebnis,
-} from "@/lib/engine/pace-bei-hr";
+import { aktualisiereAerobeAnalyse } from "./aerob-service";
 import { trimpFuerEinheit } from "@/lib/engine/trimp";
 import { berechneFitnessSerie } from "@/lib/engine/fitness";
 import { effizienzIndex } from "@/lib/engine/efficiency";
@@ -39,6 +34,7 @@ export function istLaufMitZusatzlast(name: string | null): boolean {
 /**
  * Materialisiert alle abgeleiteten Daten nach einem Sync:
  *  - computed_daily (TRIMP, CTL/ATL/TSB, ACWR, km, Hm, EF)
+ *  - Aerobic Performance: Abschnitts-Analyse neuer Läufe (aerob-service)
  *  - muscle_state (letzte 60 Tage)
  *  - Lauf-Modell (5-km-Prognose aus Best Efforts)
  *  - Ruhepuls-Update im Profil
@@ -161,30 +157,13 @@ export async function recomputeAll(): Promise<void> {
     proTag.set(datum, agg);
   }
 
-  /* ---- Pace bei Referenzpuls (Fortschrittskurve) ----
-     Referenz ist der typische Puls der eigenen lockeren Läufe — dort wird
-     die aerobe Grundlage tatsächlich gebaut. Ändert sich die Referenz (z.B.
-     nach neuen Läufen um 4 bpm), wird die Historie einmalig neu
-     gerechnet, sonst nur das laufende Fenster. Bei einem Wechsel werden
-     vorher alle gespeicherten Pace-Werte verworfen — sonst hielte der
-     COALESCE-Upsert Tage vor dem 400-Tage-Fenster mit dem alten
-     Referenzpuls fest und die Kurve mischte zwei Referenzen. */
-  // Referenz = Puls der eigenen lockeren Läufe (siehe referenzPulsAusLaeufen);
-  // die Zone-2-Mitte ist nur noch Fallback und traf bei zu tief liegenden
-  // Garmin-Zonen keinen einzigen Lauf.
-  const laufZonen = aktiveZonen(profil, garminZonen, "running");
-  const refHr = referenzPulsAusLaeufen(
-    alleAktivitaeten.filter((a) => istLauf(a.typ)),
-    { von: laufZonen.z2.von, bis: laufZonen.z3.bis },
-    zonenMitte(laufZonen.z2)
-  );
-  const refHrAlt = await ladeRefHr();
-  const refHrGewechselt = refHrAlt !== refHr;
-  const paceProTag = await berechnePaceBeiRefHr(
-    alleAktivitaeten,
-    refHr,
-    refHrGewechselt ? 400 : 120
-  );
+  /* ---- Aerobic Performance ----
+     Neue oder geänderte Läufe in stabile Abschnitte zerlegen; Modell,
+     Normierung und Trend rechnet das Dashboard aus diesem Cache. Mit
+     Zeitbudget, damit der Backfill aller historischen Läufe die Function
+     nicht sprengt — der Rest folgt beim nächsten Aufruf. Die frühere
+     Tageskurve (computed_daily.pace_ref_hr_*) wird nicht mehr geschrieben. */
+  await aktualisiereAerobeAnalyse(20_000).catch(() => {});
 
   /* ---- Lückenlose Tagesserie + Fitness ---- */
   const daten = [...proTag.keys()].sort();
@@ -198,7 +177,6 @@ export async function recomputeAll(): Promise<void> {
   const computedRows = fitness.map((f) => {
     const agg = proTag.get(f.datum);
     const efWerte = agg?.efWerte ?? [];
-    const pace = paceProTag.get(f.datum);
     return {
       datum: f.datum,
       trimpGesamt: f.trimp,
@@ -211,16 +189,8 @@ export async function recomputeAll(): Promise<void> {
       effizienzIndex: efWerte.length
         ? efWerte.reduce((a, b) => a + b, 0) / efWerte.length
         : null,
-      paceRefHrSKm: pace?.paceSKm ?? null,
-      paceRefHrSekunden: pace?.sekunden ?? null,
     };
   });
-
-  if (refHrGewechselt) {
-    await db
-      .update(tables.computedDaily)
-      .set({ paceRefHrSKm: null, paceRefHrSekunden: null });
-  }
 
   // Upsert in Batches
   for (let i = 0; i < computedRows.length; i += 500) {
@@ -239,16 +209,9 @@ export async function recomputeAll(): Promise<void> {
           laufKm: sql`excluded.lauf_km`,
           hm: sql`excluded.hm`,
           effizienzIndex: sql`excluded.effizienz_index`,
-          // COALESCE: ausserhalb des Analysefensters liefert der Lauf
-          // NULL — bereits berechnete Tage sollen davon nicht verlieren.
-          paceRefHrSKm: sql`coalesce(excluded.pace_ref_hr_s_km, ${tables.computedDaily.paceRefHrSKm})`,
-          paceRefHrSekunden: sql`coalesce(excluded.pace_ref_hr_sekunden, ${tables.computedDaily.paceRefHrSekunden})`,
         },
       });
   }
-
-  // Erst nach dem Upsert: scheitert er, wird beim nächsten Lauf erneut voll gerechnet
-  await speichereRefHr(refHr);
 
   /* ---- Muskel-Erschöpfung: Ereignisse + Materialisierung 60 Tage ---- */
   const ereignisse: LastEreignis[] = [];
@@ -330,89 +293,6 @@ export async function recomputeAll(): Promise<void> {
 
   /* ---- Geplante Einheiten mit Aktivitäten matchen ---- */
   await matcheGeplanteEinheiten();
-}
-
-const REF_HR_KEY = "pace_ref_hr";
-
-async function ladeRefHr(): Promise<number | null> {
-  const db = getDb();
-  const rows = await db
-    .select()
-    .from(tables.appSettings)
-    .where(eq(tables.appSettings.key, REF_HR_KEY));
-  const wert = rows[0]?.value as { refHr?: number } | undefined;
-  return typeof wert?.refHr === "number" ? wert.refHr : null;
-}
-
-async function speichereRefHr(refHr: number): Promise<void> {
-  const db = getDb();
-  await db
-    .insert(tables.appSettings)
-    .values({ key: REF_HR_KEY, value: { refHr } })
-    .onConflictDoUpdate({
-      target: tables.appSettings.key,
-      set: { value: { refHr } },
-    });
-}
-
-/**
- * Höhenkorrigierte Pace bei Referenzpuls je Tag. Streams werden in
- * Häppchen geladen — sie sind das mit Abstand grösste Datum in der DB und
- * `recomputeAll` läuft auch mal nach einem einzelnen Klick.
- */
-async function berechnePaceBeiRefHr(
-  alleAktivitaeten: {
-    id: number;
-    typ: string;
-    startZeit: Date;
-    distanzM: number | null;
-  }[],
-  refHr: number,
-  fensterTage: number
-): Promise<Map<string, PaceBeiHrErgebnis>> {
-  const db = getDb();
-  const grenze = addTage(heuteIso(), -fensterTage);
-  const laeufe = alleAktivitaeten.filter(
-    (a) =>
-      istLauf(a.typ) &&
-      (a.distanzM ?? 0) >= 1500 &&
-      isoDatum(new Date(a.startZeit)) >= grenze
-  );
-
-  const proTag = new Map<string, PaceBeiHrErgebnis[]>();
-  for (let i = 0; i < laeufe.length; i += 12) {
-    const chunk = laeufe.slice(i, i + 12);
-    const streams = await db
-      .select()
-      .from(tables.activityStreams)
-      .where(
-        inArray(
-          tables.activityStreams.activityId,
-          chunk.map((c) => c.id)
-        )
-      );
-    for (const s of streams) {
-      if (!s.zeitS || !s.distanzM || !s.hr) continue;
-      const akt = chunk.find((c) => c.id === s.activityId);
-      if (!akt) continue;
-      const ergebnis = medianPaceBeiHr(
-        { zeitS: s.zeitS, distanzM: s.distanzM, hr: s.hr, ele: s.ele },
-        { refHr }
-      );
-      if (!ergebnis) continue;
-      const datum = isoDatum(new Date(akt.startZeit));
-      const liste = proTag.get(datum) ?? [];
-      liste.push(ergebnis);
-      proTag.set(datum, liste);
-    }
-  }
-
-  const out = new Map<string, PaceBeiHrErgebnis>();
-  for (const [datum, liste] of proTag) {
-    const zusammen = fasseZusammen(liste);
-    if (zusammen) out.set(datum, zusammen);
-  }
-  return out;
 }
 
 async function berechneLaufModell(

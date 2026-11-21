@@ -56,6 +56,10 @@ vorschlagen). Neue Migrationen additiv halten (`CREATE TABLE IF NOT EXISTS`,
   `truncate`-Texte die Spalte). Touch-Ziele ≥ 44 px, kein horizontales Scrollen auf 390 px.
 - Öffentliche Demo unter `/demo` (ohne Login, nur fiktive Daten aus `public/demo/daten/`, erzeugt mit `pnpm demo:daten`). Geteilte Komponenten verlinken intern über `AppLink`/`useAppPfad()` (`components/basis-pfad.tsx`), „jetzt" über `jetztMs()`/`heuteIso()` — nie `Date.now()` direkt in Komponenten. Die Demo ist nur lesend: neue GET-Aufrufe der UI in `lib/demo/api.ts` beantworten, schreibende Aktionen mit `useIstDemo()` sperren.
 - Fehlende Daten als `null` behandeln und im UI als „nicht verfügbar" zeigen, nie als 0 oder geraten.
+- Aerobic Performance (Entwicklung → Nachfolger von „Pace bei Puls"): Abschnitts-Analyse je Lauf im
+  Cache `app_settings["aerobe_analyse"]` (`lib/server/aerob-service.ts`; Regeländerung →
+  `ABSCHNITT_VERSION` erhöhen), Modell/Normierung/Trend rein in `lib/engine/aerobe-*.ts`. Details:
+  `docs/AEROBE-LEISTUNG.md`.
 
 ## Garmin-Hinweise
 

@@ -73,7 +73,10 @@ describe("Demo-Datenstand", () => {
     expect(d.gesundheitVerlauf.length).toBeGreaterThan(7);
     expect(d.gesundheitVerlauf.at(-1)?.datum).toBe(kern.heute);
     expect(d.allTime.aktivitaeten).toBeGreaterThan(80);
-    expect(d.paceFortschritt.wochen.some((w) => w.paceSKm != null)).toBe(true);
+    // Aerobic Performance: alle Läufe analysiert, beide Reihen mit Werten
+    expect(d.aerobeLeistung?.transparenz.offen).toBe(0);
+    expect(d.aerobeLeistung?.hauptreihe.punkte.length).toBeGreaterThan(10);
+    expect(d.aerobeLeistung?.zone2.reihe.punkte.length).toBeGreaterThan(5);
     expect(Object.keys(d.muskelnHeute).length).toBeGreaterThan(5);
     expect(kern.schlafKachel).not.toBeNull();
   });

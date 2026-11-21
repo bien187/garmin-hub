@@ -52,19 +52,15 @@ HF-Zonen), nach `health` die Wägungen `gewicht` (neue Messungen der letzten
 14 Tage plus ein Backfill in 90-Tage-Blöcken bis 5 Jahre zurück, Cursor in
 `sync_state.gewicht`, siehe [GEWICHT.md](GEWICHT.md)) und der
 Schlaf-Backfill `schlaf` (siehe „Schlaf: Datenmodell, Sync und Backfill"). Nach dem Sync materialisiert `recomputeAll()` alle abgeleiteten
-Werte (`computed_daily` inkl. Pace bei Referenzpuls, `muscle_state`,
-Lauf-Modell, Workout-Matching).
+Werte (`computed_daily`, Aerobic-Performance-Analyse neuer Läufe,
+`muscle_state`, Lauf-Modell, Workout-Matching).
 
-Die Pace-bei-Referenzpuls-Kurve wird über ein gleitendes 120-Tage-Fenster
-gerechnet und per `COALESCE` upgeserted — ältere Wochen behalten damit
-ihren Wert, statt bei jedem Lauf neu (und teuer) aus den Streams zu
-entstehen. Ändert sich der Referenzpuls, rechnet der nächste Lauf einmalig
-400 Tage nach.
-
-Referenzpuls ist der typische Puls der eigenen lockeren Läufe: das
-35. Perzentil des Durchschnittspulses aller Läufe ab 20 Minuten, auf 4 bpm
-gerundet und auf Zone 2 bis Zone 3 begrenzt (`referenzPulsAusLaeufen` in
-`lib/engine/pace-bei-hr.ts`). Früher war es die Mitte von Zone 2. Liegen die
-Garmin-Zonen zu tief (z. B. wegen einer zu hoch eingestellten HFmax), traf
-diese Mitte kaum einen Lauf: Kein Lauf blieb fünf Minuten im Fenster
-±3 bpm, und die Kurve blieb ab September leer.
+**Aerobic Performance** (Nachfolger von „Pace bei Puls"): Jeder Lauf wird
+einmal aus seinen Zeitreihen in stabile 5-Minuten-Abschnitte zerlegt; das
+kompakte Ergebnis liegt im Cache `app_settings["aerobe_analyse"]`
+(`lib/server/aerob-service.ts`), mit Zeitbudget für den Backfill aller
+historischen Läufe. Individuelles Modell, Normierung auf den Referenzpuls,
+Zone 2 Efficiency und der rollierende 28-Tage-Trend entstehen bei jedem
+Aufruf frisch in der reinen Engine. Der Referenzpuls (bisher 148 bpm) steht in
+`app_settings["pace_ref_hr"]` und wird nicht mehr automatisch verschoben.
+Details: [AEROBE-LEISTUNG.md](AEROBE-LEISTUNG.md).

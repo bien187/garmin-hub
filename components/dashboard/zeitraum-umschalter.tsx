@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { formatDatumLang } from "@/lib/format";
-import { ZEITRAEUME, zeitraumVon, type Zeitraum } from "@/lib/engine/zeitachse";
+import { ZEITRAEUME, zeitraumVon, type Zeitraum, type ZeitraumOption } from "@/lib/engine/zeitachse";
 
 /*
  * Gemeinsamer Zeitraum einer Verlaufs-Karte: Kartentitel und Untertitel
@@ -32,8 +32,10 @@ export function useZeitraum(): ZeitraumZustand {
 
 const TITEL: Record<Zeitraum, string> = {
   alles: "seit Trainingsstart",
+  "1j": "letztes Jahr",
   "6m": "letzte 6 Monate",
   "90t": "letzte 90 Tage",
+  "30t": "letzte 30 Tage",
 };
 
 /** Kartentitel mit aktivem Zeitraum, z. B. „Fitness · seit Trainingsstart" */
@@ -64,13 +66,16 @@ export function ZeitraumUmschalter({
   verfuegbar,
   onChange,
   className,
+  liste = ZEITRAEUME,
 }: {
   wert: Zeitraum;
   verfuegbar: readonly Zeitraum[];
   onChange: (z: Zeitraum) => void;
   className?: string;
+  /** angebotene Zeiträume (Standard: 90 Tage · 6 Mon. · Alles) */
+  liste?: readonly ZeitraumOption[];
 }) {
-  const optionen = ZEITRAEUME.filter((z) => verfuegbar.includes(z.id));
+  const optionen = liste.filter((z) => verfuegbar.includes(z.id));
   if (optionen.length < 2) return null;
   return (
     <div role="group" aria-label="Zeitraum" className={cn("flex w-fit gap-0.5", className)}>

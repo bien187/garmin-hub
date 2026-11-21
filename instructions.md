@@ -23,8 +23,8 @@ erhalten; Prüfungs- und Notenlogik gibt es nicht mehr.
    Trend, schlanke Skala) mit kurzer Einschätzung; weitere Gesundheitswerte
    (Ruhepuls, HRV, Stress, Form); Schlaf (Dauer, Score, Tief/REM/Leicht/Wach,
    Schlaf-Herzfrequenz, Zeitleiste); kompakte letzte Aktivitäten; weiter unten
-   Wochenkennzahlen, Gewicht, Entwicklung (Fortschritt, Form, Pace bei gleichem
-   Puls, Konsistenz), Insights und Gesamtbilanz. **Kein „Nächstes Training" im
+   Wochenkennzahlen, Gewicht, Entwicklung (Fortschritt, Form, Aerobic
+   Performance, Konsistenz), Insights und Gesamtbilanz. **Kein „Nächstes Training" im
    Dashboard** — das steht nur im Plan.
 2. **Aktivitäten** — Karten mit Sportart, Datum, Distanz, Dauer, Pace, Puls,
    Höhenmetern und Icon; Laufen und Kraft klar unterscheidbar. Detailansichten mit

@@ -45,9 +45,9 @@ Dokumentationspflichtige Annahmen und bewusst kurz gehaltene Zeitfenster.
   bei jedem Aufruf aus den Daten bestimmt, nicht gespeichert (echte DB:
   27.06.2026). Dashboard und Insights nutzen dieselbe Regel.
 - **Dashboard** (`lib/server/dashboard-service.ts`) liefert Fitness
-  (CTL/ATL/TSB) und die Wochen der Pace-bei-Puls-Kurve vom Trainingsstart bis
-  heute. Bei ~130–400 Tagen ist die Payload unkritisch und wird nicht
-  ausgedünnt.
+  (CTL/ATL/TSB) vom Trainingsstart bis heute und die normierten Werte je Lauf
+  für Aerobic Performance; den 28-Tage-Trend rechnet der Client. Bei
+  ~130–400 Tagen ist die Payload unkritisch und wird nicht ausgedünnt.
 - **Zeitraum-Umschalter** (`lib/engine/zeitachse.ts`, rein und getestet):
   filtert clientseitig auf den gelieferten Punkten, ohne weitere Requests;
   Bezug ist das letzte Datum der Reihe (= heute). Angeboten werden nur
@@ -82,10 +82,7 @@ Dokumentationspflichtige Annahmen und bewusst kurz gehaltene Zeitfenster.
     HRV-Trend 7 Tage.
   - Aktivitätsliste: Filter Gesamt / 30 T / 90 T war schon „Gesamt" als
     Standard.
-  - Rechenfenster in `compute.ts` (Pace bei Referenzpuls 120 Tage per
-    `COALESCE`-Upsert, Lauf-Modell 42 Tage, Workout-Matching 21 Tage):
-    betreffen die Berechnung, nicht die Anzeige; die Pace-Werte älterer Tage
-    bleiben gespeichert. Ändert sich der Referenzpuls, werden alle
-    gespeicherten Pace-Werte verworfen und die letzten 400 Tage neu
-    gerechnet — bei einer längeren Historie bleiben die Wochen davor leer,
-    statt still Werte mit dem alten Referenzpuls zu zeigen.
+  - Rechenfenster in `compute.ts` (Lauf-Modell 42 Tage, Workout-Matching
+    21 Tage): betreffen die Berechnung, nicht die Anzeige. Aerobic
+    Performance hat kein Fenster: Jeder Lauf wird einmal analysiert und
+    bleibt im Cache (siehe [AEROBE-LEISTUNG.md](AEROBE-LEISTUNG.md)).

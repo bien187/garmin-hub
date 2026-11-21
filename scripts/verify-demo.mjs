@@ -86,6 +86,13 @@ for (const [name, geraet] of [
   await p.getByText(/^r = /).first().waitFor({ timeout: 15_000 }).catch(() => {});
   pruefe((await p.getByText(/^r = /).count()) > 0, `${name}: Insights mit Korrelationen`);
   pruefe(!(await ueberlauf(p)), `${name}: Dashboard ohne horizontales Scrollen`);
+  // Entwicklung → Aerobic Performance: Kennzahlen, Diagramm und Zone-2-Ansicht
+  await p.getByRole("tab", { name: "Aerobic Performance" }).click();
+  pruefe(await p.getByText("Referenzpace").isVisible(), `${name}: Aerobic Performance mit Kennzahlen`);
+  pruefe((await p.getByText(/Basierend auf \d+ geeigneten Läufen/).count()) > 0, `${name}: Aerobic Performance nennt die Datenbasis`);
+  await p.getByRole("button", { name: "Zone 2 Efficiency" }).click();
+  pruefe((await p.getByText(/Zone 2 \(|Zone 2 laut Garmin/).count()) > 0, `${name}: Zone 2 Efficiency mit Zonenangabe`);
+  pruefe(!(await ueberlauf(p)), `${name}: Aerobic Performance ohne horizontales Scrollen`);
 
   // Navigation über die App-Navigation
   const nav = geraet.mobil ? p.locator("nav.nav-bar") : p.locator("aside nav");

@@ -70,6 +70,16 @@ const scrolleZu = (text) => async (p) => {
   await p.waitForTimeout(800);
 };
 
+/** Entwicklung → Aerobic Performance öffnen und den Bereich oben zeigen */
+const zuAerob = async (p) => {
+  const tab = p.getByRole("tab", { name: "Aerobic Performance" });
+  await tab.click();
+  await tab.evaluate((el) => el.scrollIntoView({ block: "start" }));
+  await p.evaluate(() => document.getElementById("app-scroll")?.scrollBy(0, -64));
+  await p.mouse.move(2, 2); // kein Tooltip im Bild
+  await p.waitForTimeout(800);
+};
+
 const mobil = await kontext({ breite: 390, hoehe: 844, mobil: true });
 await aufnahme(mobil, "/demo", "mobile-dashboard.png");
 await aufnahme(mobil, "/demo", "mobile-dashboard-woche.png", { vorher: scrolleZu("Diese Woche") });
@@ -92,6 +102,7 @@ await mobil.close();
 
 const desktop = await kontext({ breite: 1440, hoehe: 900, mobil: false });
 await aufnahme(desktop, "/demo", "desktop-dashboard.png");
+await aufnahme(desktop, "/demo", "desktop-aerob.png", { vorher: zuAerob });
 await aufnahme(desktop, "/demo/plan", "desktop-plan.png");
 await aufnahme(desktop, "/demo/body", "desktop-gewicht.png", { vorher: scrolleZu("Smart Weight Tracking") });
 await aufnahme(desktop, `/demo/activities/${lauf.id}`, "desktop-aktivitaet.png", { warten: 6000 });
