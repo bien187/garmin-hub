@@ -24,6 +24,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { AKTIVER_PUNKT, CURSOR_LINIE, DIAGRAMM_FARBEN, FLAECHE_DECKKRAFT, LINIE, TooltipKarte } from "@/components/ui/diagramm";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -625,22 +626,20 @@ export function RouteBuilder() {
                   <XAxis dataKey="distKm" hide type="number" domain={[0, "dataMax"]} />
                   <YAxis hide domain={["dataMin - 5", "dataMax + 5"]} />
                   <Tooltip
+                    cursor={CURSOR_LINIE}
                     content={({ active, payload }) => {
                       if (!active || !payload?.length) return null;
                       const p = payload[0].payload as (typeof profilPunkte)[number];
-                      return (
-                        <div className="stat-mono rounded bg-popover px-2 py-1 text-[10px]">
-                          km {p.distKm.toFixed(1)} · {Math.round(p.ele)} m
-                        </div>
-                      );
+                      return <TooltipKarte titel={`km ${p.distKm.toFixed(1)}`} wert={`${Math.round(p.ele)} m`} />;
                     }}
                   />
                   <Area
+                    {...LINIE}
                     dataKey="ele"
-                    stroke="var(--chart-2)"
-                    fill="var(--chart-2)"
-                    fillOpacity={0.3}
-                    isAnimationActive={false}
+                    stroke={DIAGRAMM_FARBEN.hoehe}
+                    fill={DIAGRAMM_FARBEN.hoehe}
+                    fillOpacity={FLAECHE_DECKKRAFT}
+                    activeDot={{ ...AKTIVER_PUNKT, fill: DIAGRAMM_FARBEN.hoehe }}
                   />
                 </AreaChart>
               </ResponsiveContainer>

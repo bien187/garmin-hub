@@ -10,6 +10,9 @@ import {
   YAxis,
 } from "recharts";
 import { ausgleichsgerade, type InsightKarte } from "@/lib/engine/correlations";
+import { DIAGRAMM_FARBEN, GITTER, Legende, messPunkt } from "@/components/ui/diagramm";
+
+const PUNKT = messPunkt(DIAGRAMM_FARBEN.neutral, 0.5);
 
 /** Korrelations-Insights (§6.6) — was Garmin nicht zeigt */
 export function InsightCards() {
@@ -60,15 +63,15 @@ export function InsightCards() {
             </div>
             <div className="h-24">
               <ResponsiveContainer width="100%" height="100%">
-                <ScatterChart margin={{ top: 6, right: 6, bottom: 0, left: 0 }}>
-                  <CartesianGrid vertical={false} stroke="var(--border)" />
+                <ScatterChart margin={{ top: 6, right: 6, bottom: 6, left: 6 }}>
+                  <CartesianGrid {...GITTER} />
                   <XAxis dataKey="x" type="number" hide domain={["dataMin", "dataMax"]} />
                   <YAxis dataKey="y" type="number" hide domain={["dataMin", "dataMax"]} />
-                  <Scatter data={k.punkte} fill="var(--muted-foreground)" opacity={0.45} isAnimationActive={false} />
+                  <Scatter data={k.punkte} shape={PUNKT} isAnimationActive={false} />
                   {/* Trend: Linie ohne eigene Punktsymbole */}
                   <Scatter
                     data={ausgleichsgerade(k.punkte)}
-                    line={{ stroke: "var(--primary)", strokeWidth: 1.5 }}
+                    line={{ stroke: DIAGRAMM_FARBEN.fortschritt, strokeWidth: 2 }}
                     shape={() => <g />}
                     legendType="none"
                     isAnimationActive={false}
@@ -79,6 +82,14 @@ export function InsightCards() {
           </li>
         ))}
       </ul>
+      {karten.length > 0 && (
+        <Legende
+          eintraege={[
+            { art: "punkt", farbe: DIAGRAMM_FARBEN.neutral, label: "ein Tag" },
+            { art: "linie", farbe: DIAGRAMM_FARBEN.fortschritt, label: "Ausgleichsgerade" },
+          ]}
+        />
+      )}
     </div>
   );
 }

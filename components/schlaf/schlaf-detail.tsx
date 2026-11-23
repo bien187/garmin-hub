@@ -36,6 +36,24 @@ import {
 import type { SchlafEpoche, SchlafMetrik, SchlafZeitreihe } from "@/lib/engine/schlaf-parser";
 import { minutenRaster, rasterReihe, stundenTicks, type RasterZeile } from "@/lib/engine/schlaf-raster";
 import { PHASEN_FARBE, PHASEN_STUFE } from "./farben";
+import {
+  ACHSE_TICK,
+  CURSOR_BALKEN,
+  CURSOR_LINIE,
+  DIAGRAMM_FARBEN,
+  DIAGRAMM_HOEHE,
+  DIAGRAMM_HOEHE_KLEIN,
+  DIAGRAMM_RAND,
+  DiagrammHinweis,
+  FLAECHE_DECKKRAFT,
+  GITTER,
+  Kennzahl as DiagrammKennzahl,
+  LINIE,
+  Legende,
+  REFERENZ_LINIE,
+  TooltipKarte,
+  Y_ACHSE,
+} from "@/components/ui/diagramm";
 import { PhasenBalken } from "./phasen-balken";
 
 /* ------------------------------------------------------------------ */
@@ -55,8 +73,9 @@ interface Detail {
 type Zustand = { status: "laden" } | { status: "fehler" } | { status: "leer" } | { status: "ok"; detail: Detail };
 
 const TITEL = "abschnitt-titel";
-const ACHSE = { fontSize: 10, fill: "var(--muted-foreground)" };
-const CHART_H = "h-44"; // 176 px auf dem Handy
+const CHART_H = DIAGRAMM_HOEHE;
+/** Raster der Kennzahlen über jedem Diagramm (wie Aerobic Performance) */
+const KENNZAHLEN = "grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3";
 
 const UHR = new Intl.DateTimeFormat("de-CH", { timeZone: "Europe/Zurich", hour: "2-digit", minute: "2-digit" });
 
@@ -182,7 +201,7 @@ function Navigation({ datum, heute }: { datum: string; heute: string }) {
 /* Bausteine                                                           */
 /* ------------------------------------------------------------------ */
 
-function Karte({ titel, d, children, hoehe = "h-44" }: { titel: string; d: Detail | null; children: (d: Detail) => React.ReactNode; hoehe?: string }) {
+function Karte({ titel, d, children, hoehe = DIAGRAMM_HOEHE }: { titel: string; d: Detail | null; children: (d: Detail) => React.ReactNode; hoehe?: string }) {
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -194,18 +213,17 @@ function Karte({ titel, d, children, hoehe = "h-44" }: { titel: string; d: Detai
 }
 
 function NichtVerfuegbar({ text }: { text: string }) {
-  return <p className="rounded-lg bg-muted px-3 py-4 text-sm text-muted-foreground">{text}</p>;
+  return <p className="py-4 text-sm text-muted-foreground">{text}</p>;
 }
 
+/** Kennzahl im gemeinsamen Diagramm-Stil; fehlende Werte als Strich */
 function Kennzahl({ label, wert, einheit }: { label: string; wert: string | number | null; einheit?: string }) {
   return (
-    <div className="min-w-0 rounded-lg bg-muted p-2.5">
-      <div className="min-h-[2lh] break-words text-[11px] leading-tight text-muted-foreground [hyphens:auto]">{label}</div>
-      <div className="stat-display truncate text-lg leading-tight">
-        {wert ?? "–"}
-        {wert != null && einheit && <span className="ml-1 text-xs text-muted-foreground">{einheit}</span>}
-      </div>
-    </div>
+    <DiagrammKennzahl
+      label={label}
+      wert={wert ?? <span className="text-dim-foreground">–</span>}
+      einheit={wert != null ? einheit : undefined}
+    />
   );
 }
 
@@ -235,7 +253,9 @@ function XAchse({ achse }: { achse: Achse }) {
       domain={[0, achse.endeS]}
       ticks={achse.ticks}
       tickFormatter={achse.uhr}
-      tick={ACHSE}
+      tick={ACHSE_TICK}
+      tickLine={false}
+      axisLine={false}
       interval="preserveStartEnd"
       minTickGap={24}
     />
@@ -247,15 +267,11 @@ function TooltipBox({ active, payload, label, achse, einheit, name }: { active?:
   const wert = payload?.find((p) => p.value != null)?.value;
   const phase = achse.seg.find((s) => label >= s.x1 && label < s.x2)?.phase ?? null;
   return (
-    <div className="rounded-lg border border-border bg-popover px-2.5 py-1.5 text-xs shadow-sm">
-      <div className="text-muted-foreground">
-        {achse.uhr(label)}
-        {phase && ` · ${PHASEN_LABEL[phase]}`}
-      </div>
-      <div className="stat-mono">
-        {name}: {wert != null ? `${Math.round(wert * 10) / 10} ${einheit}` : "kein Wert"}
-      </div>
-    </div>
+    <TooltipKarte
+      titel={`${achse.uhr(label)}${phase ? ` · ${PHASEN_LABEL[phase]}` : ""}`}
+      wert={wert != null ? `${Math.round(wert * 10) / 10}${einheit ? ` ${einheit}` : ""}` : "kein Wert"}
+      hinweis={name}
+    />
   );
 }
 
@@ -319,18 +335,18 @@ function ReihenChart({
     <EinheitZeile einheit={einheit} />
     <div className={`${CHART_H} w-full`}>
       <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={zeilen} syncId="schlaf" margin={{ top: 8, right: 8, bottom: 0, left: -14 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+        <ComposedChart data={zeilen} syncId="schlaf" margin={DIAGRAMM_RAND}>
+          <CartesianGrid {...GITTER} />
           {phasen && <PhasenHintergrund achse={achse} />}
           <XAchse achse={achse} />
-          <YAxis tick={ACHSE} domain={yDomain ?? ["auto", "auto"]} width={44} />
-          <Tooltip content={<TooltipBox achse={achse} einheit={einheit} name={name} />} />
+          <YAxis {...Y_ACHSE} domain={yDomain ?? ["auto", "auto"]} />
+          <Tooltip content={<TooltipBox achse={achse} einheit={einheit} name={name} />} cursor={CURSOR_LINIE} />
           {extra}
           {segmente.map((k) =>
             flaeche ? (
-              <Area key={k} dataKey={k} type="monotone" stroke={farbe} fill={farbe} fillOpacity={0.15} strokeWidth={1.5} connectNulls dot={false} isAnimationActive={false} />
+              <Area key={k} {...LINIE} dataKey={k} stroke={farbe} fill={farbe} fillOpacity={FLAECHE_DECKKRAFT} connectNulls activeDot={false} />
             ) : (
-              <Line key={k} dataKey={k} type="monotone" stroke={farbe} strokeWidth={1.5} connectNulls dot={false} isAnimationActive={false} />
+              <Line key={k} {...LINIE} dataKey={k} stroke={farbe} connectNulls activeDot={false} />
             )
           )}
           {minMax && mm && (
@@ -383,7 +399,7 @@ function KopfKarte({ d }: { d: Detail | null }) {
             <div className="text-[11px] text-muted-foreground">Garmin-Score</div>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className={KENNZAHLEN}>
           <Kennzahl label="Effizienz" wert={z.effizienzProz != null ? Math.round(z.effizienzProz) : null} einheit="%" />
           <Kennzahl label="Wachphasen" wert={z.anzahlWachphasen} />
           <Kennzahl label="Längste wach" wert={z.laengsteWachphaseS != null ? Math.round(z.laengsteWachphaseS / 60) : null} einheit="min" />
@@ -426,7 +442,7 @@ function Hypnogramm({ d }: { d: Detail }) {
     <>
       <div className={`${CHART_H} w-full`}>
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={zeilen} syncId="schlaf" margin={{ top: 8, right: 8, bottom: 0, left: -6 }}>
+          <ComposedChart data={zeilen} syncId="schlaf" margin={DIAGRAMM_RAND}>
             <PhasenHintergrund achse={achse} />
             {achse.seg
               .filter((s) => s.phase === "wach")
@@ -439,35 +455,31 @@ function Hypnogramm({ d }: { d: Detail }) {
               domain={[-0.5, 3.5]}
               ticks={[0, 1, 2, 3]}
               tickFormatter={stufenName}
-              tick={ACHSE}
+              {...Y_ACHSE}
               width={48}
             />
             <Tooltip
-              content={({ active, label }) =>
-                active && label != null ? (
-                  <div className="rounded-lg border border-border bg-popover px-2.5 py-1.5 text-xs shadow-sm">
-                    <div className="text-muted-foreground">{achse.uhr(Number(label))}</div>
-                    <div>{(() => {
-                      const p = phaseZu(phasenSegmente(d.epochen), achse.start + Number(label) * 1000);
-                      return p ? PHASEN_LABEL[p] : "keine Phase";
-                    })()}</div>
-                  </div>
-                ) : null
-              }
+              cursor={CURSOR_LINIE}
+              content={({ active, label }) => {
+                if (!active || label == null) return null;
+                const p = phaseZu(phasenSegmente(d.epochen), achse.start + Number(label) * 1000);
+                return <TooltipKarte titel={achse.uhr(Number(label))} wert={p ? PHASEN_LABEL[p] : "keine Phase"} />;
+              }}
             />
-            <Line dataKey="stufe" type="stepAfter" stroke="var(--foreground)" strokeWidth={1.5} dot={false} isAnimationActive={false} />
+            <Line {...LINIE} dataKey="stufe" type="stepAfter" stroke="var(--foreground)" activeDot={false} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
-      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
-        {PHASEN.map((p) => (
-          <span key={p} className="flex items-center gap-1">
-            <span className="size-2 rounded-full" style={{ background: PHASEN_FARBE[p] }} />
-            {PHASEN_LABEL[p]}
-          </span>
-        ))}
-        <span>· Wachphasen oben markiert</span>
-      </div>
+      <Legende
+        className="mt-2"
+        eintraege={[
+          ...PHASEN.map((p) => ({ art: "flaeche" as const, farbe: PHASEN_FARBE[p], label: PHASEN_LABEL[p] })),
+          { art: "linie" as const, farbe: "var(--foreground)", label: "Schlafphase" },
+        ]}
+      />
+      <DiagrammHinweis className="mt-3">
+        <p>Hintergrund nach Schlafphase eingefärbt; Wachphasen sind zusätzlich oben markiert.</p>
+      </DiagrammHinweis>
     </>
   );
 }
@@ -526,9 +538,8 @@ function HrKarte({ d }: { d: Detail | null }) {
         const hr = d.analyse.hr;
         if (!hr) return <NichtVerfuegbar text="Keine Herzfrequenz-Daten für diese Nacht." />;
         return (
-          <div className="space-y-3">
-            <ReihenChart d={d} metrik="hr" name="HF" einheit="bpm" phasen minMax farbe="var(--status-red)" />
-            <div className="grid grid-cols-3 gap-2">
+          <div className="space-y-4">
+            <div className={KENNZAHLEN}>
               <Kennzahl label="Min" wert={hr.min} einheit="bpm" />
               <Kennzahl label="Mittel" wert={Math.round(hr.mittel)} einheit="bpm" />
               <Kennzahl label="Max" wert={hr.max} einheit="bpm" />
@@ -536,9 +547,10 @@ function HrKarte({ d }: { d: Detail | null }) {
               <Kennzahl label="Tiefste im Tiefschlaf" wert={hr.tiefsteImTiefschlaf} einheit="bpm" />
               <Kennzahl label="Ruhepuls (Garmin)" wert={d.analyse.vergleich.find((v) => v.metrik === "ruhepuls")?.heute ?? null} einheit="bpm" />
             </div>
-            <p className="text-[11px] text-muted-foreground">
-              Nachtabfall = Mittel der ersten 30 Min nach dem Einschlafen gegen die Nachtmitte. Hintergrund nach Schlafphase eingefärbt.
-            </p>
+            <ReihenChart d={d} metrik="hr" name="Herzfrequenz" einheit="bpm" phasen minMax farbe={DIAGRAMM_FARBEN.puls} />
+            <DiagrammHinweis>
+              <p>Nachtabfall = Mittel der ersten 30 Min nach dem Einschlafen gegen die Nachtmitte. Hintergrund nach Schlafphase eingefärbt.</p>
+            </DiagrammHinweis>
           </div>
         );
       }}
@@ -554,23 +566,8 @@ function Spo2Karte({ d }: { d: Detail | null }) {
         const warn = d.analyse.warnungen.filter((w) => w.includes("Sauerstoff"));
         if (!s) return <NichtVerfuegbar text="Keine SpO2-Daten für diese Nacht. Die Messung im Schlaf ist auf der Uhr evtl. ausgeschaltet." />;
         return (
-          <div className="space-y-3">
-            <ReihenChart
-              d={d}
-              metrik="spo2"
-              name="SpO2"
-              einheit="%"
-              farbe="var(--chart-2)"
-              yDomain={[Math.min(85, s.min - 1), 100]}
-              minMax
-              extra={
-                <>
-                  <ReferenceLine y={92} stroke="var(--status-yellow)" strokeDasharray="4 3" />
-                  <ReferenceLine y={90} stroke="var(--status-orange)" strokeDasharray="4 3" />
-                </>
-              }
-            />
-            <div className="grid grid-cols-3 gap-2">
+          <div className="space-y-4">
+            <div className={KENNZAHLEN}>
               <Kennzahl label="Mittel" wert={Math.round(s.mittel)} einheit="%" />
               <Kennzahl label="Minimum" wert={s.min} einheit="%" />
               <Kennzahl label="Abfälle < 92 %" wert={s.abfaelleUnter92} />
@@ -578,13 +575,30 @@ function Spo2Karte({ d }: { d: Detail | null }) {
               <Kennzahl label="Zeit < 90 %" wert={s.minutenUnter90} einheit="min" />
               <Kennzahl label="Abfälle < 90 %" wert={s.abfaelleUnter90} />
             </div>
+            <ReihenChart
+              d={d}
+              metrik="spo2"
+              name="SpO2"
+              einheit="%"
+              farbe={DIAGRAMM_FARBEN.erholung}
+              yDomain={[Math.min(85, s.min - 1), 100]}
+              minMax
+              extra={
+                <>
+                  <ReferenceLine y={92} stroke="var(--status-yellow)" strokeOpacity={0.7} strokeDasharray="4 4" />
+                  <ReferenceLine y={90} stroke="var(--status-orange)" strokeOpacity={0.7} strokeDasharray="4 4" />
+                </>
+              }
+            />
             {warn.map((w, i) => (
               <p key={i} className="flex gap-2 rounded-lg border border-status-orange/40 bg-status-orange/5 p-2.5 text-xs leading-snug">
                 <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-status-orange" />
                 {w}
               </p>
             ))}
-            <p className="text-[11px] text-muted-foreground">Gestrichelt: 92 % (gelb) und 90 % (orange). SpO2 ist eine Uhr-Schätzung (optischer Sensor am Handgelenk), kein medizinischer Befund.</p>
+            <DiagrammHinweis>
+              <p>Gestrichelt: 92 % (gelb) und 90 % (orange). SpO2 ist eine Uhr-Schätzung (optischer Sensor am Handgelenk), kein medizinischer Befund.</p>
+            </DiagrammHinweis>
           </div>
         );
       }}
@@ -601,34 +615,38 @@ function AtemKarte({ d }: { d: Detail | null }) {
         const warn = d.analyse.warnungen.filter((w) => w.includes("Atemfrequenz"));
         const balken = PHASEN.map((p) => ({ phase: p, name: PHASEN_LABEL[p], wert: a.jePhase[p], abw: a.jePhase[p] != null ? Math.round((a.jePhase[p]! - a.mittel) * 10) / 10 : null }));
         return (
-          <div className="space-y-3">
-            <ReihenChart d={d} metrik="atemfrequenz" name="Atmung" einheit="Atemzüge/min" phasen farbe="var(--chart-3)" />
-            <div className="grid grid-cols-4 gap-2">
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
               <Kennzahl label="Mittel" wert={a.mittel} />
               <Kennzahl label="Min" wert={a.min} />
               <Kennzahl label="Max" wert={a.max} />
               <Kennzahl label="Schwankung" wert={`±${a.stdAbw}`} />
             </div>
+            <ReihenChart d={d} metrik="atemfrequenz" name="Atmung" einheit="Atemzüge/min" phasen farbe="var(--chart-3)" />
             <div>
               <div className="mb-1 text-[11px] text-muted-foreground">Atemfrequenz je Schlafphase (Atemzüge/min, Abweichung zum Nachtmittel {a.mittel})</div>
-              <div className="h-36 w-full">
+              <div className={`${DIAGRAMM_HOEHE_KLEIN} w-full`}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={balken} margin={{ top: 16, right: 8, bottom: 0, left: -14 }}>
-                    <XAxis dataKey="name" tick={ACHSE} />
-                    <YAxis tick={ACHSE} width={44} domain={[(min: number) => Math.floor(min - 2), (max: number) => Math.ceil(max + 1)]} />
-                    <ReferenceLine y={a.mittel} stroke="var(--muted-foreground)" strokeDasharray="4 3" />
+                  <BarChart data={balken} margin={{ ...DIAGRAMM_RAND, top: 16 }} barCategoryGap="22%">
+                    <CartesianGrid {...GITTER} />
+                    <XAxis dataKey="name" tick={ACHSE_TICK} tickLine={false} axisLine={false} />
+                    <YAxis {...Y_ACHSE} domain={[(min: number) => Math.floor(min - 2), (max: number) => Math.ceil(max + 1)]} />
+                    <ReferenceLine y={a.mittel} {...REFERENZ_LINIE} />
                     <Tooltip
-                      cursor={{ fill: "var(--muted)" }}
+                      cursor={CURSOR_BALKEN}
                       content={({ active, payload }) => {
                         const z = payload?.[0]?.payload as (typeof balken)[number] | undefined;
-                        return active && z ? (
-                          <div className="rounded-lg border border-border bg-popover px-2.5 py-1.5 text-xs">
-                            {z.name}: {z.wert != null ? `${z.wert} Atemzüge/min (${z.abw! > 0 ? "+" : ""}${z.abw})` : "kein Wert"}
-                          </div>
-                        ) : null;
+                        if (!active || !z) return null;
+                        return (
+                          <TooltipKarte
+                            titel={z.name}
+                            wert={z.wert != null ? `${z.wert} /min` : "kein Wert"}
+                            hinweis={z.wert != null ? `${z.abw! > 0 ? "+" : ""}${z.abw} ggü. Nachtmittel` : undefined}
+                          />
+                        );
                       }}
                     />
-                    <Bar dataKey="wert" radius={[4, 4, 0, 0]} isAnimationActive={false} label={{ position: "top", fontSize: 10, fill: "var(--muted-foreground)", formatter: (v: unknown) => (v == null ? "–" : String(v)) }}>
+                    <Bar dataKey="wert" radius={[3, 3, 0, 0]} isAnimationActive={false} label={{ position: "top", fontSize: 10, fill: "var(--dim-foreground)", formatter: (v: unknown) => (v == null ? "–" : String(v)) }}>
                       {balken.map((b) => (
                         <Cell key={b.phase} fill={PHASEN_FARBE[b.phase]} />
                       ))}
@@ -658,7 +676,12 @@ function HrvKarte({ d }: { d: Detail | null }) {
         if (!h) return <NichtVerfuegbar text="Keine HRV-Daten für diese Nacht." />;
         const text = { unter: "unter deinem ausgeglichenen Bereich", im: "im ausgeglichenen Bereich", ueber: "über deinem ausgeglichenen Bereich" };
         return (
-          <div className="space-y-3">
+          <div className="space-y-4">
+            <div className={KENNZAHLEN}>
+              <Kennzahl label="Mittel" wert={Math.round(h.mittel)} einheit="ms" />
+              <Kennzahl label="Bereich" wert={h.band ? `${h.band.von}–${h.band.bis}` : null} einheit="ms" />
+              <Kennzahl label="Max (5 Min)" wert={h.max} einheit="ms" />
+            </div>
             <ReihenChart
               d={d}
               metrik="hrv"
@@ -671,15 +694,14 @@ function HrvKarte({ d }: { d: Detail | null }) {
                 ) : null
               }
             />
-            <div className="grid grid-cols-3 gap-2">
-              <Kennzahl label="Mittel" wert={Math.round(h.mittel)} einheit="ms" />
-              <Kennzahl label="Bereich" wert={h.band ? `${h.band.von}–${h.band.bis}` : null} einheit="ms" />
-              <Kennzahl label="Max (5 Min)" wert={h.max} einheit="ms" />
-            </div>
-            <p className="text-xs">
-              {h.einordnung ? `Nachtmittel ${text[h.einordnung]}.` : "Kein persönlicher Bereich von Garmin verfügbar."}
-              <span className="text-muted-foreground"> 5-Minuten-Werte; grünes Band = ausgeglichener Bereich laut Garmin.</span>
-            </p>
+            <DiagrammHinweis>
+              <p>
+                <span className="text-foreground">
+                  {h.einordnung ? `Nachtmittel ${text[h.einordnung]}.` : "Kein persönlicher Bereich von Garmin verfügbar."}
+                </span>{" "}
+                5-Minuten-Werte; grünes Band = ausgeglichener Bereich laut Garmin.
+              </p>
+            </DiagrammHinweis>
           </div>
         );
       }}
@@ -753,12 +775,12 @@ function Bewegung({ d }: { d: Detail }) {
         <EinheitZeile einheit="Bewegungsstärke (Garmin, 0–8)" />
         <div className={`${CHART_H} w-full`}>
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={zeilen} syncId="schlaf" margin={{ top: 8, right: 8, bottom: 0, left: -14 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+            <ComposedChart data={zeilen} syncId="schlaf" margin={DIAGRAMM_RAND}>
+              <CartesianGrid {...GITTER} />
               <XAchse achse={achse} />
-              <YAxis tick={ACHSE} width={44} />
-              <Tooltip content={<TooltipBox achse={achse} einheit="" name="Bewegung" />} />
-              <Bar dataKey="v" fill="var(--schlaf-leicht)" isAnimationActive={false} />
+              <YAxis {...Y_ACHSE} />
+              <Tooltip content={<TooltipBox achse={achse} einheit="" name="Bewegung" />} cursor={CURSOR_BALKEN} />
+              <Bar dataKey="v" fill="var(--schlaf-leicht)" fillOpacity={0.7} isAnimationActive={false} />
               {unruhe.map((u, i) => (
                 <ReferenceLine key={i} x={u.t} stroke="var(--status-orange)" strokeOpacity={0.35 + u.level * 0.2} />
               ))}

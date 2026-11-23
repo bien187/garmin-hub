@@ -20,7 +20,6 @@ type Ansicht = "fortschritt" | "form" | "aerob" | "konsistenz";
 export function TrendBereich({
   verlauf,
   fitness,
-  tsbHeute,
   acwrHeute,
   aerob,
   heute,
@@ -28,7 +27,6 @@ export function TrendBereich({
 }: {
   verlauf: VerlaufWoche[];
   fitness: FitnessPunkt[];
-  tsbHeute: number | null;
   acwrHeute: number | null;
   /** Aerobic Performance; null = nicht verfügbar */
   aerob: AerobeLeistung | null;
@@ -65,18 +63,7 @@ export function TrendBereich({
 
       {ansicht === "fortschritt" && <FortschrittChart verlauf={verlauf} />}
 
-      {ansicht === "form" && (
-        <div className="space-y-2">
-          <FitnessChart daten={fitness} />
-          <p className="text-xs text-muted-foreground">
-            {tsbHeute != null && `Form (TSB) heute ${tsbHeute > 0 ? "+" : ""}${tsbHeute}. `}
-            {acwrHeute != null &&
-              `ACWR ${acwrHeute.toFixed(2)} — ${
-                acwrHeute > 1.5 ? "rote Zone, Verletzungsrisiko." : acwrHeute > 1.3 ? "erhöht, Umfang beobachten." : "im Sweet Spot (0.8–1.3)."
-              }`}
-          </p>
-        </div>
-      )}
+      {ansicht === "form" && <FitnessChart daten={fitness} acwr={acwrHeute} />}
 
       {ansicht === "aerob" &&
         (aerob ? (

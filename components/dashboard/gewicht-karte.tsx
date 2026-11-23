@@ -18,8 +18,8 @@ export function MiniLinie({ werte, className }: { werte: number[]; className?: s
   const [lx, ly] = pkt.at(-1)!;
   return (
     <svg viewBox="0 0 100 32" preserveAspectRatio="none" className={cn("overflow-visible", className)} aria-hidden>
-      <path d={d} fill="none" stroke="var(--primary)" strokeWidth={1.5} vectorEffect="non-scaling-stroke" strokeLinecap="round" />
-      <circle cx={lx} cy={ly} r={2} fill="var(--primary)" />
+      <path d={d} fill="none" stroke="var(--primary)" strokeWidth={2} vectorEffect="non-scaling-stroke" strokeLinecap="round" />
+      <circle cx={lx} cy={ly} r={3} fill="var(--primary)" stroke="var(--background)" strokeWidth={1.5} />
     </svg>
   );
 }

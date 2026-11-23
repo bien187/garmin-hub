@@ -461,7 +461,12 @@ Tokens stehen zentral in [`app/globals.css`](app/globals.css):
 Die gedämpften Ampelfarben (`--status-*`) sind nur für Status da. Keine Schatten,
 kein Glow, keine Verläufe; Radien 6 · 8 · 10 · 12 px. Inhalte gliedern sich über
 Abschnitte mit feinen Trennlinien (`Abschnitt`) statt über verschachtelte Karten;
-Bewegung beschränkt sich auf kurze Farbübergänge. Wiederkehrende Bausteine:
+Bewegung beschränkt sich auf kurze Farbübergänge. Alle Diagramme nutzen denselben
+Baukasten ([`components/ui/diagramm.tsx`](components/ui/diagramm.tsx)) nach dem Vorbild
+von Aerobic Performance: Kennzahlen über dem Diagramm, Zeitraum rechts darüber, feine
+waagrechte Hilfslinien ohne Achsenlinien, einheitlicher Tooltip, Legende und Erklärung
+darunter sowie feste Farben je Bedeutung (Pace Orange, Puls Rot, Fortschritt Salbei,
+Erholung Blau, Höhe neutral). Wiederkehrende Bausteine:
 `Abschnitt`, `Card`, `KachelKopf`, `Pill`, `Ring`/`Balken`, `SportIcon`/`EinheitIcon`
 und `Logo`. Der optionale Hellmodus (`.light`) nutzt dieselben Rollen.
 

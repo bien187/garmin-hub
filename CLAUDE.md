@@ -51,7 +51,10 @@ vorschlagen). Neue Migrationen additiv halten (`CREATE TABLE IF NOT EXISTS`,
   Schatten, kein Glow, keine Verläufe, keine Lime-Flächen, keine verschachtelten Karten, kaum
   Animation. Gliederung über `Abschnitt` (Titel + feine Trennlinie) bzw. `KachelKopf`
   (`components/ui/kachel.tsx`), Zahlen mit `stat-display` / `stat-mono`, sparsam `Pill`,
-  `Ring`/`Balken`, Icons über `SportIcon`/`EinheitIcon`. Schrift Geist. Dashboard = Gesundheits-
+  `Ring`/`Balken`, Icons über `SportIcon`/`EinheitIcon`. Schrift Geist. Diagramme immer mit dem
+  Baukasten `components/ui/diagramm.tsx` (Vorbild Aerobic Performance): Kennzahlen darüber, Zeitraum
+  rechts, `X_ACHSE`/`Y_ACHSE`/`GITTER`, `TooltipKarte`, `Legende`, `DiagrammHinweis`, feste Farben
+  `DIAGRAMM_FARBEN` (Pace Orange, Puls Rot, Fortschritt Salbei, Erholung Blau, Höhe neutral). Dashboard = Gesundheits-
   übersicht, „Nächstes Training" nur im Plan. Grids mit `grid-cols-1` (sonst sprengen
   `truncate`-Texte die Spalte). Touch-Ziele ≥ 44 px, kein horizontales Scrollen auf 390 px.
 - Öffentliche Demo unter `/demo` (ohne Login, nur fiktive Daten aus `public/demo/daten/`, erzeugt mit `pnpm demo:daten`). Geteilte Komponenten verlinken intern über `AppLink`/`useAppPfad()` (`components/basis-pfad.tsx`), „jetzt" über `jetztMs()`/`heuteIso()` — nie `Date.now()` direkt in Komponenten. Die Demo ist nur lesend: neue GET-Aufrufe der UI in `lib/demo/api.ts` beantworten, schreibende Aktionen mit `useIstDemo()` sperren.

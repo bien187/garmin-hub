@@ -29,6 +29,25 @@ import type { GewichtDaten } from "@/lib/server/gewicht-service";
 import { addTage, formatDatum, heuteIso } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { KLASSEN_FARBE, QualitaetsBadge } from "./gewicht-qualitaet";
+import {
+  AKTIVER_PUNKT,
+  CURSOR_LINIE,
+  DIAGRAMM_FARBEN,
+  DIAGRAMM_HOEHE,
+  DIAGRAMM_RAND,
+  DiagrammLeer,
+  GITTER,
+  KeinWert,
+  Kennzahl,
+  Kennzahlen,
+  LINIE,
+  LINIE_NEBEN,
+  Legende,
+  TooltipKarte,
+  X_ACHSE,
+  Y_ACHSE,
+  messPunkt,
+} from "@/components/ui/diagramm";
 import { Messprotokoll } from "./messprotokoll";
 
 type Zeitraum = "7t" | "30t" | "90t" | "6m" | "1j" | "alles";
@@ -49,13 +68,15 @@ const KOMPOSITION: Record<KompositionsFeld, { label: string; einheit: string; de
   bmi: { label: "BMI", einheit: "", dezimalen: 1 },
 };
 
-const TOOLTIP_STIL: React.CSSProperties = {
-  background: "var(--popover)",
-  border: "1px solid var(--border)",
-  borderRadius: 8,
-  fontSize: 12,
-  padding: "8px 10px",
+/** Trend in der Farbe für Fortschritt; der 30-Tage-Trend als gestrichelte Nebenlinie */
+const TREND_FARBE = DIAGRAMM_FARBEN.fortschritt;
+const KLASSEN_PUNKT: Record<Klasse, ReturnType<typeof messPunkt>> = {
+  sehr_gut: messPunkt(KLASSEN_FARBE.sehr_gut, 0.75),
+  gut: messPunkt(KLASSEN_FARBE.gut, 0.75),
+  eingeschraenkt: messPunkt(KLASSEN_FARBE.eingeschraenkt, 0.75),
+  gering: messPunkt(KLASSEN_FARBE.gering, 0.5),
 };
+const KOMPOSITION_PUNKT = messPunkt(DIAGRAMM_FARBEN.erholung, 0.35);
 
 const kg1 = (v: number) => v.toLocaleString("de-CH", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const delta = (v: number | null | undefined) =>
@@ -76,19 +97,6 @@ function bedingungKurz(m: BewerteteMessung): string {
   return teile.length ? teile.join(", ") : "keine Angaben";
 }
 
-function Kennzahl({ label, wert, einheit, fuss, ton }: { label: string; wert: string; einheit?: string; fuss?: React.ReactNode; ton?: "lime" | "coral" }) {
-  return (
-    <div className="min-w-0">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 flex items-baseline gap-1">
-        <span className={cn("stat-display text-[22px] leading-none", ton === "lime" && "text-primary", ton === "coral" && "text-coral")}>{wert}</span>
-        {einheit && <span className="text-xs text-muted-foreground">{einheit}</span>}
-      </div>
-      {fuss && <div className="mt-1 truncate text-[11px] text-dim-foreground">{fuss}</div>}
-    </div>
-  );
-}
-
 function Schalter({ aktiv, onClick, children, farbe }: { aktiv: boolean; onClick: () => void; children: React.ReactNode; farbe: string }) {
   return (
     <button
@@ -96,8 +104,8 @@ function Schalter({ aktiv, onClick, children, farbe }: { aktiv: boolean; onClick
       aria-pressed={aktiv}
       onClick={onClick}
       className={cn(
-        "inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-[12px] transition-colors",
-        aktiv ? "text-foreground" : "text-dim-foreground"
+        "inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-xs transition-colors",
+        aktiv ? "bg-surface text-foreground" : "text-muted-foreground hover:text-foreground"
       )}
     >
       <span className="size-2 rounded-full" style={{ background: aktiv ? farbe : "transparent", boxShadow: `inset 0 0 0 1.5px ${farbe}` }} />
@@ -116,31 +124,32 @@ function GewichtTooltip({ active, payload }: { active?: boolean; payload?: { pay
   if (!active || !payload?.length) return null;
   const roh = payload.map((p) => p.payload as Partial<RohPunkt & { trend: TrendPunkt; trend30: boolean }>).find((p) => p?.m);
   const trend = payload.map((p) => p.payload as { trend?: TrendPunkt; trend30?: boolean }).find((p) => p?.trend);
-  return (
-    <div style={TOOLTIP_STIL} className="max-w-64 space-y-1.5">
-      {roh?.m && (
-        <>
-          <div className="text-[11px] text-muted-foreground">
-            {tagLang(roh.m.zeitpunkt)} · {uhr(roh.m.zeitpunkt)}
-          </div>
-          <div className="flex items-center justify-between gap-3">
-            <span className="stat-display text-lg">{kg1(roh.m.gewichtKg)} kg</span>
+  if (roh?.m) {
+    return (
+      <TooltipKarte
+        titel={`${tagLang(roh.m.zeitpunkt)} · ${uhr(roh.m.zeitpunkt)}`}
+        wert={
+          <span className="flex items-center justify-between gap-3">
+            {kg1(roh.m.gewichtKg)} kg
             <QualitaetsBadge klasse={roh.m.qualitaet.klasse} score={roh.m.qualitaet.score} kurz />
-          </div>
-          <div className="text-[11px] text-muted-foreground">{bedingungKurz(roh.m)}</div>
-          {!roh.m.qualitaet.trendTauglich && <div className="text-[11px] text-status-orange">nicht im Trend (wenig vergleichbar)</div>}
-        </>
-      )}
-      {!roh?.m && trend?.trend && (
-        <>
-          <div className="text-[11px] text-muted-foreground">{tagLang(trend.trend.datum + "T11:00:00Z")}</div>
-          <div className="stat-display text-lg">{kg1(trend.trend.kg)} kg</div>
-          <div className="text-[11px] text-muted-foreground">
-            {trend.trend30 ? "30-Tage-Median" : "Trend: 7-Tage-Median"} aus {trend.trend.n} Tageswerten
-          </div>
-        </>
-      )}
-    </div>
+          </span>
+        }
+        hinweis={
+          <>
+            {bedingungKurz(roh.m)}
+            {!roh.m.qualitaet.trendTauglich && <span className="block text-status-orange">nicht im Trend (wenig vergleichbar)</span>}
+          </>
+        }
+      />
+    );
+  }
+  if (!trend?.trend) return null;
+  return (
+    <TooltipKarte
+      titel={tagLang(trend.trend.datum + "T11:00:00Z")}
+      wert={`${kg1(trend.trend.kg)} kg`}
+      hinweis={`${trend.trend30 ? "30-Tage-Median" : "Trend: 7-Tage-Median"} aus ${trend.trend.n} Tageswerten`}
+    />
   );
 }
 
@@ -267,27 +276,43 @@ export function GewichtBereich() {
         {sicht && daten && daten.messungen.length > 0 && (
           <div className="space-y-4 px-(--card-spacing)">
             {/* Kennzahlen */}
-            <div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-4">
+            {/* Beschreibung und Ebenen */}
+            <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+              <p className="max-w-md text-[13px] text-muted-foreground">Rohmessungen nach Messqualität und standardisierter Trend.</p>
+              <div role="group" aria-label="Ebenen" className="flex flex-wrap gap-1">
+                <Schalter aktiv={zeigeRoh} onClick={() => setZeigeRoh((v) => !v)} farbe="var(--muted-foreground)">
+                  Messungen
+                </Schalter>
+                <Schalter aktiv={zeigeTrend} onClick={() => setZeigeTrend((v) => !v)} farbe={TREND_FARBE}>
+                  Trend 7 Tage
+                </Schalter>
+                <Schalter aktiv={zeige30} onClick={() => setZeige30((v) => !v)} farbe={TREND_FARBE}>
+                  Trend 30 Tage
+                </Schalter>
+              </div>
+            </div>
+
+            <Kennzahlen>
               <Kennzahl
                 label="Aktuell"
-                wert={sicht.kz.aktuell ? kg1(sicht.kz.aktuell.kg) : "–"}
+                wert={sicht.kz.aktuell ? kg1(sicht.kz.aktuell.kg) : <KeinWert />}
                 einheit="kg"
                 fuss={sicht.kz.aktuell ? `${formatDatum(sicht.kz.aktuell.datum)}, ${uhr(sicht.kz.aktuell.zeitpunkt)}` : undefined}
               />
               <Kennzahl
                 label="Trend"
-                wert={sicht.kz.trend ? kg1(sicht.kz.trend.kg) : "–"}
+                wert={sicht.kz.trend ? kg1(sicht.kz.trend.kg) : <KeinWert />}
                 einheit="kg"
-                ton="lime"
+                ton="text-primary"
                 fuss={sicht.kz.trend ? "7-Tage-Median" : "zu wenige vergleichbare Tage"}
               />
               <Kennzahl label="7 Tage" wert={delta(sicht.kz.veraenderung7?.kg)} einheit="kg" fuss="Veränderung des Trends" />
               <Kennzahl label="30 Tage" wert={delta(sicht.kz.veraenderung30?.kg)} einheit="kg" fuss="Veränderung des Trends" />
-            </div>
+            </Kennzahlen>
 
-            {/* Filter und Ebenen */}
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div role="group" aria-label="Zeitraum" className="flex flex-wrap gap-0.5">
+            {/* Zeitraum rechts über dem Diagramm (wie alle Verlaufsdiagramme) */}
+            <div className="flex justify-end">
+              <div role="group" aria-label="Zeitraum" className="flex w-fit flex-wrap justify-end gap-0.5">
                 {ZEITRAEUME.map((z) => (
                   <button
                     key={z.id}
@@ -295,7 +320,7 @@ export function GewichtBereich() {
                     aria-pressed={zeitraum === z.id}
                     onClick={() => setZeitraum(z.id)}
                     className={cn(
-                      "min-h-9 rounded-md px-2.5 text-[12px] transition-colors",
+                      "min-h-10 min-w-10 whitespace-nowrap rounded-md px-2.5 text-[13px] transition-colors",
                       zeitraum === z.id ? "bg-surface text-foreground" : "text-muted-foreground hover:text-foreground"
                     )}
                   >
@@ -303,53 +328,34 @@ export function GewichtBereich() {
                   </button>
                 ))}
               </div>
-              <div className="flex flex-wrap gap-1">
-                <Schalter aktiv={zeigeRoh} onClick={() => setZeigeRoh((v) => !v)} farbe="#9aa5b3">
-                  Messungen
-                </Schalter>
-                <Schalter aktiv={zeigeTrend} onClick={() => setZeigeTrend((v) => !v)} farbe="#a4b99a">
-                  Trend 7 Tage
-                </Schalter>
-                <Schalter aktiv={zeige30} onClick={() => setZeige30((v) => !v)} farbe="#d69a72">
-                  Trend 30 Tage
-                </Schalter>
-              </div>
             </div>
 
             {/* Diagramm */}
-            <div className="h-60 w-full md:h-72">
+            <div className={`${DIAGRAMM_HOEHE} -mt-2 w-full`}>
               {sicht.roh.length === 0 ? (
-                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                  Keine Messung in diesem Zeitraum.
-                </div>
+                <DiagrammLeer hoehe="h-full">Keine Messung in diesem Zeitraum.</DiagrammLeer>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart margin={{ top: 8, right: 6, bottom: 0, left: -8 }}>
-                    <CartesianGrid vertical={false} stroke="var(--border)" />
+                  <ComposedChart margin={DIAGRAMM_RAND}>
+                    <CartesianGrid {...GITTER} />
                     <XAxis
+                      {...X_ACHSE}
                       type="number"
                       dataKey="t"
                       domain={sicht.domainX}
                       scale="time"
                       tickFormatter={(t: number) => formatDatum(new Date(t).toISOString().slice(0, 10))}
-                      tick={{ fontSize: 10, fill: "var(--dim-foreground)" }}
-                      tickLine={false}
-                      axisLine={false}
-                      minTickGap={28}
                     />
                     <YAxis
+                      {...Y_ACHSE}
                       type="number"
                       dataKey="kg"
                       domain={sicht.domainY}
                       ticks={sicht.ticksY}
                       interval={0}
                       tickFormatter={(v: number) => kg1(v)}
-                      tick={{ fontSize: 10, fill: "var(--dim-foreground)" }}
-                      tickLine={false}
-                      axisLine={false}
-                      width={44}
                     />
-                    <Tooltip content={<GewichtTooltip />} cursor={{ stroke: "rgb(255 255 255 / 15%)" }} />
+                    <Tooltip content={<GewichtTooltip />} cursor={CURSOR_LINIE} />
                     {zeigeRoh &&
                       (Object.keys(nachKlasse) as Klasse[]).map((k) => (
                         <Scatter
@@ -357,36 +363,21 @@ export function GewichtBereich() {
                           name={KLASSEN[k].label}
                           data={nachKlasse[k]}
                           dataKey="kg"
-                          fill={KLASSEN_FARBE[k]}
-                          fillOpacity={k === "gering" ? 0.5 : 0.75}
-                          shape="circle"
+                          shape={KLASSEN_PUNKT[k]}
                           isAnimationActive={false}
                         />
                       ))}
                     {zeige30 && (
-                      <Line
-                        data={sicht.trend30}
-                        dataKey="trendKg"
-                        type="monotone"
-                        stroke="var(--coral)"
-                        strokeWidth={1.5}
-                        strokeDasharray="5 4"
-                        dot={false}
-                        connectNulls={false}
-                        isAnimationActive={false}
-                      />
+                      <Line {...LINIE_NEBEN} data={sicht.trend30} dataKey="trendKg" stroke={TREND_FARBE} activeDot={false} connectNulls={false} />
                     )}
                     {zeigeTrend && (
                       <Line
+                        {...LINIE}
                         data={sicht.trend7}
                         dataKey="trendKg"
-                        type="monotone"
-                        stroke="var(--foreground)"
-                        strokeWidth={2}
-                        dot={false}
-                        activeDot={{ r: 4, fill: "var(--foreground)", strokeWidth: 0 }}
+                        stroke={TREND_FARBE}
+                        activeDot={{ ...AKTIVER_PUNKT, fill: TREND_FARBE }}
                         connectNulls={false}
-                        isAnimationActive={false}
                       />
                     )}
                   </ComposedChart>
@@ -394,23 +385,22 @@ export function GewichtBereich() {
               )}
             </div>
 
-            {/* Legende Messqualität */}
-            <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-              {(Object.keys(KLASSEN) as Klasse[]).map((k) => (
-                <span key={k} className="flex items-center gap-1.5">
-                  <span className="size-2 rounded-full" style={{ background: KLASSEN_FARBE[k] }} />
-                  {KLASSEN[k].label}
-                </span>
-              ))}
-            </div>
+            {/* Legende: Messqualität und Trendlinien */}
+            <Legende
+              eintraege={[
+                ...(Object.keys(KLASSEN) as Klasse[]).map((k) => ({ art: "punkt" as const, farbe: KLASSEN_FARBE[k], label: KLASSEN[k].label })),
+                { art: "linie" as const, farbe: TREND_FARBE, label: "Trend 7 Tage" },
+                { art: "strich" as const, farbe: TREND_FARBE, label: "Trend 30 Tage" },
+              ]}
+            />
 
             {/* Zeitraum-Auswertung */}
-            <div className="grid grid-cols-2 gap-x-4 gap-y-4 border-t border-border pt-4 sm:grid-cols-3 lg:grid-cols-6">
-              <Kennzahl label="Tiefst" wert={sicht.kz.zeitraum.tiefst ? kg1(sicht.kz.zeitraum.tiefst.kg) : "–"} einheit="kg" fuss={sicht.kz.zeitraum.tiefst ? formatDatum(sicht.kz.zeitraum.tiefst.datum) : undefined} />
-              <Kennzahl label="Höchst" wert={sicht.kz.zeitraum.hoechst ? kg1(sicht.kz.zeitraum.hoechst.kg) : "–"} einheit="kg" fuss={sicht.kz.zeitraum.hoechst ? formatDatum(sicht.kz.zeitraum.hoechst.datum) : undefined} />
+            <div className="grid grid-cols-2 gap-x-6 gap-y-4 border-t border-border pt-4 sm:grid-cols-3 lg:grid-cols-6">
+              <Kennzahl label="Tiefst" wert={sicht.kz.zeitraum.tiefst ? kg1(sicht.kz.zeitraum.tiefst.kg) : <KeinWert />} einheit="kg" fuss={sicht.kz.zeitraum.tiefst ? formatDatum(sicht.kz.zeitraum.tiefst.datum) : undefined} />
+              <Kennzahl label="Höchst" wert={sicht.kz.zeitraum.hoechst ? kg1(sicht.kz.zeitraum.hoechst.kg) : <KeinWert />} einheit="kg" fuss={sicht.kz.zeitraum.hoechst ? formatDatum(sicht.kz.zeitraum.hoechst.datum) : undefined} />
               <Kennzahl label="Im Zeitraum" wert={delta(sicht.kz.zeitraum.trendDelta)} einheit="kg" fuss="Trend Anfang → Ende" />
               <Kennzahl label="Vorperiode" wert={delta(sicht.kz.zeitraum.vorperiodeDelta)} einheit="kg" fuss="Median ggü. davor" />
-              <Kennzahl label="Ø Qualität" wert={sicht.kz.zeitraum.qualitaet != null ? String(sicht.kz.zeitraum.qualitaet) : "–"} einheit="/100" />
+              <Kennzahl label="Ø Qualität" wert={sicht.kz.zeitraum.qualitaet != null ? String(sicht.kz.zeitraum.qualitaet) : <KeinWert />} einheit="/100" />
               <Kennzahl label="Messungen" wert={String(sicht.kz.zeitraum.anzahl)} />
             </div>
           </div>
@@ -568,8 +558,8 @@ function KompositionKachel({ reihe, von }: { reihe: KompositionsReihe; von: stri
             <ComposedChart data={daten} margin={{ top: 4, right: 2, bottom: 0, left: 2 }}>
               <XAxis type="number" dataKey="t" domain={["dataMin", "dataMax"]} hide />
               <YAxis domain={["dataMin - 0.5", "dataMax + 0.5"]} hide />
-              <Scatter dataKey="wert" fill="var(--blau)" fillOpacity={0.35} isAnimationActive={false} />
-              <Line dataKey="trend" type="monotone" stroke="var(--blau)" strokeWidth={1.5} dot={false} connectNulls isAnimationActive={false} />
+              <Scatter dataKey="wert" shape={KOMPOSITION_PUNKT} isAnimationActive={false} />
+              <Line {...LINIE} dataKey="trend" stroke={DIAGRAMM_FARBEN.erholung} connectNulls />
             </ComposedChart>
           </ResponsiveContainer>
         )}

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from "react";
 import type { GraphDaten, ProcessedTrack } from "@/lib/engine/flyover";
 import { sampleAt, SampleCursor } from "@/lib/engine/flyover";
 import { formatDauer, formatPace } from "@/lib/format";
+import { DIAGRAMM_FARBEN, DIAGRAMM_FARBEN_HEX, Legende } from "@/components/ui/diagramm";
 
 /**
  * Kombinierter Verlaufsgraph (Höhe + Speed + HF) als Doppel-Canvas:
@@ -22,9 +23,18 @@ interface FlyoverGraphProps {
   heightPx?: number;
 }
 
-const FARBE_ELE = "rgba(220,230,240,0.35)";
-const FARBE_SPEED = "#f5a623";
-const FARBE_HR = "#ff4d6a";
+/* Farben wie in allen Diagrammen: Höhe neutral, Pace Orange, Puls Rot (components/ui/diagramm) */
+const FARBE_ELE = "rgba(154,165,179,0.28)";
+const FARBE_ELE_GEDIMMT = "rgba(154,165,179,0.14)";
+const FARBE_SPEED = DIAGRAMM_FARBEN_HEX.pace;
+const FARBE_SPEED_GEDIMMT = "rgba(214,154,114,0.4)";
+const FARBE_HR = DIAGRAMM_FARBEN_HEX.puls;
+const FARBE_HR_GEDIMMT = "rgba(210,122,114,0.4)";
+const FARBE_ACHSE = "#6e7a89";
+
+/** Schrift der App (Geist) auch im Canvas */
+const schrift = (el: Element | null, px: number) =>
+  `${px}px ${el ? getComputedStyle(el).fontFamily : "system-ui, sans-serif"}`;
 
 export function FlyoverGraph({
   track,
@@ -79,7 +89,7 @@ export function FlyoverGraph({
       }
       ctx.lineTo(b, h);
       ctx.closePath();
-      ctx.fillStyle = hell ? FARBE_ELE : "rgba(150,170,190,0.22)";
+      ctx.fillStyle = hell ? FARBE_ELE : FARBE_ELE_GEDIMMT;
       ctx.fill();
 
       // Speed-Linie
@@ -90,7 +100,7 @@ export function FlyoverGraph({
         if (i === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       }
-      ctx.strokeStyle = hell ? FARBE_SPEED : "rgba(245,166,35,0.45)";
+      ctx.strokeStyle = hell ? FARBE_SPEED : FARBE_SPEED_GEDIMMT;
       ctx.lineWidth = 2;
       ctx.stroke();
 
@@ -113,7 +123,7 @@ export function FlyoverGraph({
             ctx.lineTo(x, y);
           }
         }
-        ctx.strokeStyle = hell ? FARBE_HR : "rgba(255,77,106,0.45)";
+        ctx.strokeStyle = hell ? FARBE_HR : FARBE_HR_GEDIMMT;
         ctx.lineWidth = 2;
         ctx.stroke();
       }
@@ -144,37 +154,17 @@ export function FlyoverGraph({
     // durchlaufene Teil wird vom Overlay hell überzeichnet.
     zeichneKurven(ctx, b, h, false);
 
-    // Zeit-Ticks (Realzeit)
-    ctx.fillStyle = "rgba(255,255,255,0.4)";
-    ctx.font = "9px ui-monospace, monospace";
+    // Zeit-Ticks (Realzeit) — klein und gedämpft wie die Achsen der anderen Diagramme
+    ctx.fillStyle = FARBE_ACHSE;
+    ctx.font = schrift(wrapper, 10);
     const ticks = 5;
     for (let i = 0; i <= ticks; i++) {
       const t = (track.totalDuration * i) / ticks;
       const x = Math.min(b - 26, Math.max(2, xVonZeit(t, b) - 12));
       ctx.fillText(formatDauer(t), x, h - 3);
     }
-    // Höhen-Min/Max links
-    ctx.fillText(`${Math.round(daten.eleMax)} m`, 3, 10);
-    ctx.fillText(`${Math.round(daten.eleMin)} m`, 3, h - 14);
 
-    // Legende oben rechts (nur vorhandene Reihen)
-    const legende: [string, string][] = [
-      ["Höhe", "rgba(180,200,220,0.9)"],
-      ["Pace", FARBE_SPEED],
-    ];
-    if (daten.hatHr) legende.push(["Puls", FARBE_HR]);
-    let lx = b - 6;
-    for (const [txt, farbe] of [...legende].reverse()) {
-      const tw = ctx.measureText(txt).width;
-      lx -= tw;
-      ctx.fillStyle = farbe;
-      ctx.fillText(txt, lx, 10);
-      lx -= 6;
-      ctx.fillStyle = farbe;
-      ctx.fillRect(lx - 5, 4, 5, 5);
-      lx -= 12;
-    }
-  }, [heightPx, track.totalDuration, daten, xVonZeit, zeichneKurven]);
+  }, [heightPx, track.totalDuration, xVonZeit, zeichneKurven]);
 
   /* Overlay: helle Kurven bis zum Indikator (Clip), Linie, Punkte, Labels */
   const zeichneOverlay = useCallback(() => {
@@ -216,8 +206,8 @@ export function FlyoverGraph({
     ctx.restore();
 
     // Indikatorlinie
-    ctx.strokeStyle = "rgba(255,255,255,0.9)";
-    ctx.lineWidth = 1.25;
+    ctx.strokeStyle = "rgba(240,242,244,0.5)";
+    ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(x, 0);
     ctx.lineTo(x, h);
@@ -229,24 +219,30 @@ export function FlyoverGraph({
       ctx.arc(x, y, 3.5, 0, Math.PI * 2);
       ctx.fillStyle = farbe;
       ctx.fill();
-      ctx.strokeStyle = "#fff";
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = "#151b26";
+      ctx.lineWidth = 2;
       ctx.stroke();
     };
-    punkt(yEle(st.ele, h), "rgba(220,230,240,0.9)");
+    punkt(yEle(st.ele, h), DIAGRAMM_FARBEN_HEX.hoehe);
     punkt(ySpeed(st.speed, h), FARBE_SPEED);
     if (st.hr != null) punkt(yHr(st.hr, h), FARBE_HR);
 
     // Wertelabels kompakt oben
     const pace = st.speed > 0.3 ? formatPace(1000 / st.speed) : "–";
     const label = `${Math.round(st.ele)} m · ${st.hr != null ? `${Math.round(st.hr)} bpm · ` : ""}${pace}`;
-    ctx.font = "10px ui-monospace, monospace";
+    ctx.font = schrift(wrapper, 11);
     const tb = ctx.measureText(label).width;
-    const lx = Math.min(b - tb - 6, Math.max(4, x + 6));
-    ctx.fillStyle = "rgba(8,12,18,0.75)";
-    ctx.fillRect(lx - 3, 2, tb + 6, 14);
-    ctx.fillStyle = "#fff";
-    ctx.fillText(label, lx, 12);
+    const lx = Math.min(b - tb - 8, Math.max(4, x + 6));
+    // Wert-Etikett im Stil der Tooltips (Fläche --popover, feiner Rand)
+    ctx.fillStyle = "rgba(35,46,60,0.95)";
+    ctx.strokeStyle = "#303a47";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(lx - 5, 1, tb + 10, 18, 6);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = DIAGRAMM_FARBEN_HEX.textHell;
+    ctx.fillText(label, lx, 14);
   }, [heightPx, track, daten, videoDauerS, tVideoRef, xVonZeit, yEle, ySpeed, yHr, zeichneKurven]);
 
   useEffect(() => {
@@ -273,6 +269,7 @@ export function FlyoverGraph({
   );
 
   return (
+    <div className="space-y-2">
     <div
       ref={wrapperRef}
       className="relative w-full cursor-crosshair touch-none select-none"
@@ -291,6 +288,14 @@ export function FlyoverGraph({
     >
       <canvas ref={statischRef} className="absolute inset-0" />
       <canvas ref={overlayRef} className="absolute inset-0" />
+    </div>
+    <Legende
+      eintraege={[
+        { art: "flaeche", farbe: DIAGRAMM_FARBEN.hoehe, label: `Höhe ${Math.round(daten.eleMin)}–${Math.round(daten.eleMax)} m` },
+        { art: "linie", farbe: DIAGRAMM_FARBEN.pace, label: "Pace" },
+        ...(daten.hatHr ? [{ art: "linie" as const, farbe: DIAGRAMM_FARBEN.puls, label: "Puls" }] : []),
+      ]}
+    />
     </div>
   );
 }

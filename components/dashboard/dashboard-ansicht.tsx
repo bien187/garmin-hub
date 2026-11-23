@@ -73,7 +73,6 @@ export function DashboardAnsicht({
       <TrendBereich
         verlauf={d.verlauf}
         fitness={d.fitness}
-        tsbHeute={d.tsbHeute}
         acwrHeute={d.acwrHeute}
         aerob={d.aerobeLeistung ?? null}
         heute={heute}
