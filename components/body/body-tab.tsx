@@ -15,6 +15,8 @@ import { GewichtBereich } from "./gewicht-bereich";
 import { MiniSparkline } from "@/components/dashboard/fitness-chart";
 import {
   erschoepfungFarbe,
+  erschoepfungsStufe,
+  ERSCHOEPFUNGS_STUFEN,
   MUSKEL_NAME,
   MuskelId,
 } from "@/lib/engine/muscle";
@@ -101,29 +103,15 @@ export function BodyTab() {
           onSelect={setAusgewaehlt}
           ausgewaehlt={ausgewaehlt}
         />
-        {/* Legende: auch ohne Farbe unterscheidbar (Outline / halb / voll) */}
-        <div className="mt-3 flex items-center justify-center gap-3 text-[10px] text-muted-foreground">
-          {[
-            { label: "frisch", p: 5, fill: 0 },
-            { label: "leicht", p: 35, fill: 1 },
-            { label: "belastet", p: 65, fill: 2 },
-            { label: "erschöpft", p: 90, fill: 3 },
-          ].map((l) => (
-            <span key={l.label} className="flex items-center gap-1">
-              <span
-                className="size-2.5 rounded-full border"
-                style={{
-                  borderColor: erschoepfungFarbe(l.p),
-                  borderWidth: l.fill === 3 ? 2 : 1,
-                  background:
-                    l.fill === 0
-                      ? "transparent"
-                      : l.fill === 1
-                        ? `linear-gradient(90deg, ${erschoepfungFarbe(l.p)} 50%, transparent 50%)`
-                        : erschoepfungFarbe(l.p),
-                }}
-              />
-              {l.label}
+        {/* Legende: vier Stufen mit Grenzwerten; Farbe und Text zusammen */}
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+          {ERSCHOEPFUNGS_STUFEN.map((s, i) => (
+            <span key={s.id} className="flex items-center gap-1.5">
+              <span className="size-2.5 rounded-full" style={{ background: s.farbe }} />
+              {s.label}
+              <span className="text-dim-foreground">
+                {i === ERSCHOEPFUNGS_STUFEN.length - 1 ? `> ${ERSCHOEPFUNGS_STUFEN[i - 1].bis} %` : `≤ ${s.bis} %`}
+              </span>
             </span>
           ))}
         </div>
@@ -225,7 +213,7 @@ export function BodyTab() {
                   {MUSKEL_NAME[ausgewaehlt]}
                 </SheetTitle>
                 <SheetDescription>
-                  Rest-Erschöpfung {Math.round(wert)} % ·{" "}
+                  Rest-Erschöpfung {Math.round(wert)} % ({erschoepfungsStufe(wert).label}) ·{" "}
                   {wert <= 20
                     ? "voll belastbar"
                     : `voll belastbar in ~${daten.belastbarInH[ausgewaehlt] ?? 0} h`}

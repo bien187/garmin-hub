@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   erschoepfungFarbe,
+  erschoepfungsStufe,
   lastenAusKraft,
   lastenAusLauf,
   lastenAusTemplate,
@@ -219,10 +220,23 @@ describe("lastenAusTemplate", () => {
 });
 
 describe("erschoepfungFarbe", () => {
-  it("liefert gedämpften HSL-Verlauf grün → ocker → rot", () => {
-    expect(erschoepfungFarbe(0)).toBe("hsl(111 26% 64%)");
-    expect(erschoepfungFarbe(50)).toBe("hsl(46 55% 66%)");
-    expect(erschoepfungFarbe(100)).toBe("hsl(5 52% 64%)");
+  it("ordnet vier klar getrennten Stufen zu: grün · gelb · orange · rot", () => {
+    expect([0, 20, 21, 50, 51, 80, 81, 100].map((p) => erschoepfungsStufe(p).id)).toEqual([
+      "frisch",
+      "frisch",
+      "leicht",
+      "leicht",
+      "belastet",
+      "belastet",
+      "erschoepft",
+      "erschoepft",
+    ]);
+    const farben = new Set([5, 35, 65, 90].map(erschoepfungFarbe));
+    expect(farben.size).toBe(4); // jede Stufe hat ihre eigene Farbe
+  });
+  it("klemmt ungültige Werte", () => {
     expect(erschoepfungFarbe(-10)).toBe(erschoepfungFarbe(0));
+    expect(erschoepfungFarbe(150)).toBe(erschoepfungFarbe(100));
+    expect(erschoepfungsStufe(Number.NaN).id).toBe("frisch");
   });
 });

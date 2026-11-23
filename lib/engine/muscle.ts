@@ -410,16 +410,34 @@ export function stundenBisBelastbar(
   return tau * Math.log(aktuellProzent / zielProzent);
 }
 
+export type ErschoepfungsStufe = "frisch" | "leicht" | "belastet" | "erschoepft";
+
 /**
- * Gedämpfte Ampelfarbe (HSL-interpoliert) für Rest-Erschöpfung 0–100 %,
- * passend zu den Statusfarben in app/globals.css.
+ * Stufen der Rest-Erschöpfung mit klar getrennten Ampelfarben
+ * (Grün · Gelb · Orange · Rot). Bewusst Stufen statt Verlauf: Ein
+ * belasteter Muskel soll sich auf einen Blick von einem leicht belasteten
+ * unterscheiden. „frisch" deckt sich mit „voll belastbar" (≤ 20 %).
  */
+export const ERSCHOEPFUNGS_STUFEN: readonly {
+  id: ErschoepfungsStufe;
+  label: string;
+  /** Obergrenze in Prozent (einschliesslich) */
+  bis: number;
+  farbe: string;
+}[] = [
+  { id: "frisch", label: "frisch", bis: 20, farbe: "#4fae6b" },
+  { id: "leicht", label: "leicht", bis: 50, farbe: "#e2c14b" },
+  { id: "belastet", label: "belastet", bis: 80, farbe: "#e48a3e" },
+  { id: "erschoepft", label: "erschöpft", bis: 100, farbe: "#e05a50" },
+];
+
+/** Stufe für eine Rest-Erschöpfung 0–100 % */
+export function erschoepfungsStufe(prozent: number): (typeof ERSCHOEPFUNGS_STUFEN)[number] {
+  const p = Number.isFinite(prozent) ? Math.min(100, Math.max(0, prozent)) : 0;
+  return ERSCHOEPFUNGS_STUFEN.find((s) => p <= s.bis) ?? ERSCHOEPFUNGS_STUFEN[ERSCHOEPFUNGS_STUFEN.length - 1];
+}
+
+/** Ampelfarbe der Stufe für eine Rest-Erschöpfung 0–100 % */
 export function erschoepfungFarbe(prozent: number): string {
-  // 0 % = Salbeigrün (111°, ≈ --status-green), 50 % = Ocker (46°, ≈ --status-yellow),
-  // 100 % = gedämpftes Rot (5°, ≈ --status-red)
-  const p = Math.min(100, Math.max(0, prozent)) / 100;
-  const hue = p <= 0.5 ? 111 - (111 - 46) * (p / 0.5) : 46 - (46 - 5) * ((p - 0.5) / 0.5);
-  const sat = p <= 0.5 ? 26 + (55 - 26) * (p / 0.5) : 55 - 3 * ((p - 0.5) / 0.5);
-  const light = 64 + 2 * (1 - Math.abs(p - 0.5) * 2);
-  return `hsl(${Math.round(hue)} ${Math.round(sat)}% ${Math.round(light)}%)`;
+  return erschoepfungsStufe(prozent).farbe;
 }
