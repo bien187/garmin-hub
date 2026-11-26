@@ -56,6 +56,7 @@ import {
 } from "@/components/ui/diagramm";
 import { PhasenBalken } from "./phasen-balken";
 import { ScoreRing } from "./score-ring";
+import { NachtUeberblick } from "./nacht-ueberblick";
 
 /* ------------------------------------------------------------------ */
 /* Daten                                                               */
@@ -397,7 +398,9 @@ function KopfKarte({ d }: { d: Detail | null }) {
             <div className="mt-1 text-xs text-dim-foreground">Garmin Sleep Score</div>
           </div>
         </div>
-        <div className={KENNZAHLEN}>
+        {/* Überblick der Nacht wie im Dashboard: Zeitleiste, Phasen, Puls · HRV · Atmung */}
+        <NachtUeberblick epochen={d.epochen} analyse={a} />
+        <div className={`${KENNZAHLEN} border-t border-border pt-4`}>
           <Kennzahl label="Effizienz" wert={z.effizienzProz != null ? Math.round(z.effizienzProz) : null} einheit="%" />
           <Kennzahl label="Wachphasen" wert={z.anzahlWachphasen} />
           <Kennzahl label="Längste wach" wert={z.laengsteWachphaseS != null ? Math.round(z.laengsteWachphaseS / 60) : null} einheit="min" />

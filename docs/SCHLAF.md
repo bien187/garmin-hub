@@ -125,8 +125,9 @@ darunter schlecht (`schlafScoreStufe`), Bogen in der Statusfarbe; daneben Dauer,
 Bettzeit, Effizienz und die Abweichung vom Mittel der letzten 7 Nächte.
 Darunter der Verlauf der Nacht (Mini-Hypnogramm und Phasenanteile als Balken),
 Tief, Leicht, REM und Wach in Minuten und Prozent, Schlaf-Herzfrequenz, HRV und
-Atmung (je Ø der Nacht) und ein Satz Fazit. Den gleichen Ring zeigt der Kopf der
-Detailansicht. „Details ›" führt zu `/schlaf/<datum>`. Eigene
+Atmung (je Ø der Nacht) und ein Satz Fazit. Ring und Überblick der Nacht
+(`components/schlaf/nacht-ueberblick.tsx`) zeigt auch der Kopf der
+Detailansicht, dort gefolgt von Effizienz, Wachphasen und Einschlaf-/Aufwachzeit. „Details ›" führt zu `/schlaf/<datum>`. Eigene
 Suspense-Grenze mit Skeleton, damit das Dashboard nicht wartet. Ohne Daten:
 „Noch keine Schlafdaten — nach dem nächsten Sync verfügbar."
 
