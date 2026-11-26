@@ -12,6 +12,7 @@ import {
   analysiereZusammenfassung,
   analysierePhasen,
   vergleicheMitBaseline,
+  schlafScoreStufe,
   type SchlafKernwerte,
   type SchlafNachtDaten,
 } from "../schlaf";
@@ -277,5 +278,27 @@ describe("Randfälle", () => {
     const { nacht } = fixtureNacht("2026-11-04");
     expect(kernwerte(nacht, { atemMittel: 99 }).atemMittel).toBe(99);
     expect(kernwerte(nacht).atemMittel).not.toBeNull();
+  });
+});
+
+describe("schlafScoreStufe", () => {
+  it("bewertet nach den Garmin-Bereichen", () => {
+    expect([95, 90, 85, 80, 79, 60, 59, 12].map((s) => schlafScoreStufe(s)?.label)).toEqual([
+      "Exzellent",
+      "Exzellent",
+      "Gut",
+      "Gut",
+      "Ausreichend",
+      "Ausreichend",
+      "Schlecht",
+      "Schlecht",
+    ]);
+    expect(schlafScoreStufe(57)?.ampel).toBe("rot");
+    expect(schlafScoreStufe(72)?.ampel).toBe("gelb");
+    expect(schlafScoreStufe(84)?.ampel).toBe("gruen");
+  });
+  it("ohne Score keine Bewertung", () => {
+    expect(schlafScoreStufe(null)).toBeNull();
+    expect(schlafScoreStufe(Number.NaN)).toBeNull();
   });
 });

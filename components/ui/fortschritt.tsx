@@ -10,6 +10,7 @@ export function Ring({
   groesse = 56,
   dicke = 4,
   ton = "lime",
+  farbe,
   children,
   className,
   label,
@@ -19,6 +20,8 @@ export function Ring({
   groesse?: number;
   dicke?: number;
   ton?: "lime" | "coral" | "blau";
+  /** eigene Farbe (z.B. Statusfarbe), überschreibt `ton` */
+  farbe?: string;
   children?: React.ReactNode;
   className?: string;
   label?: string;
@@ -40,7 +43,7 @@ export function Ring({
           cy={groesse / 2}
           r={r}
           fill="none"
-          stroke={ton === "lime" ? "var(--primary)" : ton === "blau" ? "var(--blau)" : "var(--coral)"}
+          stroke={farbe ?? (ton === "lime" ? "var(--primary)" : ton === "blau" ? "var(--blau)" : "var(--coral)")}
           strokeWidth={dicke}
           strokeLinecap="round"
           strokeDasharray={umfang}

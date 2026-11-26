@@ -55,6 +55,7 @@ import {
   Y_ACHSE,
 } from "@/components/ui/diagramm";
 import { PhasenBalken } from "./phasen-balken";
+import { ScoreRing } from "./score-ring";
 
 /* ------------------------------------------------------------------ */
 /* Daten                                                               */
@@ -371,32 +372,29 @@ function KopfKarte({ d }: { d: Detail | null }) {
     return (
       <Card>
         <CardContent className="space-y-3 py-4">
-          <Skeleton className="h-10 w-40" />
+          <div className="flex items-center gap-5">
+            <Skeleton className="size-[96px] shrink-0 rounded-full" />
+            <Skeleton className="h-10 w-40" />
+          </div>
           <Skeleton className="h-16 w-full" />
         </CardContent>
       </Card>
     );
   const a = d.analyse;
   const z = a.zusammenfassung;
-  const ampel =
-    a.ampel === "gruen" ? "bg-status-green" : a.ampel === "gelb" ? "bg-status-yellow" : a.ampel === "rot" ? "bg-status-red" : "bg-muted";
   return (
     <Card>
-      <CardContent className="space-y-3 py-4">
-        <div className="flex items-end justify-between gap-3">
+      <CardContent className="space-y-4 py-4">
+        {/* Score-Ring wie im Dashboard, daneben Dauer und Bettzeit */}
+        <div className="flex items-center gap-5">
+          <ScoreRing score={a.garminScore} />
           <div className="min-w-0">
             <div className="stat-display text-4xl leading-none">{formatDauer(z.dauerS)}</div>
-            <div className="mt-1 text-xs text-muted-foreground">
+            <div className="mt-1.5 text-xs text-muted-foreground">
               {z.startUhr && z.endeUhr ? `Im Bett ${z.startUhr}–${z.endeUhr}` : "Bettzeit nicht verfügbar"}
               {z.bettzeitS != null && ` · ${formatDauer(z.bettzeitS)}`}
             </div>
-          </div>
-          <div className="text-right">
-            <div className="flex items-center justify-end gap-1.5">
-              <span className={`size-2.5 rounded-full ${ampel}`} aria-hidden />
-              <span className="stat-display text-3xl leading-none">{a.garminScore != null ? Math.round(a.garminScore) : "–"}</span>
-            </div>
-            <div className="text-[11px] text-muted-foreground">Garmin-Score</div>
+            <div className="mt-1 text-xs text-dim-foreground">Garmin Sleep Score</div>
           </div>
         </div>
         <div className={KENNZAHLEN}>

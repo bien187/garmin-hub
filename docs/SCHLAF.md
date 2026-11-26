@@ -118,11 +118,15 @@ Alle Werte sind Uhr-Schätzungen; Richtwerte sind keine Diagnose.
 
 Abschnitt „Schlaf" (`components/dashboard/schlaf-kachel.tsx` lädt,
 `schlaf-kachel-ansicht.tsx` zeigt; die Demo nutzt nur die Ansicht): letzte Nacht
-mit Aufwachdatum ≤ heute (sonst mit Datum gekennzeichnet), Dauer, Bettzeit,
-Effizienz, Abweichung der Dauer vom 7-Tage-Mittel, Garmin-Score in der
-Ampelfarbe (oder „–"), schlanke Phasen-Zeitleiste (Mini-Hypnogramm), Tief,
-Leicht, REM und Wach in Minuten, Schlaf-Herzfrequenz, HRV und Atmung (je Ø der
-Nacht) und ein Satz Fazit. „Details ›" führt zu `/schlaf/<datum>`. Eigene
+mit Aufwachdatum ≤ heute (sonst mit Datum gekennzeichnet). Links der
+Garmin Sleep Score als Ring (`components/schlaf/score-ring.tsx`) mit Bewertung
+nach Garmins Bereichen — 90–100 exzellent, 80–89 gut, 60–79 ausreichend,
+darunter schlecht (`schlafScoreStufe`), Bogen in der Statusfarbe; daneben Dauer,
+Bettzeit, Effizienz und die Abweichung vom Mittel der letzten 7 Nächte.
+Darunter der Verlauf der Nacht (Mini-Hypnogramm und Phasenanteile als Balken),
+Tief, Leicht, REM und Wach in Minuten und Prozent, Schlaf-Herzfrequenz, HRV und
+Atmung (je Ø der Nacht) und ein Satz Fazit. Den gleichen Ring zeigt der Kopf der
+Detailansicht. „Details ›" führt zu `/schlaf/<datum>`. Eigene
 Suspense-Grenze mit Skeleton, damit das Dashboard nicht wartet. Ohne Daten:
 „Noch keine Schlafdaten — nach dem nächsten Sync verfügbar."
 

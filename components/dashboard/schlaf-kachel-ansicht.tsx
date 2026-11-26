@@ -2,6 +2,8 @@ import { AppLink as Link } from "@/components/basis-pfad";
 import { Abschnitt } from "@/components/ui/kachel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HypnogrammMini } from "@/components/schlaf/hypnogramm-mini";
+import { PhasenBalken } from "@/components/schlaf/phasen-balken";
+import { ScoreRing } from "@/components/schlaf/score-ring";
 import { PHASEN_FARBE } from "@/components/schlaf/farben";
 import { formatDauer, PHASEN, PHASEN_LABEL } from "@/lib/engine/schlaf";
 import { formatDatumLang } from "@/lib/format";
@@ -17,9 +19,15 @@ const DetailLink = ({ datum }: { datum: string }) => (
 export function SchlafKachelSkeleton() {
   return (
     <Abschnitt titel="Schlaf">
-      <div className="space-y-3" aria-busy>
-        <Skeleton className="h-8 w-40" />
-        <Skeleton className="h-8 w-full" />
+      <div className="space-y-4" aria-busy>
+        <div className="flex items-center gap-5">
+          <Skeleton className="size-[96px] shrink-0 rounded-full" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-8 w-36" />
+            <Skeleton className="h-4 w-48" />
+          </div>
+        </div>
+        <Skeleton className="h-12 w-full" />
         <Skeleton className="h-10 w-full" />
       </div>
     </Abschnitt>
@@ -40,9 +48,11 @@ function Wert({ label, wert, einheit }: { label: string; wert: string | null; ei
 }
 
 /**
- * Schlaf der letzten Nacht als ruhiger Abschnitt: Dauer und Score, schlanke
- * Phasen-Zeitleiste, Phasen in Minuten, Herzfrequenz, HRV und Atmung.
- * Ohne Daten ein kurzer Hinweis (auch von der Demo genutzt).
+ * Schlaf der letzten Nacht: Score-Ring mit Garmin-Bewertung, daneben Dauer,
+ * Bettzeit und Vergleich mit den letzten 7 Nächten; darunter der Verlauf
+ * der Nacht (Phasen-Zeitleiste und Anteile), Phasen in Minuten,
+ * Herzfrequenz, HRV und Atmung. Ohne Daten ein kurzer Hinweis (auch von der
+ * Demo genutzt).
  */
 export function SchlafKachelAnsicht({ detail, heute }: { detail: SchlafDetail | null; heute: string }) {
   if (!detail) {
@@ -56,31 +66,33 @@ export function SchlafKachelAnsicht({ detail, heute }: { detail: SchlafDetail | 
   const z = a.zusammenfassung;
   const nichtHeute = detail.datum !== heute;
   const dauer7 = a.vergleich.find((v) => v.metrik === "dauerS");
-  const scoreFarbe =
-    a.ampel === "gruen" ? "text-status-green" : a.ampel === "gelb" ? "text-status-yellow" : a.ampel === "rot" ? "text-status-red" : "text-muted-foreground";
+  const abw7 = dauer7?.abw7Proz != null ? Math.round(dauer7.abw7Proz) : null;
 
   return (
     <Abschnitt titel={nichtHeute ? `Schlaf · ${formatDatumLang(detail.datum)}` : "Schlaf"} aktion={<DetailLink datum={detail.datum} />}>
       <div className="space-y-4">
-        <div className="flex items-end justify-between gap-4">
-          <div>
+        {/* Score-Ring, daneben Dauer und Bettzeit */}
+        <div className="flex items-center gap-5">
+          <ScoreRing score={a.garminScore} />
+          <div className="min-w-0">
             <div className="stat-display text-[30px] leading-none">{formatDauer(z.dauerS)}</div>
             <div className="mt-1.5 text-xs text-muted-foreground">
               {z.startUhr && z.endeUhr ? `${z.startUhr} – ${z.endeUhr}` : "Zeitraum nicht verfügbar"}
               {z.effizienzProz != null && ` · Effizienz ${Math.round(z.effizienzProz)} %`}
-              {dauer7?.abw7Proz != null &&
-                ` · ${dauer7.abw7Proz > 0 ? "+" : "−"}${Math.abs(Math.round(dauer7.abw7Proz))} % ggü. 7 Tagen`}
             </div>
-          </div>
-          <div className="text-right">
-            <div className="text-xs text-muted-foreground">Score</div>
-            <div className={cn("stat-display text-[22px] leading-none", a.garminScore != null && scoreFarbe)}>
-              {a.garminScore != null ? Math.round(a.garminScore) : "–"}
+            <div className={cn("mt-1 text-xs", abw7 != null && abw7 <= -10 ? "text-status-orange" : "text-dim-foreground")}>
+              {abw7 != null
+                ? `${abw7 > 0 ? "+" : abw7 < 0 ? "−" : "±"}${Math.abs(abw7)} % vs. Ø 7 Nächte${dauer7?.mittel7 != null ? ` (${formatDauer(dauer7.mittel7)})` : ""}`
+                : "kein 7-Nächte-Vergleich"}
             </div>
           </div>
         </div>
 
-        <HypnogrammMini epochen={detail.epochen} startMs={z.startMs} endeMs={z.endeMs} className="h-9 w-full" />
+        {/* Verlauf der Nacht: Phasen-Zeitleiste und Anteile */}
+        <div className="space-y-2">
+          <HypnogrammMini epochen={detail.epochen} startMs={z.startMs} endeMs={z.endeMs} className="h-12 w-full" />
+          <PhasenBalken phasen={a.phasen} legende={false} />
+        </div>
 
         <dl className="grid grid-cols-4 gap-2">
           {PHASEN.map((p) => (
@@ -98,6 +110,9 @@ export function SchlafKachelAnsicht({ detail, heute }: { detail: SchlafDetail | 
                 ) : (
                   <span className="text-dim-foreground">–</span>
                 )}
+              </dd>
+              <dd className="text-xs text-dim-foreground tabular-nums">
+                {a.phasen[p].prozent != null ? `${Math.round(a.phasen[p].prozent!)} %` : "–"}
               </dd>
             </div>
           ))}

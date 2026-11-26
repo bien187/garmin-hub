@@ -810,6 +810,24 @@ function fazitSatz(a: SchlafAnalyse): string {
   return `${teile.join(", ")}${vergleich}.${sorge}`;
 }
 
+export interface ScoreStufe {
+  label: "Exzellent" | "Gut" | "Ausreichend" | "Schlecht";
+  ampel: "gruen" | "gelb" | "rot";
+}
+
+/**
+ * Bewertung des Garmin Sleep Scores nach Garmins Bereichen:
+ * 90–100 exzellent, 80–89 gut, 60–79 ausreichend, darunter schlecht.
+ * Die Ampel entspricht `ampelVon` (≥ 80 grün, ≥ 60 gelb).
+ */
+export function schlafScoreStufe(score: number | null | undefined): ScoreStufe | null {
+  if (score == null || !Number.isFinite(score)) return null;
+  if (score >= 90) return { label: "Exzellent", ampel: "gruen" };
+  if (score >= 80) return { label: "Gut", ampel: "gruen" };
+  if (score >= 60) return { label: "Ausreichend", ampel: "gelb" };
+  return { label: "Schlecht", ampel: "rot" };
+}
+
 function ampelVon(score: number | null, regel: number | null): SchlafAnalyse["ampel"] {
   const s = score ?? regel;
   if (s == null) return null;
